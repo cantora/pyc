@@ -1,6 +1,9 @@
 
 import compiler
 
+class OutOfScope(Exception):
+	pass
+
 def to_str_fmt_func(node, user, depth):
 	val = node.__class__.__name__
 	if len(node.getChildNodes()) == 0:
@@ -40,12 +43,22 @@ def gen_name():
 	
 	return n
 
+def user_name(original):
+	return "user_%s" % original
+
 def assert_simple_node(node):
 	if( isinstance(node, compiler.ast.Name) != True \
 			and isinstance(node, compiler.ast.Const) != True):
 		raise TypeError("expected simple node type, got %s" % node.__class__.__name__) 
 
-	
+def convert_ass_names(ass_names):
+	result = []
+
+	for n in ass_names:
+		result.append( compiler.ast.AssName( user_name(n.name), 0) )
+
+	return result
+
 def _to_se_list(node, depth=0):
 	val = node.__class__.__name__
 	if len(node.getChildNodes()) < 1:
@@ -61,17 +74,16 @@ def _to_se_list(node, depth=0):
 		l = []
 		for n in node.nodes:
 			(name, se_list) = _to_se_list(n, depth+1)
-			print repr(se_list)
 			l += se_list
 
-		result = (compiler.ast.Name("dummy"), l)
+		result = (None, l)
 	
 	elif( isinstance(node, compiler.ast.Assign) ):
 		(name, se_list) = _to_se_list(node.expr, depth + 1)
 
-		new_ass = compiler.ast.Assign(node.nodes, node.expr)
+		new_ass = compiler.ast.Assign( convert_ass_names(node.nodes), name)
 		se_list.append(new_ass)
-		result = (name, se_list)
+		result = (None, se_list)
 
 	elif( isinstance(node, compiler.ast.Add) ):
 		(l_name, l_se_list) = _to_se_list(node.left, depth + 1)
@@ -104,8 +116,34 @@ def _to_se_list(node, depth=0):
 		l.append( new_ass )
 		result = (compiler.ast.Name(result_name), l)
 
+	elif( isinstance(node, compiler.ast.UnarySub) ):
+		(name, se_list) = _to_se_list(node.expr, depth+1)
+		result_name = gen_name()
+		new_ass = compiler.ast.Assign( \
+			[compiler.ast.AssName(result_name, 0)], \
+			compiler.ast.UnarySub(name) \
+			)
+		se_list.append(new_ass)
+
+		result = (compiler.ast.Name(result_name), se_list)
+
+	elif( isinstance(node, compiler.ast.Discard) ):
+		result = _to_se_list(node.expr, depth+1)
+
+	elif( isinstance(node, compiler.ast.Printnl) ):
+		nlen = len(node.nodes)
+		if nlen == 0 :
+			result = (node, [])			
+		elif nlen == 1 :
+			(name, se_list) = _to_se_list(node.nodes[0], depth+1)
+			se_list.append(compiler.ast.Printnl([name], node.dest))
+			result = (None, se_list)
+		else :
+			raise OutOfScope("print statements may only print one item (%d)" % nlen)
+
+		
 	elif( isinstance(node, compiler.ast.Name) ):
-		result = (compiler.ast.Name("user_%s" % node.name), [])
+		result = (compiler.ast.Name( user_name(node.name) ), [])
 
 	elif( isinstance(node, compiler.ast.Const) ):
 		result = (node, [])
@@ -113,7 +151,6 @@ def _to_se_list(node, depth=0):
 		raise Exception("unexpected node: %s" % (node.__class__.__name__) )
 
 	print '_to_se_list:%s %s => %s' % (' '*depth, val, repr(result) )
-	assert_simple_node(result[0])
 
 	return result
 
