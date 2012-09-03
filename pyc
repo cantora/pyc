@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+import pyc_parser
+import pyc_ast
+
+def opt_parser():
+	parser = argparse.ArgumentParser(description='compile python to x86 assembly.')
+	parser.add_argument('-f', '--file', help='file to compile')
+	parser.add_argument('-c', '--code', help='code to compile')
+	parser.add_argument('-o', '--output', help='output file.')
+	
+	return parser
+
+
+class MissingOption(Exception):
+	pass
+
+
+def validate(options):
+	if options.file == None and options.code == None:
+		raise MissingOption('specify either file or code to compile')		
+
+
+def run(options):
+	#print options
+	validate(args)
+	
+	args.src = args.code
+	if args.src == None:
+		f = open(args.file, 'r')
+		args.src = f.read()
+
+	if isinstance(args.src, basestring) != True:
+		raise Exception('invalid src variable. type: %s' % (args.src.__class__.__name__) )
+
+	print args
+	as_tree = pyc_parser.parse(args.src)
+	print repr(as_tree)
+	print pyc_ast.to_str(as_tree)
+
+	se_list = pyc_ast.to_se_list(as_tree)
+	print "se list: "
+	for se in se_list:
+		print repr(se)
+
+
+if __name__ == "__main__":
+	opt_p = opt_parser()
+	args = opt_p.parse_args()
+
+	try:
+		run(args)
+	except MissingOption as e:
+		print e
+		print
+		opt_p.print_help()
+		exit(-1)
+
