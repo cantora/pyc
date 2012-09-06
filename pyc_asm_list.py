@@ -60,13 +60,25 @@ def assign_to_asm(assign, sym_tbl):
 		addr = sym_tbl.stack	
 		sym_tbl.push("long")
 		
-	set_mem(addr, assign.expr)
+	result = set_mem(addr, assign.expr, sym_tbl)
+	sym_tbl[sym] = addr
 	
-def set_mem(addr, expr):
-	if isinstance(expr, Const):
-		
+
+def set_mem(addr, expr, sym_tbl):
+	if isinstance(expr, compiler.ast.Const):
+		#movl $N, -(4+ADDR)(%ebp)
+		return [Movl(Immed(Int(expr.value)), Indirect(Register("ebp"), addr) )]
+	elif isinstance(expr, compiler.ast.Name):
+		src_addr = sym_tbl[expr.name]
+		if src_addr == addr:
+			raise Exception("src and dest are equal: %d" % addr)
+
+		return [
+			Movl(Indirect(Register("ebp"), src_addr), Register("eax") ),
+			Movl(Register("eax"), Indirect(Register("ebp"), addr) )
+		]
 	else:
-		raise Exception("unexpected expr: %s" % expr.__class__.__name__
+		raise Exception("unexpected expr: %s" % expr.__class__.__name__)
 
 
 def printnl_to_asm(printnl, sym_tbl):
@@ -74,10 +86,8 @@ def printnl_to_asm(printnl, sym_tbl):
 
 	print repr(printnl)
 	
-	if nodelen == 0:
-		raise Exception("asdf")
-	elif nodelen == 1:
+	if nodelen == 1:
 		raise Exception("asdfasdf")	
 	else:
-		raise Exception("expected printnl with 1 or less nodes")
+		raise Exception("expected printnl with 1 node")
 	
