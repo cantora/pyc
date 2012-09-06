@@ -30,9 +30,9 @@ def _traverse(node, func, user, depth=0):
 #simple expressions
 #a simple expression: an expression which has only
 #one operation on at most two things
-def to_se_list(as_tree):
-	dummy, se_list = _to_se_list(as_tree)
-	return se_list
+def to_ss_list(as_tree):
+	dummy, ss_list = _to_ss_list(as_tree)
+	return ss_list
 
 
 gen_count = 0
@@ -59,43 +59,44 @@ def convert_ass_names(ass_names):
 
 	return result
 
-def _to_se_list(node, depth=0):
+
+def _to_ss_list(node, depth=0):
 	val = node.__class__.__name__
 	if len(node.getChildNodes()) < 1:
 		val = repr(node)
 
-	print "_to_se_list:%s %s" % (' '*depth, val)
+	print "_to_ss_list:%s %s" % (' '*depth, val)
 	result = None
 
 	if( isinstance(node, compiler.ast.Module) ):
-		result = _to_se_list(node.node, depth+1)
+		result = _to_ss_list(node.node, depth+1)
 
 	elif( isinstance(node, compiler.ast.Stmt) ):
 		l = []
 		for n in node.nodes:
-			(name, se_list) = _to_se_list(n, depth+1)
-			l += se_list
+			(name, ss_list) = _to_ss_list(n, depth+1)
+			l += ss_list
 
 		result = (None, l)
 	
 	elif( isinstance(node, compiler.ast.Assign) ):
-		(name, se_list) = _to_se_list(node.expr, depth + 1)
+		(name, ss_list) = _to_ss_list(node.expr, depth + 1)
 
 		new_ass = compiler.ast.Assign( convert_ass_names(node.nodes), name)
-		se_list.append(new_ass)
-		result = (None, se_list)
+		ss_list.append(new_ass)
+		result = (None, ss_list)
 
 	elif( isinstance(node, compiler.ast.Add) ):
-		(l_name, l_se_list) = _to_se_list(node.left, depth + 1)
-		(r_name, r_se_list) = _to_se_list(node.right, depth + 1)
+		(l_name, l_ss_list) = _to_ss_list(node.left, depth + 1)
+		(r_name, r_ss_list) = _to_ss_list(node.right, depth + 1)
 		
 		result_name = gen_name()
-		l_se_list += r_se_list
-		l_se_list.append( compiler.ast.Assign( \
+		l_ss_list += r_ss_list
+		l_ss_list.append( compiler.ast.Assign( \
 							[compiler.ast.AssName(result_name, 0)], \
 							compiler.ast.Add( (l_name, r_name) ) \
 						) )
-		result = (compiler.ast.Name(result_name), l_se_list)
+		result = (compiler.ast.Name(result_name), l_ss_list)
 
 	elif( isinstance(node, compiler.ast.CallFunc) ):
 		#print repr(node.args) #result = (node		
@@ -103,9 +104,9 @@ def _to_se_list(node, depth=0):
 		l = []
 
 		for n in node.args:
-			(name, se_list) = _to_se_list(n, depth+1)
+			(name, ss_list) = _to_ss_list(n, depth+1)
 			args.append( name )
-			l += se_list
+			l += ss_list
 		
 		result_name = gen_name()
 		new_ass = compiler.ast.Assign( \
@@ -117,27 +118,27 @@ def _to_se_list(node, depth=0):
 		result = (compiler.ast.Name(result_name), l)
 
 	elif( isinstance(node, compiler.ast.UnarySub) ):
-		(name, se_list) = _to_se_list(node.expr, depth+1)
+		(name, ss_list) = _to_ss_list(node.expr, depth+1)
 		result_name = gen_name()
 		new_ass = compiler.ast.Assign( \
 			[compiler.ast.AssName(result_name, 0)], \
 			compiler.ast.UnarySub(name) \
 			)
-		se_list.append(new_ass)
+		ss_list.append(new_ass)
 
-		result = (compiler.ast.Name(result_name), se_list)
+		result = (compiler.ast.Name(result_name), ss_list)
 
 	elif( isinstance(node, compiler.ast.Discard) ):
-		result = _to_se_list(node.expr, depth+1)
+		result = _to_ss_list(node.expr, depth+1)
 
 	elif( isinstance(node, compiler.ast.Printnl) ):
 		nlen = len(node.nodes)
 		if nlen == 0 :
 			result = (node, [])			
 		elif nlen == 1 :
-			(name, se_list) = _to_se_list(node.nodes[0], depth+1)
-			se_list.append(compiler.ast.Printnl([name], node.dest))
-			result = (None, se_list)
+			(name, ss_list) = _to_ss_list(node.nodes[0], depth+1)
+			ss_list.append(compiler.ast.Printnl([name], node.dest))
+			result = (None, ss_list)
 		else :
 			raise OutOfScope("print statements may only print one item (%d)" % nlen)
 
@@ -150,7 +151,7 @@ def _to_se_list(node, depth=0):
 	else:
 		raise Exception("unexpected node: %s" % (node.__class__.__name__) )
 
-	print '_to_se_list:%s %s => %s' % (' '*depth, val, repr(result) )
+	print '_to_ss_list:%s %s => %s' % (' '*depth, val, repr(result) )
 
 	return result
 

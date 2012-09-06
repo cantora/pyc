@@ -4,10 +4,12 @@ import argparse
 import sys
 import pyc_parser
 import pyc_ast
+import pyc_asm_list
 
 def opt_parser():
 	parser = argparse.ArgumentParser(description='compile python to x86 assembly.')
-	parser.add_argument('-f', '--file', help='file to compile')
+	parser.add_argument('file', nargs='?', type=argparse.FileType('r'), \
+							help='file to compile')
 	parser.add_argument('-c', '--code', help='code to compile')
 	parser.add_argument('-o', '--output', help='output file.')
 	
@@ -29,8 +31,7 @@ def run(options):
 	
 	args.src = args.code
 	if args.src == None:
-		f = open(args.file, 'r')
-		args.src = f.read()
+		args.src = args.file.read()
 
 	if isinstance(args.src, basestring) != True:
 		raise Exception('invalid src variable. type: %s' % (args.src.__class__.__name__) )
@@ -40,10 +41,12 @@ def run(options):
 	print repr(as_tree)
 	print pyc_ast.to_str(as_tree)
 
-	se_list = pyc_ast.to_se_list(as_tree)
+	ss_list = pyc_ast.to_ss_list(as_tree)
 	print "se list: "
-	for se in se_list:
-		print repr(se)
+	for ss in ss_list:
+		print repr(ss)
+
+	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
 
 if __name__ == "__main__":
