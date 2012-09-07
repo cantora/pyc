@@ -1,5 +1,6 @@
 
 import compiler
+from pyc_log import *
 
 class OutOfScope(Exception):
 	pass
@@ -65,7 +66,7 @@ def _to_ss_list(node, depth=0):
 	if len(node.getChildNodes()) < 1:
 		val = repr(node)
 
-	print "_to_ss_list:%s %s" % (' '*depth, val)
+	log("_to_ss_list:%s %s" % (' '*depth, val))
 	result = None
 
 	if( isinstance(node, compiler.ast.Module) ):
@@ -99,7 +100,7 @@ def _to_ss_list(node, depth=0):
 		result = (compiler.ast.Name(result_name), l_ss_list)
 
 	elif( isinstance(node, compiler.ast.CallFunc) ):
-		#print repr(node.args) #result = (node		
+		#log(repr(node.args) #result = (node		
 		args = []
 		l = []
 
@@ -151,7 +152,7 @@ def _to_ss_list(node, depth=0):
 	else:
 		raise Exception("unexpected node: %s" % (node.__class__.__name__) )
 
-	print '_to_ss_list:%s %s => %s' % (' '*depth, val, repr(result) )
+	log('_to_ss_list:%s %s => %s' % (' '*depth, val, repr(result) ))
 
 	return result
 

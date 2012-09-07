@@ -1,5 +1,6 @@
 
 from pyc_asm_nodes import *
+from pyc_log import *
 
 class sym_table(dict):
 
@@ -26,7 +27,7 @@ def from_ss_list(ss_list):
 	asm_list = []
 	st = sym_table()
 
-	print "convert simple statements to list of asm nodes"
+	log("convert simple statements to list of asm nodes")
 
 	for ss in ss_list:
 		asm_list.append(py_ss_to_asm(ss, st))
@@ -44,7 +45,7 @@ def py_ss_to_asm(ss, sym_tbl):
 
 	
 def assign_to_asm(assign, sym_tbl):
-	print repr(assign)
+	log(repr(assign))
 	
 	nodelen = len(assign.nodes)
 	if nodelen != 1:
@@ -155,7 +156,7 @@ def printnl_to_asm(printnl, sym_tbl):
 	nodelen = len(printnl.nodes)
 	insns = []
 
-	print repr(printnl)
+	log(repr(printnl))
 	
 	if nodelen != 1:
 		raise Exception("expected printnl with 1 node")

@@ -5,14 +5,16 @@ import sys
 import pyc_parser
 import pyc_ast
 import pyc_asm_list
+from pyc_log import *
+
 
 def opt_parser():
 	parser = argparse.ArgumentParser(description='compile python to x86 assembly.')
-	parser.add_argument('file', nargs='?', type=argparse.FileType('r'), \
-							help='file to compile')
+	parser.add_argument('file', nargs='?', type=argparse.FileType('r'), help='file to compile')
 	parser.add_argument('-c', '--code', help='code to compile')
 	parser.add_argument('-o', '--output', help='output file.')
-	
+	parser.add_argument('-v', '--verbose', action='store_true', help='print debug output.')
+
 	return parser
 
 
@@ -27,44 +29,49 @@ def validate(options):
 
 def run(options):
 	#print options
-	validate(args)
-	
-	args.src = args.code
-	if args.src == None:
-		args.src = args.file.read()
+	validate(options)
 
-	if isinstance(args.src, basestring) != True:
-		raise Exception('invalid src variable. type: %s' % (args.src.__class__.__name__) )
+	if options.verbose == True:
+		log_set_verbose()
+	else:
+		log_set_quiet()
 
-	print args
-	as_tree = pyc_parser.parse(args.src)
-	print repr(as_tree)
-	print pyc_ast.to_str(as_tree)
+	options.src = options.code
+	if options.src == None:
+		options.src = options.file.read()
+
+	if isinstance(options.src, basestring) != True:
+		raise Exception('invalid src variable. type: %s' % (options.src.__class__.__name__) )
+
+	log(options)
+	as_tree = pyc_parser.parse(options.src)
+	log(repr(as_tree))
+	log(pyc_ast.to_str(as_tree))
 
 	ss_list = pyc_ast.to_ss_list(as_tree)
-	print "se list: "
+	log("se list: ")
 	for ss in ss_list:
-		print repr(ss)
+		log(repr(ss))
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
 	insns = []
-	print "asm list:"
+	log("asm list:")
 	for ins_list in asm_list:
 		for ins in ins_list:
-			print repr(ins)
+			log(repr(ins))
 			insns.append(ins.to_s())
 
-	print "\n\n"
+	log("\n\n")
 	for ins in insns:
-		print ins
+		log(ins)
 
 if __name__ == "__main__":
 	opt_p = opt_parser()
-	args = opt_p.parse_args()
+	options = opt_p.parse_args()
 
 	try:
-		run(args)
+		run(options)
 	except MissingOption as e:
 		print e
 		print
