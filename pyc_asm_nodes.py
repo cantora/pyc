@@ -58,7 +58,7 @@ class Neg(AsmNode):
 		self.operand = operand
 
 	def to_s(self):
-		return self.asm_tab.join(["neg", self.operand.to_s()])
+		return self.asm_tab.join(["negl", self.operand.to_s()])
 
 
 class Immed(AsmNode):

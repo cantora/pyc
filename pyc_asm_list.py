@@ -99,8 +99,8 @@ def fn_call(name, args, sym_tbl):
 	insns.append( Call(name) )
 	
 	arglen = len(args)
-	if arglen > 0:
-		insns.append( Pop(arglen) )
+	#if arglen > 0:
+	#	insns.append( Pop(arglen) )
 	
 	return insns
 	
@@ -136,16 +136,17 @@ def set_mem(addr, expr, sym_tbl):
 	elif isinstance(expr, compiler.ast.UnarySub):
 		op = se_to_operand(expr.expr, sym_tbl)
 		if isinstance(op, Immed):
-			raise Exception("didnt expect to negate Immed")
+			insns.append( Mov(op, dest_op) )
 
-		if not isinstance(op, Indirect):
-			raise Exception("expected Indirect operand, got %s" % op.__class__.__name__)  
+		elif isinstance(op, Indirect):
+			if op.to_s() != dest_op.to_s():
+				insns.append( Mov(op, Register("eax")) )
+				insns.append( Mov(Register("eax"), dest_op) )
 
-		if op.to_s() != dest_op.to_s():
-			insns.append( Mov(op, Register("eax")) )
-			insns.append( Mov(Register("eax"), dest_op) )
+		else:
+			raise Exception("expected Indirect or Immed operand, got %s" % op.__class__.__name__)  
 
-		insns.append( Neg(dest_op) )
+		insns.append( Neg(dest_op) )		
 
 	else:
 		raise Exception("unexpected expr: %s" % expr.__class__.__name__)
