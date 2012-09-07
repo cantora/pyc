@@ -48,6 +48,16 @@ def run(options):
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
+	insns = []
+	print "asm list:"
+	for ins_list in asm_list:
+		for ins in ins_list:
+			print repr(ins)
+			insns.append(ins.to_s())
+
+	print "\n\n"
+	for ins in insns:
+		print ins
 
 if __name__ == "__main__":
 	opt_p = opt_parser()

@@ -31,6 +31,8 @@ def from_ss_list(ss_list):
 	for ss in ss_list:
 		asm_list.append(py_ss_to_asm(ss, st))
 
+	return asm_list
+
 
 def py_ss_to_asm(ss, sym_tbl):
 	if isinstance(ss, compiler.ast.Assign):
@@ -62,32 +64,100 @@ def assign_to_asm(assign, sym_tbl):
 		
 	result = set_mem(addr, assign.expr, sym_tbl)
 	sym_tbl[sym] = addr
+
+	return result
+
+"""
+generate asm nodes to put an addition in eax
+imm1, imm2 => [movl($imm1, %eax), addl($imm2, %eax)]
+imm, addr or addr, imm1 => [movl(addr, %eax), addl($imm, %eax)]
+addr1, addr2 => [movl(addr1, %eax), addl(addr2, %eax)]
+"""
+def add(left, right):
+	return [
+		Mov(left, Register("eax")),
+		Add(right, Register("eax"))
+	]
+	
+	
+def se_to_operand(expr, sym_tbl):
+	if isinstance(expr, compiler.ast.Const):
+		return Immed(Int(expr.value) )
+	elif isinstance(expr, compiler.ast.Name):
+		src_addr = sym_tbl[expr.name]
+		return EBPIndirect(src_addr)
+
+	raise Exception("expected name or constant, got %s" % expr.__class__.__name__)
+
+def fn_call(name, args, sym_tbl):
+	insns = []
+	
+	for i in args:
+		insns.insert(0, Push(se_to_operand(i, sym_tbl) ) )
+
+	insns.append( Call(name) )
+	
+	arglen = len(args)
+	if arglen > 0:
+		insns.append( Pop(arglen) )
+	
+	return insns
 	
 
 def set_mem(addr, expr, sym_tbl):
+	dest_op = EBPIndirect(addr)
+	insns = []
+
 	if isinstance(expr, compiler.ast.Const):
 		#movl $N, -(4+ADDR)(%ebp)
-		return [Movl(Immed(Int(expr.value)), Indirect(Register("ebp"), addr) )]
+		insns.append( Mov(Immed(Int(expr.value)), dest_op) )
+
 	elif isinstance(expr, compiler.ast.Name):
 		src_addr = sym_tbl[expr.name]
 		if src_addr == addr:
 			raise Exception("src and dest are equal: %d" % addr)
 
-		return [
-			Movl(Indirect(Register("ebp"), src_addr), Register("eax") ),
-			Movl(Register("eax"), Indirect(Register("ebp"), addr) )
-		]
+		insns.extend( [
+			Mov(EBPIndirect(src_addr), Register("eax") ),
+			Mov(Register("eax"), dest_op )
+		] )
+
+	elif isinstance(expr, compiler.ast.Add):
+		l_op = se_to_operand(expr.left, sym_tbl)
+		r_op = se_to_operand(expr.right, sym_tbl)
+		insns.extend( add(l_op, r_op) )
+		insns.append( Mov(Register("eax"), dest_op ) )
+
+	elif isinstance(expr, compiler.ast.CallFunc):
+		insns.extend( fn_call(expr.node.name, expr.args, sym_tbl) )		
+		insns.append( Mov(Register("eax"), dest_op) )
+
+	elif isinstance(expr, compiler.ast.UnarySub):
+		op = se_to_operand(expr.expr, sym_tbl)
+		if isinstance(op, Immed):
+			raise Exception("didnt expect to negate Immed")
+
+		if not isinstance(op, Indirect):
+			raise Exception("expected Indirect operand, got %s" % op.__class__.__name__)  
+
+		if op.to_s() != dest_op.to_s():
+			insns.append( Mov(op, Register("eax")) )
+			insns.append( Mov(Register("eax"), dest_op) )
+
+		insns.append( Neg(dest_op) )
+
 	else:
 		raise Exception("unexpected expr: %s" % expr.__class__.__name__)
 
+	return insns
 
 def printnl_to_asm(printnl, sym_tbl):
 	nodelen = len(printnl.nodes)
+	insns = []
 
 	print repr(printnl)
 	
-	if nodelen == 1:
-		raise Exception("asdfasdf")	
-	else:
+	if nodelen != 1:
 		raise Exception("expected printnl with 1 node")
 	
+	return fn_call("print_int_nl", [printnl.nodes[0]], sym_tbl)
