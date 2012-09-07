@@ -32,7 +32,8 @@ def from_ss_list(ss_list):
 	for ss in ss_list:
 		asm_list.append(py_ss_to_asm(ss, st))
 
-	return asm_list
+	log("sym_tbl.stack: %d" % st.stack)
+	return (asm_list, st)
 
 
 def py_ss_to_asm(ss, sym_tbl):
@@ -116,12 +117,12 @@ def set_mem(addr, expr, sym_tbl):
 	elif isinstance(expr, compiler.ast.Name):
 		src_addr = sym_tbl[expr.name]
 		if src_addr == addr:
-			raise Exception("src and dest are equal: %d" % addr)
-
-		insns.extend( [
-			Mov(EBPIndirect(src_addr), Register("eax") ),
-			Mov(Register("eax"), dest_op )
-		] )
+			pass # assigning a var to itself is a noop
+		else:
+			insns.extend( [
+				Mov(EBPIndirect(src_addr), Register("eax") ),
+				Mov(Register("eax"), dest_op )
+			] )
 
 	elif isinstance(expr, compiler.ast.Add):
 		l_op = se_to_operand(expr.left, sym_tbl)

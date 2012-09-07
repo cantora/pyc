@@ -55,11 +55,12 @@ def run(options):
 	for ss in ss_list:
 		log(repr(ss))
 
-	asm_list = pyc_asm_list.from_ss_list(ss_list)
+	asm_list, sym_tbl = pyc_asm_list.from_ss_list(ss_list)
 
 	insns = []
 	insns.extend(asm_prefix())
 
+	insns.append("subl\t$%s, %%esp" % sym_tbl.stack)
 	log("asm list:")
 	for ins_list in asm_list:
 		for ins in ins_list:
@@ -82,8 +83,7 @@ def asm_headers():
 def asm_prefix():
 	return [
 		"pushl   %ebp",
-		"movl    %esp, %ebp",
-		"subl	$256, %esp"
+		"movl    %esp, %ebp"
 	]
 
 def asm_suffix():
@@ -95,7 +95,7 @@ def asm_suffix():
 
 
 def output(options, insns):
-	if options.src_type == 'cmdline':
+	if options.src_type == 'cmdline' or options.output == '-':
 		for hdr in asm_headers():
 			print hdr
 		for ins in insns:
