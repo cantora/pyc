@@ -82,14 +82,14 @@ def asm_headers():
 def asm_prefix():
 	return [
 		"pushl   %ebp",
-		"movl    %esp, %ebp"
+		"movl    %esp, %ebp",
+		"subl	$256, %esp"
 	]
 
 def asm_suffix():
 	return [
 		"movl    $0, %eax",
 		"leave",
-#		"pop %ebp"
 		"ret"
 	]
 
