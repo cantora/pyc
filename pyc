@@ -60,7 +60,9 @@ def run(options):
 	insns = []
 	insns.extend(asm_prefix())
 
-	insns.append("subl\t$%s, %%esp" % sym_tbl.stack)
+	if sym_tbl.stack > 0:
+		insns.append("subl\t$%s, %%esp" % sym_tbl.stack)
+
 	log("asm list:")
 	for ins_list in asm_list:
 		for ins in ins_list:

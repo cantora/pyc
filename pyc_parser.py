@@ -5,5 +5,6 @@
 	#return compiler.parse(src)
 
 import pyc_ply_parser
+
 def parse(src):
 	return pyc_ply_parser.parse(src)
