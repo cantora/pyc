@@ -1,0 +1,10 @@
+*.o
+*.pyc
+hw?subs/
+.old
+output
+code
+*.s
+*.expected
+*.out
+*.zip
