@@ -9,7 +9,9 @@ digit      ::=  "0"..."9"
 '''
 
 reserved = {
-	'print'  : 'PRINT',
+	'print'  : 'PRINT'
+}
+'''
 	'and'    : 'AND',
 	'del'    : 'DEL',
 	'from'   : 'FROM',
@@ -41,6 +43,7 @@ reserved = {
     'lambda' : 'LAMBDA',
 	'try'    : 'TRY'
 }
+'''
 
 literals = ['=', '(', ')', '#']
 
@@ -51,13 +54,12 @@ tokens = (
 	'SEMI',
 	'IDENT',
 	'COMMENT'
-#	'NEWLINE'
 ) + tuple(reserved.values())
 
 t_PLUS = r'\+'
 t_MINUS = r'-'
 t_SEMI = r';'
-#t_NEWLINE = r'
+
 def t_COMMENT(t):
 	r'\#.*'
 	pass
@@ -106,7 +108,7 @@ def p_module(m):
 			  | empty'''
 
 	mlen = len(m)
-	pyc_log.log("p_module: %s" % repr([x for x in m]))
+	#pyc_log.log("p_module: %s" % repr([x for x in m]))
 	
 	if mlen == 2:
 		m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))

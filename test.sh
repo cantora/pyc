@@ -9,7 +9,7 @@ make -C ./clib
 
 gcc -m32 -o output ${FILE}.s ./clib/*.o -lm
 ./output < ${FILE}.in > ${FILE}.out 
-python ${FILE}.py < ${FILE}.in > ${FILE}.expected 
+python ${FILE}.py < ${FILE}.in > ${FILE}.expected || true
 
 set +e
 diff ${FILE}.out ${FILE}.expected
