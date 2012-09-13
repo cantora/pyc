@@ -46,7 +46,7 @@ def run(options):
 
 	log(options)
 	#import parser only now because we want to know if
-	#we are verbose or not first
+	#we are verbose or not first.
 	import pyc_parser
 
 	as_tree = pyc_parser.parse(options.src)

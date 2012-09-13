@@ -1,14 +1,15 @@
 
 TMPDIR := /tmp/pyc
+SRCS	= $(filter-out ./parsetab.py, $(wildcard ./*.py) )
 
 .PHONY: pkg
 pkg: hw.zip
 
-hw.zip: ply
+hw.zip: ply $(SRCS) makefile
 	rm -rf /tmp/pyc
 	mkdir $(TMPDIR)
 	cp pyc $(TMPDIR)/compile.py
-	cp *.py $(TMPDIR)/
+	cp $(SRCS) $(TMPDIR)/
 	cp clib/*.c $(TMPDIR)/
 	cp clib/*.h $(TMPDIR)/
 	cp -R ./ply $(TMPDIR)/ply

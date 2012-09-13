@@ -8,3 +8,6 @@ code
 *.expected
 *.out
 *.zip
+parsetab.py
+ply
+test/student_tests

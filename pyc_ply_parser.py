@@ -42,19 +42,25 @@ reserved = {
 	'try'    : 'TRY'
 }
 
-literals = ['=', '(', ')']
+literals = ['=', '(', ')', '#']
 
 tokens = (
 	'INT', 
 	'PLUS', 
 	'MINUS',
 	'SEMI',
-	'IDENT'
+	'IDENT',
+	'COMMENT'
+#	'NEWLINE'
 ) + tuple(reserved.values())
 
 t_PLUS = r'\+'
 t_MINUS = r'-'
 t_SEMI = r';'
+#t_NEWLINE = r'
+def t_COMMENT(t):
+	r'\#.*'
+	pass
 
 def t_IDENT(t):
 	r'[a-zA-Z_][a-zA-Z0-9_]*'
@@ -74,7 +80,7 @@ def t_INT(t):
 t_ignore = ' \t'
 
 def t_newline(t):
-	r'\n+'
+	r'(\x0d?\x0a)+'
 	t.lexer.lineno += t.value.count("\n")
 
 def t_error(t):
@@ -96,14 +102,17 @@ precedence = (
 
 def p_module(m):
 	'''module : module statement
-			  | statement'''
+			  | statement
+			  | empty'''
 
 	mlen = len(m)
 	pyc_log.log("p_module: %s" % repr([x for x in m]))
 	
 	if mlen == 2:
 		m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))
-		m[0].node.nodes.append(m[1])
+		if not m[1] is None:
+			m[0].node.nodes.append(m[1])
+
 	elif mlen == 3:
 		m[0] = m[1]
 		m[0].node.nodes.append(m[2])
@@ -111,9 +120,13 @@ def p_module(m):
 		raise Exception("unexpected length for mlen: %d" % mlen)
 
 
+def p_empty(t):
+	'empty : '
+	pass
+	
 def p_statement(t):
 	'''statement : stmt SEMI
-				 | stmt \n'''
+				 | stmt '''
 
 	t[0] = t[1]
 
@@ -130,11 +143,21 @@ def p_assign_stmt(t):
 		t[3]
 		)
 
+def p_discard(t):
+	'stmt : expr'
+	
+	t[0] = compiler.ast.Discard(t[1])
+
 def p_call_expr(t):
 	'expr : IDENT "(" ")"'
 	
 	t[0] = compiler.ast.CallFunc(compiler.ast.Name(t[1]), [])
-		
+
+
+def p_paren_expr(t):
+	'expr : "(" expr ")"'
+	
+	t[0] = t[2]
 
 def p_ident_expr(t):
 	'expr : IDENT'
@@ -154,7 +177,12 @@ def p_int_expr(t):
 	t[0] = compiler.ast.Const(t[1])
 
 def p_error(t):
-	raise Exception("syntax error at line %d near: '%s'" % (t.lineno, t.value) )
+	try:
+		lineno = t.lineno
+	except AttributeError:
+		lineno = 0
+
+	raise Exception("syntax error at line %d near: '%s'" % (lineno, t.value) )
 
 import ply.yacc
 
