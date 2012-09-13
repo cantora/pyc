@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-import pyc_parser
 import pyc_ast
 import pyc_asm_list
 from pyc_log import *
@@ -46,6 +45,10 @@ def run(options):
 		raise Exception('invalid src variable. type: %s' % (options.src.__class__.__name__) )
 
 	log(options)
+	#import parser only now because we want to know if
+	#we are verbose or not first
+	import pyc_parser
+
 	as_tree = pyc_parser.parse(options.src)
 	log(repr(as_tree))
 	log(pyc_ast.to_str(as_tree))

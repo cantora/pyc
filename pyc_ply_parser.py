@@ -1,3 +1,5 @@
+import pyc_log
+
 '''
 identifier ::=  (letter|"_") (letter | digit | "_")*
 letter     ::=  lowercase | uppercase
@@ -7,7 +9,37 @@ digit      ::=  "0"..."9"
 '''
 
 reserved = {
-	'print': 'PRINT'
+	'print'  : 'PRINT',
+	'and'    : 'AND',
+	'del'    : 'DEL',
+	'from'   : 'FROM',
+	'not'    : 'NOT',
+	'while'  : 'WHILE',
+	'as'     : 'AS',
+	'elif'   : 'ELIF',
+	'global' : 'GLOBAL',
+	'or'     : 'OR',
+	'with'   : 'WITH',
+	'assert' : 'ASSERT',
+	'else'   : 'ELSE',
+	'if'     : 'IF',
+	'pass'   : 'PASS',
+	'yield'  : 'YIELD',
+    'break'  : 'BREAK',
+	'except' : 'EXCEPT',
+	'import' : 'IMPORT',
+	'class'  : 'CLASS',
+	'exec'   : 'EXEC',
+	'in'     : 'IN',
+	'raise'  : 'RAISE',
+	'continue': 'CONTINUE',
+	'finally': 'FINALLY',
+	'is'     : 'IS',
+	'return' : 'RETURN',
+	'def'    : 'DEF',
+	'for'    : 'FOR',
+    'lambda' : 'LAMBDA',
+	'try'    : 'TRY'
 }
 
 literals = ['=', '(', ')']
@@ -34,7 +66,7 @@ def t_INT(t):
 	try:
 		t.value = int(t.value)
 	except ValueError:
-		print 'integer value invalid: %s' % t.value
+		pyc_log.log('integer value invalid: %s' % t.value)
 		t.value = 0
 
 	return t
@@ -46,14 +78,14 @@ def t_newline(t):
 	t.lexer.lineno += t.value.count("\n")
 
 def t_error(t):
-	print "illegal character '%s'" % t.value[0]
+	pyc_log.log("illegal character '%s'" % t.value[0])
 
 
 import pyc_util
 pyc_util.add_relative_dir_to_syspath("ply")
 import ply.lex
 
-ply.lex.lex(debug=True)
+ply.lex.lex(debug = pyc_log.isverbose())
 
 import compiler
 precedence = (
@@ -67,7 +99,7 @@ def p_module(m):
 			  | statement'''
 
 	mlen = len(m)
-	print "p_module: %s" % repr([x for x in m])
+	pyc_log.log("p_module: %s" % repr([x for x in m]))
 	
 	if mlen == 2:
 		m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))
@@ -126,16 +158,10 @@ def p_error(t):
 
 import ply.yacc
 
-ply.yacc.yacc(debug=True)
+ply.yacc.yacc()
 
-import logging
 
 def parse(src):
-	log = logging.getLogger()
-	
 	# create console handler and set level to debug
-	ch = logging.StreamHandler()
-	ch.setLevel(logging.DEBUG)
-	log.addHandler(ch)
-
-	return ply.yacc.parse(src, debug=log)
+	
+	return ply.yacc.parse(src, debug=pyc_log.log_obj)

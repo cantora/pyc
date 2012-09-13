@@ -4,15 +4,16 @@ TMPDIR := /tmp/pyc
 .PHONY: pkg
 pkg: hw.zip
 
-hw.zip: 
+hw.zip: ply
 	rm -rf /tmp/pyc
 	mkdir $(TMPDIR)
 	cp pyc $(TMPDIR)/compile.py
 	cp *.py $(TMPDIR)/
-	cp runtime.c $(TMPDIR)/
-	cp runtime.h $(TMPDIR)/
-	cd $(TMPDIR) &&	zip hw.zip * 
-	mv $(TMPDIR)/hw.zpip ./
+	cp clib/*.c $(TMPDIR)/
+	cp clib/*.h $(TMPDIR)/
+	cp -R ./ply $(TMPDIR)/ply
+	cd $(TMPDIR) &&	zip -r hw.zip * 
+	mv $(TMPDIR)/hw.zip ./
 
 ply:
 	wget 'http://www.dabeaz.com/ply/ply-3.4.tar.gz'
