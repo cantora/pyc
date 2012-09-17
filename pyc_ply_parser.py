@@ -53,7 +53,6 @@ tokens = (
 	'MINUS',
 	'SEMI',
 	'IDENT',
-	'FUNC_CALL'
 ) + tuple(reserved.values())
 
 t_PLUS = r'\+'
@@ -100,24 +99,30 @@ ply.lex.lex(debug = pyc_log.isverbose())
 import compiler
 
 precedence = (
+	('left', 'IDENT'),
+	('left', '('),
 	('left', 'PLUS', 'MINUS'),
 	('right', 'UMINUS'),
 )
 
 
-def p_module_stmt(m):
-	'module : statement'
-	m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))
-	m[0].node.nodes.append(m[1])
+def p_module(m):
+	'module : statement_list'
+	m[0] = compiler.ast.Module(None, m[1])
 
 
-def p_module_pgm(m):
-	'module : module statement'
+def p_statement_list(sl):
+	'statement_list : statement statement_list'
+	sl[0] = sl[2]
+	sl[0].nodes.insert(0, sl[1])
 
-	#pyc_log.log("p_module: %s" % repr([x for x in m]))
+def p_empty(t):
+	'empty : '
+	pass
 
-	m[0] = m[1]
-	m[0].node.nodes.append(m[2])
+def p_statement_list_empty(sl):
+	'statement_list : empty'
+	sl[0] = compiler.ast.Stmt([])
 
 def p_statement(t):
 	'''statement : stmt SEMI
@@ -128,15 +133,6 @@ def p_statement(t):
 def p_print_stmt(t):
 	'stmt : PRINT expr'
 	t[0] = compiler.ast.Printnl([t[2]], None)
-
-
-def p_empty(t):
-	'empty : '
-	pass
-
-def p_module_empty(m):
-	'module : empty'
-	pass
 
 
 def p_assign_stmt(t):
@@ -153,7 +149,7 @@ def p_discard(t):
 	t[0] = compiler.ast.Discard(t[1])
 
 def p_call_expr(t):
-	'expr : FUNC_CALL'
+	'expr : IDENT "(" ")"'
 	
 	t[0] = compiler.ast.CallFunc(compiler.ast.Name(t[1]), [])
 
