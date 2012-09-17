@@ -45,7 +45,7 @@ reserved = {
 }
 '''
 
-literals = ['=', '(', ')', '#']
+literals = ['=', '(', ')', '#', '\\']
 
 tokens = (
 	'INT', 
@@ -86,6 +86,8 @@ def t_newline(t):
 	r'(\x0d?\x0a)+'
 	t.lexer.lineno += t.value.count("\n")
 
+t_ignore_ESC_NEWLINE = r'\\\x0d?\x0a'
+	
 def t_error(t):
 	pyc_log.log("illegal character '%s'" % t.value[0])
 
