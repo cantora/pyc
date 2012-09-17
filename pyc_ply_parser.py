@@ -45,7 +45,7 @@ reserved = {
 }
 '''
 
-literals = ['=', '#', '\\']
+literals = ['=', '(', ')', '#', '\\']
 
 tokens = (
 	'INT', 
@@ -53,21 +53,21 @@ tokens = (
 	'MINUS',
 	'SEMI',
 	'IDENT',
-	'LPAREN',
-	'RPAREN'
 ) + tuple(reserved.values())
 
 t_PLUS = r'\+'
 t_MINUS = r'-'
 t_SEMI = r';'
-#t_INPUT = r'input\(\s*\)'
-t_LPAREN = r'\('
-t_RPAREN = r'\)'
+
 t_ignore_COMMENT = r'\#.*'
 
 def t_IDENT(t):
 	r'[a-zA-Z_][a-zA-Z0-9_]*'
 	t.type = reserved.get(t.value, 'IDENT')
+	return t
+
+def t_FUNC_CALL(t):
+	r'[a-zA-Z_][a-zA-Z0-9_]*\(\)'
 	return t
 
 def t_INT(t):
@@ -101,8 +101,6 @@ ply.lex.lex(debug = pyc_log.isverbose())
 import compiler
 
 precedence = (
-#	('left', 'IDENT'),
-#	('left', 'LPAREN', 'RPAREN'),
 	('left', 'PLUS', 'MINUS'),
 	('right', 'UMINUS'),
 )
@@ -151,15 +149,13 @@ def p_discard(t):
 	t[0] = compiler.ast.Discard(t[1])
 
 def p_call_expr(t):
-	'expr : IDENT LPAREN empty RPAREN'
+	'expr : IDENT "(" ")"'
+	
 	t[0] = compiler.ast.CallFunc(compiler.ast.Name(t[1]), [])
 
-#def p_input(t):
-#	'expr : INPUT'
-#	t[0] = compiler.ast.CallFunc(compiler.ast.Name("input"), [])
 
 def p_paren_expr(t):
-	'expr : LPAREN expr RPAREN'
+	'expr : "(" expr ")"'
 	
 	t[0] = t[2]
 
