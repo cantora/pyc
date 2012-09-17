@@ -96,7 +96,8 @@ import pyc_util
 pyc_util.add_relative_dir_to_syspath("ply")
 import ply.lex
 
-ply.lex.lex(debug = pyc_log.isverbose())
+#ply.lex.lex(debug = pyc_log.isverbose())
+ply.lex.lex()
 
 import compiler
 
@@ -192,4 +193,5 @@ ply.yacc.yacc()
 def parse(src):
 	# create console handler and set level to debug
 	
-	return ply.yacc.parse(src, debug=pyc_log.log_obj)
+	#return ply.yacc.parse(src, debug=pyc_log.log_obj)
+	return ply.yacc.parse(src)
