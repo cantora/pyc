@@ -12,6 +12,13 @@ gcc -m32 -o output ${FILE}.s ./clib/*.o -lm
 python ${FILE}.py < ${FILE}.in > ${FILE}.expected || true
 
 set +e
+echo "output:"
+cat ${FILE}.out
+echo "#####################"
+echo "expected:"
+cat ${FILE}.expected
+echo "#####################"
+echo "out vs expected"
 diff ${FILE}.out ${FILE}.expected
 
 if [ $? == 0 ]; then
