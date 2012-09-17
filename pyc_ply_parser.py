@@ -53,20 +53,22 @@ tokens = (
 	'MINUS',
 	'SEMI',
 	'IDENT',
-	'COMMENT'
+	'FUNC_CALL'
 ) + tuple(reserved.values())
 
 t_PLUS = r'\+'
 t_MINUS = r'-'
 t_SEMI = r';'
 
-def t_COMMENT(t):
-	r'\#.*'
-	pass
+t_ignore_COMMENT = r'\#.*'
 
 def t_IDENT(t):
 	r'[a-zA-Z_][a-zA-Z0-9_]*'
 	t.type = reserved.get(t.value, 'IDENT')
+	return t
+
+def t_FUNC_CALL(t):
+	r'[a-zA-Z_][a-zA-Z0-9_]*\(\)'
 	return t
 
 def t_INT(t):
@@ -96,36 +98,27 @@ import ply.lex
 ply.lex.lex(debug = pyc_log.isverbose())
 
 import compiler
+
 precedence = (
-	('nonassoc', 'PRINT'),
 	('left', 'PLUS', 'MINUS'),
-	('right', 'UMINUS')
+	('right', 'UMINUS'),
 )
 
-def p_module(m):
-	'''module : module statement
-			  | statement
-			  | empty'''
 
-	mlen = len(m)
+def p_module_stmt(m):
+	'module : statement'
+	m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))
+	m[0].node.nodes.append(m[1])
+
+
+def p_module_pgm(m):
+	'module : module statement'
+
 	#pyc_log.log("p_module: %s" % repr([x for x in m]))
-	
-	if mlen == 2:
-		m[0] = compiler.ast.Module(None, compiler.ast.Stmt([]))
-		if not m[1] is None:
-			m[0].node.nodes.append(m[1])
 
-	elif mlen == 3:
-		m[0] = m[1]
-		m[0].node.nodes.append(m[2])
-	else:
-		raise Exception("unexpected length for mlen: %d" % mlen)
+	m[0] = m[1]
+	m[0].node.nodes.append(m[2])
 
-
-def p_empty(t):
-	'empty : '
-	pass
-	
 def p_statement(t):
 	'''statement : stmt SEMI
 				 | stmt '''
@@ -135,6 +128,15 @@ def p_statement(t):
 def p_print_stmt(t):
 	'stmt : PRINT expr'
 	t[0] = compiler.ast.Printnl([t[2]], None)
+
+
+def p_empty(t):
+	'empty : '
+	pass
+
+def p_module_empty(m):
+	'module : empty'
+	pass
 
 
 def p_assign_stmt(t):
@@ -151,7 +153,7 @@ def p_discard(t):
 	t[0] = compiler.ast.Discard(t[1])
 
 def p_call_expr(t):
-	'expr : IDENT "(" ")"'
+	'expr : FUNC_CALL'
 	
 	t[0] = compiler.ast.CallFunc(compiler.ast.Name(t[1]), [])
 
