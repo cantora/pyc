@@ -186,7 +186,7 @@ def p_error(t):
 
 import ply.yacc
 
-ply.yacc.yacc(debug=1)
+ply.yacc.yacc()
 
 
 def parse(src):
