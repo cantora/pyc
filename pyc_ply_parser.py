@@ -99,8 +99,6 @@ ply.lex.lex(debug = pyc_log.isverbose())
 import compiler
 
 precedence = (
-	('left', 'IDENT'),
-	('left', '('),
 	('left', 'PLUS', 'MINUS'),
 	('right', 'UMINUS'),
 )
@@ -186,7 +184,7 @@ def p_error(t):
 
 import ply.yacc
 
-ply.yacc.yacc()
+ply.yacc.yacc(debug=1)
 
 
 def parse(src):
