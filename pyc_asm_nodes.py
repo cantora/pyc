@@ -19,8 +19,8 @@ class Mov(AsmNode):
 		self.src = src
 		self.dest = dest
 
-	def to_s(self):
-		return self.asm_tab.join(["movl", "%s, %s" % (self.src.to_s(), self.dest.to_s() )])
+	def __str__(self):
+		return self.asm_tab.join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
 		
 class Add(AsmNode):
@@ -29,8 +29,8 @@ class Add(AsmNode):
 		self.left = left
 		self.right = right
 
-	def to_s(self):
-		return self.asm_tab.join(["addl", "%s, %s" % (self.left.to_s(), self.right.to_s() )])
+	def __str__(self):
+		return self.asm_tab.join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
 
 
 class Push(AsmNode):
@@ -38,8 +38,8 @@ class Push(AsmNode):
 		AsmNode.__init__(self, operand)
 		self.operand = operand
 
-	def to_s(self):
-		return self.asm_tab.join(["push", self.operand.to_s()])
+	def __str__(self):
+		return self.asm_tab.join(["push", str(self.operand)])
 
 
 class Pop(AsmNode):
@@ -49,7 +49,7 @@ class Pop(AsmNode):
 			raise Exception("invalid pop amt: %d" % amt)
 		self.amt = amt
 
-	def to_s(self):
+	def __str__(self):
 		return self.asm_tab.join(["subl", "%s, %s" % ("%esp", str(4*self.amt) ) ] )
 		
 class Neg(AsmNode):
@@ -57,8 +57,8 @@ class Neg(AsmNode):
 		AsmNode.__init__(self, operand)
 		self.operand = operand
 
-	def to_s(self):
-		return self.asm_tab.join(["negl", self.operand.to_s()])
+	def __str__(self):
+		return self.asm_tab.join(["negl", str(self.operand)])
 
 
 class Immed(AsmNode):
@@ -66,16 +66,22 @@ class Immed(AsmNode):
 		AsmNode.__init__(self, node)
 		self.node = node
 
-	def to_s(self):
-		return "$%s" % self.node.to_s()
+	def __str__(self):
+		return "$%s" % str(self.node)
 
+class Var(AsmNode):
+	def __init__(self, name):
+		AsmNode.__init__(self, name)
+
+	def __str__(self):
+		return self.name
 
 class Register(AsmNode):
 	def __init__(self, name):
 		AsmNode.__init__(self, name)
 		self.name = name
 
-	def to_s(self):
+	def __str__(self):
 		return "%%%s" % self.name
 
 class Indirect(AsmNode):
@@ -87,7 +93,7 @@ class Indirect(AsmNode):
 		self.reg = reg
 		self.offset = offset
 
-	def to_s(self):
+	def __str__(self):
 		return self._to_s(self.offset)
 
 	def _to_s(self, offset):
@@ -95,7 +101,7 @@ class Indirect(AsmNode):
 		if offset != 0:
 			off_str = str(offset)
 
-		s = "%s(%s)" % (off_str, self.reg.to_s())
+		s = "%s(%s)" % (off_str, str(self.reg))
 
 		return s
 		
@@ -111,7 +117,7 @@ class EBPIndirect(Indirect):
 		Indirect.__init__(self, Register("ebp"), offset)
 		AsmNode.__init__(self, offset)
 
-	def to_s(self):
+	def __str__(self):
 		return self._to_s(-(self.offset+4) )
 		
 		
@@ -120,7 +126,7 @@ class Int(AsmNode):
 		AsmNode.__init__(self, val)
 		self.val = val
 
-	def to_s(self):
+	def __str__(self):
 		return str(self.val)
 
 class Global(AsmNode):
@@ -134,7 +140,7 @@ class Call(AsmNode):
 		AsmNode.__init__(self, name)
 		self.name = name
 
-	def to_s(self):
+	def __str__(self):
 		return self.asm_tab.join(["call", self.name])
 
 

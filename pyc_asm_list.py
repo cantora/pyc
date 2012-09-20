@@ -140,7 +140,7 @@ def set_mem(addr, expr, sym_tbl):
 			insns.append( Mov(op, dest_op) )
 
 		elif isinstance(op, Indirect):
-			if op.to_s() != dest_op.to_s():
+			if str(op) != str(dest_op):
 				insns.append( Mov(op, Register("eax")) )
 				insns.append( Mov(Register("eax"), dest_op) )
 

@@ -51,7 +51,7 @@ def run(options):
 
 	as_tree = pyc_parser.parse(options.src)
 	log(repr(as_tree))
-	log(pyc_ast.to_str(as_tree))
+	log(pyc_ast.str(as_tree))
 
 	ss_list = pyc_ast.to_ss_list(as_tree)
 	log("se list: ")
@@ -70,7 +70,7 @@ def run(options):
 	for ins_list in asm_list:
 		for ins in ins_list:
 			log(repr(ins))
-			insns.append(ins.to_s())
+			insns.append(str(ins))
 
 	insns.extend(asm_suffix())
 

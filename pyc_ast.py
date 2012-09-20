@@ -13,7 +13,7 @@ def to_str_fmt_func(node, user, depth):
 	user.append( "%s%s" % (' '*depth, val) )
 
 
-def to_str(as_tree):
+def str(as_tree):
 	lines = []
 
 	traverse(as_tree, to_str_fmt_func, lines)
