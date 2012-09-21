@@ -44,12 +44,13 @@ def assign_to_asm(assign, var_tbl):
 
 def mov(src, dst):
 	result = []
-
-	#print("%s, %s" % (repr(dst), repr(src)) )
-	if dst == src:
-		pass # noop
-	else:
-		result.append(Mov(src, dst) )
+	
+	#possible optimization, but reg 
+	#allocation probably takes care of this
+	#if dst == src: 
+	#	pass # noop
+	#else:
+	result.append(Mov(src, dst) )
 
 	return result	
 
