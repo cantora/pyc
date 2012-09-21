@@ -4,6 +4,7 @@ import argparse
 import sys
 import pyc_ast
 import pyc_asm_list
+import pyc_var_analyzer
 from pyc_log import *
 import os.path
 
@@ -60,6 +61,13 @@ def run(options):
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
+	asm_list = reduce(lambda a,b: a + b, asm_list)
+	for n in asm_list:
+		log(repr(n))
+	
+	pyc_var_analyzer.interference_graph(asm_list)
+
+	exit()
 	insns = []
 	insns.extend(asm_prefix())
 
@@ -67,10 +75,8 @@ def run(options):
 	#	insns.append("subl\t$%s, %%esp" % sym_tbl.stack)
 
 	log("asm list:")
-	for ins_list in asm_list:
-		for ins in ins_list:
-			log(repr(ins))
-			insns.append(str(ins))
+	for ins in asm_list:
+		insns.append(str(ins))
 
 	insns.extend(asm_suffix())
 
