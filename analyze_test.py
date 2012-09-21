@@ -17,3 +17,7 @@ live_list = pyc_var_analyzer.to_live_list(asm_list)
 
 print ""
 print "live_list:\n\t%s" % "\n\t".join([repr(x) for x in reversed(live_list)])
+
+graph = pyc_var_analyzer.to_intf_graph(live_list)
+
+print "graph:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(v)) for (k,v) in graph.items()]) 
