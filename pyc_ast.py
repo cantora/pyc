@@ -2,6 +2,21 @@
 import compiler
 from pyc_log import *
 
+#list of simple statement which can be discarded
+class DiscardSSList(compiler.ast.Node):
+	def __init__(self, nodes, lineno=None):
+		self.nodes = nodes
+
+	def getChildren(self):
+		return self.nodes
+
+	def getChildNodes(self):
+		return self.nodes
+
+	def __repr__(self):
+		return "DiscardSSList(%s)" % repr(self.nodes)
+
+	
 class OutOfScope(Exception):
 	pass
 
@@ -130,7 +145,8 @@ def _to_ss_list(node, depth=0):
 		result = (compiler.ast.Name(result_name), ss_list)
 
 	elif( isinstance(node, compiler.ast.Discard) ):
-		result = _to_ss_list(node.expr, depth+1)
+		(dummy, ss_list) = _to_ss_list(node.expr, depth+1) 
+		result = (None, [DiscardSSList(ss_list)])
 
 	elif( isinstance(node, compiler.ast.Printnl) ):
 		nlen = len(node.nodes)

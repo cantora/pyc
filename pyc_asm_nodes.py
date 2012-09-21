@@ -12,6 +12,14 @@ class AsmNode(compiler.ast.Node):
 		fmt = "%%s(%s)" % arg_fmt
 		return fmt % tup
 
+	def __eq__(self, other):
+		if type(other) is type(self):
+			return self.__dict__ == other.__dict__
+		else:
+			return False
+		
+	def __ne__(self, other):
+		return not __eq__(self, other)
 
 class Mov(AsmNode):
 	def __init__(self, src, dest):
@@ -72,14 +80,24 @@ class Immed(AsmNode):
 class Var(AsmNode):
 	def __init__(self, name):
 		AsmNode.__init__(self, name)
+		self.name = name
 
 	def __str__(self):
 		return self.name
 
-class Register(AsmNode):
+	def __eq__(self, other):
+		return str(self).__eq__(str(other))
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+
+	def __hash__(self):
+		return str(self).__hash__()
+
+
+class Register(Var):
 	def __init__(self, name):
-		AsmNode.__init__(self, name)
-		self.name = name
+		Var.__init__(self, name)
 
 	def __str__(self):
 		return "%%%s" % self.name
