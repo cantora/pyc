@@ -72,6 +72,11 @@ class Inst(AsmNode):
 	def inst_join(self, list):
 		return self.asm_tab.join(list)
 
+	def writes(self):
+		return []
+
+	def reads(self):
+		return []
 
 class Mov(Inst):
 	def __init__(self, src, dest):
@@ -83,8 +88,15 @@ class Mov(Inst):
 		return self.inst_join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
 	def operands(self):
-		return [desc_read(self.src), desc_write(self.dest)]
+		return [self.reads()[0], self.writes()[0]]
+
+	def reads(self):
+		return [desc_read(self.src)]
+
+	def writes(self):
+		return [desc_write(self.dest)]
 		
+
 class Add(Inst):
 	def __init__(self, left, right):
 		Inst.__init__(self, left, right)
@@ -95,7 +107,13 @@ class Add(Inst):
 		return self.inst_join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
 
 	def operands(self):
-		return [desc_read(self.left), desc_rw(self.right)]
+		return [desc_read(self.left), self.writes()[0]]
+
+	def reads(self):
+		return self.operands()
+
+	def writes(self):
+		return [desc_rw(self.right)]
 
 
 class Push(Inst):
@@ -108,6 +126,9 @@ class Push(Inst):
 
 	def operands(self):
 		return [desc_read(self.operand)]
+
+	def reads(self):
+		return self.operands()
 
 class Pop(Inst):
 	def __init__(self, amt=1):
@@ -122,7 +143,7 @@ class Pop(Inst):
 	def operands(self):
 		return [desc_read( Immed(Int(self.amt)) )]
 
-		
+
 class Neg(Inst):
 	def __init__(self, operand):
 		Inst.__init__(self, operand)
@@ -134,6 +155,13 @@ class Neg(Inst):
 	def operands(self):
 		return [desc_rw(self.operand)]
 
+	def reads(self):
+		return self.operands()
+
+	def writes(self):
+		return self.operands()
+
+
 class Call(Inst):
 	def __init__(self, name):
 		Inst.__init__(self, name)
@@ -142,8 +170,9 @@ class Call(Inst):
 	def __str__(self):
 		return self.inst_join(["call", self.name])
 
-	def operands(self):
-		return [desc_write(Register("eax"))]
+	def writes(self):
+		return [desc_write(Register(x)) for x in ["eax", "ecx", "edx"] ]
+
 
 class Immed(AsmNode):
 	def __init__(self, node):
