@@ -20,5 +20,8 @@ def log_set_quiet():
 def log(str):
 	global ch
 	if ch.level == logging.DEBUG:
+		if hasattr(str, '__call__'):
+			str = str()
+
 		print str
 
