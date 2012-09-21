@@ -1,6 +1,49 @@
 
 import compiler
 
+
+class OperandDesc():
+	pass	
+
+class StaticOperandDesc(OperandDesc):
+	def __repr__(self):
+		return "$$$"
+
+class VarOperandDesc(OperandDesc):
+
+	READ = 'read'
+	WRITE = 'write'
+
+	def __init__(self, operand, modes):
+		self.operand = operand
+
+		self.modes = set(modes)
+		for mode in modes:
+			if mode not in (VarOperandDesc.READ, VarOperandDesc.WRITE):
+				raise Exception("invalid mode: %s" % mode)
+
+	def __repr__(self):
+		return "OperandDesc(%s, %s)" % (repr(self.operand), repr(self.modes))
+
+
+def desc_read(asm_node):
+	return desc(asm_node, [VarOperandDesc.READ])
+
+def desc_write(asm_node):
+	return desc(asm_node, [VarOperandDesc.WRITE])
+
+def desc_rw(asm_node):
+	return desc(asm_node, [VarOperandDesc.READ, VarOperandDesc.WRITE]) 
+
+def desc(asm_node, modes):
+	if isinstance(asm_node, Var):
+		return VarOperandDesc(asm_node, modes)
+	elif isinstance(asm_node, Immed):
+		return StaticOperandDesc()
+
+	raise Exception("unexpected asm_node type: %s" % repr(asm_node))
+
+
 class AsmNode(compiler.ast.Node):
 	def __init__(self, *args):
 		self.con_args = args
@@ -21,53 +64,86 @@ class AsmNode(compiler.ast.Node):
 	def __ne__(self, other):
 		return not __eq__(self, other)
 
-class Mov(AsmNode):
+
+class Inst(AsmNode):
+	def operands(self):
+		return []
+
+	def inst_join(self, list):
+		return self.asm_tab.join(list)
+
+
+class Mov(Inst):
 	def __init__(self, src, dest):
-		AsmNode.__init__(self, src, dest)
+		Inst.__init__(self, src, dest)
 		self.src = src
 		self.dest = dest
 
 	def __str__(self):
-		return self.asm_tab.join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
+		return self.inst_join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
+	def operands(self):
+		return [desc_read(self.src), desc_write(self.dest)]
 		
-class Add(AsmNode):
+class Add(Inst):
 	def __init__(self, left, right):
-		AsmNode.__init__(self, left, right)
+		Inst.__init__(self, left, right)
 		self.left = left
 		self.right = right
 
 	def __str__(self):
-		return self.asm_tab.join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
+		return self.inst_join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
+
+	def operands(self):
+		return [desc_read(self.left), desc_rw(self.right)]
 
 
-class Push(AsmNode):
+class Push(Inst):
 	def __init__(self, operand):
-		AsmNode.__init__(self, operand)
+		Inst.__init__(self, operand)
 		self.operand = operand
 
 	def __str__(self):
-		return self.asm_tab.join(["push", str(self.operand)])
+		return self.inst_join(["push", str(self.operand)])
 
+	def operands(self):
+		return [desc_read(self.operand)]
 
-class Pop(AsmNode):
+class Pop(Inst):
 	def __init__(self, amt=1):
-		AsmNode.__init__(self, amt)
+		Inst.__init__(self, amt)
 		if amt < 1:
 			raise Exception("invalid pop amt: %d" % amt)
 		self.amt = amt
 
 	def __str__(self):
-		return self.asm_tab.join(["subl", "%s, %s" % ("%esp", str(4*self.amt) ) ] )
+		return self.inst_join(["subl", "%s, %s" % ("%esp", str(4*self.amt) ) ] )
+
+	def operands(self):
+		return [desc_read( Immed(Int(self.amt)) )]
+
 		
-class Neg(AsmNode):
+class Neg(Inst):
 	def __init__(self, operand):
-		AsmNode.__init__(self, operand)
+		Inst.__init__(self, operand)
 		self.operand = operand
 
 	def __str__(self):
-		return self.asm_tab.join(["negl", str(self.operand)])
+		return self.inst_join(["negl", str(self.operand)])
 
+	def operands(self):
+		return [desc_rw(self.operand)]
+
+class Call(Inst):
+	def __init__(self, name):
+		Inst.__init__(self, name)
+		self.name = name
+
+	def __str__(self):
+		return self.inst_join(["call", self.name])
+
+	def operands(self):
+		return [desc_write(Register("eax"))]
 
 class Immed(AsmNode):
 	def __init__(self, node):
@@ -153,13 +229,6 @@ class Global(AsmNode):
 		self.name = name
 
 
-class Call(AsmNode):
-	def __init__(self, name):
-		AsmNode.__init__(self, name)
-		self.name = name
-
-	def __str__(self):
-		return self.asm_tab.join(["call", self.name])
 
 
 
