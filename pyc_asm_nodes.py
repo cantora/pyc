@@ -8,7 +8,7 @@ class AsmNode(compiler.ast.Node):
 
 	def __repr__(self):
 		tup = tuple([self.__class__.__name__] + [repr(x) for x in self.con_args])
-		arg_fmt = ", ".join(["%s" for x in self.con_args])
+		arg_fmt = ", ".join(["%s" for x in range(0, len(self.con_args) )])
 		fmt = "%%s(%s)" % arg_fmt
 		return fmt % tup
 
@@ -53,7 +53,7 @@ class Inst(AsmNode):
 		AsmNode.__init__(self, *args)
 		
 		self.operand_props = {}
-		
+
 	def new_operand(self, name, operand, mode):
 		if mode not in self.op_modes.keys():
 			raise Exception("invalid operand mode: %s" % repr(mode))
@@ -62,10 +62,13 @@ class Inst(AsmNode):
 		setattr(self, name, operand)
 		
 	def get_operand(self, name):
-		return self.op_modes[self.operand_props[name]](self.__dict__[name])
+		return self.op_modes[self.operand_props[name]](self.get_operand_node(name))
+
+	def get_operand_node(self, name):
+		return self.__dict__[name]
 
 	def operand_names(self):
-		return self.operand_props.keys()
+		return reversed(self.operand_props.keys())
 
 	def read_operand(self, name, asm_node):
 		self.new_operand(name, asm_node, 'r')
@@ -78,6 +81,9 @@ class Inst(AsmNode):
 
 	def operands(self):
 		return [self.get_operand(name) for name in self.operand_names()]
+
+	def operand_nodes(self):
+		return [self.get_operand_node(name) for name in self.operand_names()]
 
 	def inst_join(self, list):
 		return self.asm_tab.join(list)
@@ -99,6 +105,22 @@ class Inst(AsmNode):
 
 	def reads(self):
 		return [op.asm_node for op in self.read_operands() + self.read_write_operands()]
+
+	def patch_vars(self, fn_to_mem_loc):
+		args = []
+
+		for name in self.operand_names():
+			#print name
+			asm_node = self.get_operand_node(name)
+			if not isinstance(asm_node, Var):
+				args.append(asm_node)
+				continue
+			
+			#print("patch op %s" % repr(name))
+			args.append(fn_to_mem_loc(asm_node) )
+
+		return self.__class__(*args)
+
 
 """
 	def sub_loc_for_var(self, mem_map):

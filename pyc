@@ -5,6 +5,8 @@ import sys
 import pyc_ast
 import pyc_asm_list
 import pyc_var_analyzer
+import pyc_reg_allocator
+
 from pyc_log import *
 import os.path
 
@@ -65,7 +67,9 @@ def run(options):
 	for n in asm_list:
 		log(repr(n))
 	
-	pyc_var_analyzer.interference_graph(asm_list)
+	live_list, graph = pyc_var_analyzer.interference_graph(asm_list)
+
+	pyc_reg_allocator.alloc(live_list, graph)
 
 	exit()
 	insns = []
