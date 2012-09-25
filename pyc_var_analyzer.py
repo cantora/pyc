@@ -23,7 +23,7 @@ def interference_graph(asm_list):
 
 	log(lambda: "graph:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(v)) for (k,v) in graph.items()]) )
 	
-	return None
+	return (live_list, graph)
 
 class IntfGraph(dict):
 	def add_edge(self, n1, n2):
@@ -60,16 +60,6 @@ def to_intf_graph(live_list):
 				graph.add_edge(writes[0], var)
 
 	return graph
-					
-
-def get_vars(op_descs):
-	result = []
-	
-	for op_desc in op_descs:
-		if isinstance(op_desc, VarOperandDesc):
-			result.append(op_desc.operand)
-		
-	return result
 
 
 def to_live_list(asm_list):

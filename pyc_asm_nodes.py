@@ -1,49 +1,6 @@
 
 import compiler
 
-
-class OperandDesc():
-	pass	
-
-class StaticOperandDesc(OperandDesc):
-	def __repr__(self):
-		return "$$$"
-
-class VarOperandDesc(OperandDesc):
-
-	READ = 'read'
-	WRITE = 'write'
-
-	def __init__(self, operand, modes):
-		self.operand = operand
-
-		self.modes = set(modes)
-		for mode in modes:
-			if mode not in (VarOperandDesc.READ, VarOperandDesc.WRITE):
-				raise Exception("invalid mode: %s" % mode)
-
-	def __repr__(self):
-		return "OperandDesc(%s, %s)" % (repr(self.operand), repr(self.modes))
-
-
-def desc_read(asm_node):
-	return desc(asm_node, [VarOperandDesc.READ])
-
-def desc_write(asm_node):
-	return desc(asm_node, [VarOperandDesc.WRITE])
-
-def desc_rw(asm_node):
-	return desc(asm_node, [VarOperandDesc.READ, VarOperandDesc.WRITE]) 
-
-def desc(asm_node, modes):
-	if isinstance(asm_node, Var):
-		return VarOperandDesc(asm_node, modes)
-	elif isinstance(asm_node, Immed):
-		return StaticOperandDesc()
-
-	raise Exception("unexpected asm_node type: %s" % repr(asm_node))
-
-
 class AsmNode(compiler.ast.Node):
 	def __init__(self, *args):
 		self.con_args = args
@@ -65,70 +22,123 @@ class AsmNode(compiler.ast.Node):
 		return not __eq__(self, other)
 
 
+class Operand:
+	def __init__(self, asm_node):
+		self.asm_node = asm_node
+
+	def isstatic(self):
+		if isinstance(self.asm_node, Immed):
+			return True
+
+		return False
+
+class ReadOperand(Operand):
+	pass
+
+class WriteOperand(Operand):
+	pass
+
+class RWOperand(ReadOperand, WriteOperand):
+	pass
+
 class Inst(AsmNode):
+
+	op_modes = {
+		'r': ReadOperand, 
+		'w': WriteOperand, 
+		'rw': RWOperand
+	}
+
+	def __init__(self, *args):
+		AsmNode.__init__(self, *args)
+		
+		self.operand_props = {}
+		
+	def new_operand(self, name, operand, mode):
+		if mode not in self.op_modes.keys():
+			raise Exception("invalid operand mode: %s" % repr(mode))
+
+		self.operand_props[name] = mode
+		setattr(self, name, operand)
+		
+	def get_operand(self, name):
+		return self.op_modes[self.operand_props[name]](self.__dict__[name])
+
+	def operand_names(self):
+		return self.operand_props.keys()
+
+	def read_operand(self, name, asm_node):
+		self.new_operand(name, asm_node, 'r')
+	
+	def write_operand(self, name, asm_node):
+		self.new_operand(name, asm_node, 'w')
+
+	def read_write_operand(self, name, asm_node):
+		self.new_operand(name, asm_node, 'rw')
+
 	def operands(self):
-		return []
+		return [self.get_operand(name) for name in self.operand_names()]
 
 	def inst_join(self, list):
 		return self.asm_tab.join(list)
 
+	def read_operands(self):
+		return self.get_operands('r')
+
+	def write_operands(self):
+		return self.get_operands('w')
+
+	def read_write_operands(self):
+		return self.get_operands('rw')
+
+	def get_operands(self, filter_mode):
+		return [self.get_operand(name) for (name, mode) in self.operand_props.items() if mode == filter_mode]
+
 	def writes(self):
-		return []
+		return [op.asm_node for op in (self.write_operands() + self.read_write_operands()) ]
 
 	def reads(self):
-		return []
+		return [op.asm_node for op in self.read_operands() + self.read_write_operands()]
+
+"""
+	def sub_loc_for_var(self, mem_map):
+		if isinstance(self.src, Var):
+			self.src = mem_map(self.src)
+
+		if isinstance(self.dest, Var):
+			self.dest = mem_map(self.dest)
+		
+		return True
+"""
 
 class Mov(Inst):
 	def __init__(self, src, dest):
 		Inst.__init__(self, src, dest)
-		self.src = src
-		self.dest = dest
+		self.read_operand('src', src)
+		self.write_operand('dest', dest)
 
 	def __str__(self):
 		return self.inst_join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
-	def operands(self):
-		return [self.reads()[0], self.writes()[0]]
-
-	def reads(self):
-		return [desc_read(self.src)]
-
-	def writes(self):
-		return [desc_write(self.dest)]
 		
-
 class Add(Inst):
 	def __init__(self, left, right):
 		Inst.__init__(self, left, right)
-		self.left = left
-		self.right = right
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
 
 	def __str__(self):
 		return self.inst_join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
-
-	def operands(self):
-		return [desc_read(self.left), self.writes()[0]]
-
-	def reads(self):
-		return self.operands()
-
-	def writes(self):
-		return [desc_rw(self.right)]
 
 
 class Push(Inst):
 	def __init__(self, operand):
 		Inst.__init__(self, operand)
-		self.operand = operand
+		self.read_operand('operand', operand)
 
 	def __str__(self):
 		return self.inst_join(["push", str(self.operand)])
 
-	def operands(self):
-		return [desc_read(self.operand)]
-
-	def reads(self):
-		return self.operands()
 
 class Pop(Inst):
 	def __init__(self, amt=1):
@@ -136,31 +146,18 @@ class Pop(Inst):
 		if amt < 1:
 			raise Exception("invalid pop amt: %d" % amt)
 		self.amt = amt
-
+		
 	def __str__(self):
 		return self.inst_join(["subl", "%s, %s" % ("%esp", str(4*self.amt) ) ] )
-
-	def operands(self):
-		return [desc_read( Immed(Int(self.amt)) )]
 
 
 class Neg(Inst):
 	def __init__(self, operand):
 		Inst.__init__(self, operand)
-		self.operand = operand
+		self.read_write_operand('operand', operand)
 
 	def __str__(self):
 		return self.inst_join(["negl", str(self.operand)])
-
-	def operands(self):
-		return [desc_rw(self.operand)]
-
-	def reads(self):
-		return self.operands()
-
-	def writes(self):
-		return self.operands()
-
 
 class Call(Inst):
 	def __init__(self, name):
@@ -171,7 +168,7 @@ class Call(Inst):
 		return self.inst_join(["call", self.name])
 
 	def writes(self):
-		return [desc_write(Register(x)) for x in ["eax", "ecx", "edx"] ]
+		return [Register(x) for x in ["eax", "ecx", "edx"] ]
 
 
 class Immed(AsmNode):
@@ -181,6 +178,9 @@ class Immed(AsmNode):
 
 	def __str__(self):
 		return "$%s" % str(self.node)
+
+def get_vars(asm_nodes):
+	return [x for x in asm_nodes if isinstance(x, Var)]
 
 class Var(AsmNode):
 	def __init__(self, name):
