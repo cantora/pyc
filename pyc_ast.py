@@ -1,6 +1,7 @@
 
 import compiler
 from pyc_log import *
+import pyc_gen_name
 
 #list of simple statement which can be discarded
 class DiscardSSList(compiler.ast.Node):
@@ -50,15 +51,6 @@ def to_ss_list(as_tree):
 	dummy, ss_list = _to_ss_list(as_tree)
 	return ss_list
 
-
-gen_count = 0
-def gen_name():
-	global gen_count
-	gen_count += 1
-	n = "gen_%d" % gen_count
-	
-	return n
-
 def user_name(original):
 	return "user_%s" % original
 
@@ -106,7 +98,7 @@ def _to_ss_list(node, depth=0):
 		(l_name, l_ss_list) = _to_ss_list(node.left, depth + 1)
 		(r_name, r_ss_list) = _to_ss_list(node.right, depth + 1)
 		
-		result_name = gen_name()
+		result_name = pyc_gen_name.new()
 		l_ss_list += r_ss_list
 		l_ss_list.append( compiler.ast.Assign( \
 							[compiler.ast.AssName(result_name, 0)], \
@@ -124,7 +116,7 @@ def _to_ss_list(node, depth=0):
 			args.append( name )
 			l += ss_list
 		
-		result_name = gen_name()
+		result_name = pyc_gen_name.new()
 		new_ass = compiler.ast.Assign( \
 			[compiler.ast.AssName(result_name, 0)], \
 			compiler.ast.CallFunc(node.node, args) \
@@ -135,7 +127,7 @@ def _to_ss_list(node, depth=0):
 
 	elif( isinstance(node, compiler.ast.UnarySub) ):
 		(name, ss_list) = _to_ss_list(node.expr, depth+1)
-		result_name = gen_name()
+		result_name = pyc_gen_name.new()
 		new_ass = compiler.ast.Assign( \
 			[compiler.ast.AssName(result_name, 0)], \
 			compiler.ast.UnarySub(name) \

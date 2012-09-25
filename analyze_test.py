@@ -30,6 +30,6 @@ print "mem allocation offsets:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(v
 
 print "mem allocations:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(pyc_reg_allocator.index_to_loc(v))) for (k,v) in memallocs.items()]) 
 
-patched_asm_list = pyc_reg_allocator.patch(asm_list, memallocs)
+(has_alts, patched_asm_list) = pyc_reg_allocator.patch(asm_list, memallocs)
 
-print "patched asm list:\n\t%s" % "\n\t".join([("%s" % repr(x) ) for x in patched_asm_list])
+print "patched asm list (has_alts = %d):\n\t%s" % (has_alts, "\n\t".join([("%s" % repr(x) ) for x in patched_asm_list])) 

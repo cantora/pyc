@@ -70,12 +70,18 @@ def alloc(live_list, graph):
 
 def patch(asm_list, mem_map):
 	result = []
+	has_alts = False
 
 	for ins in asm_list:
 		#log("set locs in %s" % repr(ins))
 		new_ins = ins.patch_vars(lambda node: index_to_loc(mem_map[node]) )
-			
 		#log("  patched: %s" % repr(new_ins) )
-		result.append(new_ins)
+
+		alt_insns = new_ins.fix_operand_violations()
+		if len(alt_insns) > 0:
+			result.extend(alt_insns)
+			has_alts = True
+		else:
+			result.append(new_ins)
 	
-	return result
+	return (has_alts, result)

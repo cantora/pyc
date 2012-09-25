@@ -1,5 +1,6 @@
 
 import compiler
+import pyc_gen_name
 
 class AsmNode(compiler.ast.Node):
 	def __init__(self, *args):
@@ -121,17 +122,12 @@ class Inst(AsmNode):
 
 		return self.__class__(*args)
 
+	@staticmethod
+	def is_mem_to_mem(op1, op2):
+		return isinstance(op1, MemoryRef) and isinstance(op2, MemoryRef)
 
-"""
-	def sub_loc_for_var(self, mem_map):
-		if isinstance(self.src, Var):
-			self.src = mem_map(self.src)
-
-		if isinstance(self.dest, Var):
-			self.dest = mem_map(self.dest)
-		
-		return True
-"""
+	def fix_operand_violations(self):
+		return []
 
 class Mov(Inst):
 	def __init__(self, src, dest):
@@ -142,7 +138,17 @@ class Mov(Inst):
 	def __str__(self):
 		return self.inst_join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
+	def fix_operand_violations(self):
+		if not Inst.is_mem_to_mem(self.src, self.dest):
+			return []
+
+		temp = Var(pyc_gen_name.new())
+		return [
+			Mov(self.src, temp),
+			Mov(temp, self.dest)
+		]
 		
+	
 class Add(Inst):
 	def __init__(self, left, right):
 		Inst.__init__(self, left, right)
@@ -229,9 +235,12 @@ class Register(Var):
 	def __str__(self):
 		return "%%%s" % self.name
 
-class Indirect(AsmNode):
+class MemoryRef(AsmNode):
+	pass
+
+class Indirect(MemoryRef):
 	def __init__(self, reg, offset):
-		AsmNode.__init__(self, reg, offset)
+		MemoryRef.__init__(self, reg, offset)
 		if isinstance(reg, Register) != True:
 			raise Exception("invalid register: %s" % reg.__class__.__name__)
 			
@@ -274,10 +283,10 @@ class Int(AsmNode):
 	def __str__(self):
 		return str(self.val)
 
-class Global(AsmNode):
-	def __init__(self, name):
-		AsmNode.__init__(self, name)
-		self.name = name
+#class Global(MemoryRef):
+#	def __init__(self, name):
+#		MemoryRef.__init__(self, name)
+#		self.name = name
 
 
 
