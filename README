@@ -1,0 +1,7 @@
+
+
+to compile on 64 bit:
+	-get the proper headers/libraries
+		-on ubuntu:
+			sudo apt-get install gcc-multilib libc6-i386 libc6-dev-i386
+
