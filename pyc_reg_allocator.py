@@ -109,6 +109,9 @@ def alloc(live_list, graph, symtbl):
 						constraints[node].add(n_loc)
 
 		todo = todo - no_intf
+		if len(constraints) < 1:
+			continue
+
 		sorted_nodes = sorted(constraints.keys(), key = lambda k: len(graph[k]), reverse = True)
 		log("allocate memory for %s" % repr(sorted_nodes[0]) )
 		i = 0
