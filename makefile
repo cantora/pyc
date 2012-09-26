@@ -1,7 +1,7 @@
 
 TMPDIR := /tmp/pyc
 SRCS	= $(filter-out ./parsetab.py, $(wildcard ./*.py) )
-TESTS	= $(wildcard ./grader_tests/*.py) $(wildcard ./test/*.py) 
+TESTS	= $(wildcard ./grader_tests/*.py) #$(wildcard ./test/*.py) 
 
 .PHONY: pkg
 pkg: hw.zip
@@ -27,6 +27,17 @@ ply:
 compile_test:
 	@for i in $(TESTS); do \
 		./pyc $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+		echo "[x] $$(basename $$i)"; \
+	done
+
+.PHONY: test
+test:
+	@for i in $(TESTS); do \
+		VERBOSE=0 ./test.sh $$i; \
 		if [ $$? -ne 0 ]; then \
 			echo "FAILED: $$(basename $$i)"; \
 			break; \
