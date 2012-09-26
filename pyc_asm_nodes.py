@@ -186,7 +186,7 @@ class Add(Inst):
 		temp = Var(pyc_gen_name.new(), True)
 		return [
 			Mov(self.left, temp),
-			Add(temp, self.dest)
+			Add(temp, self.right)
 		]
 
 
