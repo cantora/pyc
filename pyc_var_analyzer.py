@@ -31,6 +31,9 @@ class IntfGraph(dict):
 			self[n1] = self.get(n1, set([])) | set([n2])
 			self[n2] = self.get(n2, set([])) | set([n1])
 
+	def init_node(self, node):
+		self[node] = self.get(node, set([]))
+
 def to_intf_graph(live_list):
 	graph = IntfGraph({})
 
@@ -41,7 +44,11 @@ def to_intf_graph(live_list):
 
 		log("(%s) => %s \n\t%s" % (ins.__class__.__name__, repr(writes), repr(live) ) )
 
+		for write in writes:
+			graph.init_node(write)
+
 		for var in live:
+			graph.init_node(var)			
 			if isinstance(ins, Call):
 				for write in writes:
 					graph.add_edge(write, var)
