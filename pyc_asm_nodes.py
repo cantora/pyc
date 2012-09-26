@@ -15,6 +15,16 @@ class AsmNode(compiler.ast.Node):
 		return fmt % tup
 
 	def __eq__(self, other):
+		return str(self).__eq__(str(other))
+
+	def __ne__(self, other):
+		return not self.__eq__(other)
+
+	def __hash__(self):
+		return str(self).__hash__()
+
+"""
+	def __eq__(self, other):
 		if type(other) is type(self):
 			return self.__dict__ == other.__dict__
 		else:
@@ -22,6 +32,7 @@ class AsmNode(compiler.ast.Node):
 		
 	def __ne__(self, other):
 		return not __eq__(self, other)
+"""
 
 
 class Operand:
@@ -193,7 +204,7 @@ class Pop(Inst):
 		self.write_operand('operand', operand)
 		
 	def __str__(self):
-		return self.inst_join(["pop", repr(self.operand)])
+		return self.inst_join(["pop", str(self.operand)])
 
 
 class Neg(Inst):
@@ -238,6 +249,7 @@ class Var(AsmNode):
 	def __str__(self):
 		return self.name
 
+"""
 	def __eq__(self, other):
 		return str(self).__eq__(str(other))
 
@@ -246,7 +258,7 @@ class Var(AsmNode):
 
 	def __hash__(self):
 		return str(self).__hash__()
-
+"""
 
 class Register(Var):
 	def __init__(self, name):
