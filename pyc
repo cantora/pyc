@@ -53,23 +53,35 @@ def run(options):
 	import pyc_parser
 
 	as_tree = pyc_parser.parse(options.src)
-	log(repr(as_tree))
-	log(pyc_ast.str(as_tree))
+	log( lambda : repr(as_tree))
+	log( lambda : pyc_ast.str(as_tree))
 
 	ss_list = pyc_ast.to_ss_list(as_tree)
 	log("se list: ")
-	for ss in ss_list:
-		log(repr(ss))
+	log(lambda : "\n".join([repr(ss) for ss in ss_list]) )
+	
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
 	asm_list = reduce(lambda a,b: a + b, asm_list)
-	for n in asm_list:
-		log(repr(n))
-	
-	live_list, graph = pyc_var_analyzer.interference_graph(asm_list)
+	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
 
-	pyc_reg_allocator.alloc(live_list, graph)
+	more_alloc_needed = 1
+	patched_asm_list = asm_list
+	symtbl = pyc_reg_allocator.SymTable()
+
+	while more_alloc_needed:
+		log("analyze asm nodes and assign memory locations")
+		live_list, graph = pyc_var_analyzer.interference_graph(patched_asm_list)
+	
+		pyc_reg_allocator.alloc(live_list, graph, symtbl)
+	
+		log( lambda : "mem allocation offsets:\n\t%s" % str(symtbl) )
+	
+		(more_alloc_needed, patched_asm_list) = pyc_reg_allocator.patch(patched_asm_list, symtbl) 
+		
+		log( lambda : "patched asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in patched_asm_list])) )
+		sys.stdin.readline()
 
 	exit()
 	insns = []
@@ -78,9 +90,9 @@ def run(options):
 	#if sym_tbl.stack > 0:
 	#	insns.append("subl\t$%s, %%esp" % sym_tbl.stack)
 
-	log("asm list:")
-	for ins in asm_list:
-		insns.append(str(ins))
+	for ins in patched_asm_list:
+		if not ins.is_noop():
+			insns.append(str(ins))
 
 	insns.extend(asm_suffix())
 

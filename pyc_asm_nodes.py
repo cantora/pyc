@@ -1,6 +1,7 @@
 
 import compiler
 import pyc_gen_name
+import copy
 
 class AsmNode(compiler.ast.Node):
 	def __init__(self, *args):
@@ -54,6 +55,9 @@ class Inst(AsmNode):
 		AsmNode.__init__(self, *args)
 		
 		self.operand_props = {}
+
+	def is_noop(self):
+		return False
 
 	def new_operand(self, name, operand, mode):
 		if mode not in self.op_modes.keys():
@@ -142,11 +146,17 @@ class Mov(Inst):
 		if not Inst.is_mem_to_mem(self.src, self.dest):
 			return []
 
-		temp = Var(pyc_gen_name.new())
+		temp = Var(pyc_gen_name.new(), True)
 		return [
 			Mov(self.src, temp),
 			Mov(temp, self.dest)
 		]
+
+	def is_noop(self):
+		if self.src == self.dest:
+			return True
+
+		return False
 		
 	
 class Add(Inst):
@@ -158,6 +168,16 @@ class Add(Inst):
 	def __str__(self):
 		return self.inst_join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
 
+	def fix_operand_violations(self):
+		if not Inst.is_mem_to_mem(self.left, self.right):
+			return []
+
+		temp = Var(pyc_gen_name.new(), True)
+		return [
+			Mov(self.left, temp),
+			Add(temp, self.dest)
+		]
+
 
 class Push(Inst):
 	def __init__(self, operand):
@@ -167,16 +187,13 @@ class Push(Inst):
 	def __str__(self):
 		return self.inst_join(["push", str(self.operand)])
 
-
 class Pop(Inst):
-	def __init__(self, amt=1):
-		Inst.__init__(self, amt)
-		if amt < 1:
-			raise Exception("invalid pop amt: %d" % amt)
-		self.amt = amt
+	def __init__(self, operand):
+		Inst.__init__(self, operand)
+		self.write_operand('operand', operand)
 		
 	def __str__(self):
-		return self.inst_join(["subl", "%s, %s" % ("%esp", str(4*self.amt) ) ] )
+		return self.inst_join(["pop", repr(self.operand)])
 
 
 class Neg(Inst):
@@ -198,6 +215,8 @@ class Call(Inst):
 	def writes(self):
 		return [Register(x) for x in ["eax", "ecx", "edx"] ]
 
+	def patch_vars(self, mem_map):
+		return copy.copy(self)
 
 class Immed(AsmNode):
 	def __init__(self, node):
@@ -211,9 +230,10 @@ def get_vars(asm_nodes):
 	return [x for x in asm_nodes if isinstance(x, Var)]
 
 class Var(AsmNode):
-	def __init__(self, name):
+	def __init__(self, name, needs_reg=False):
 		AsmNode.__init__(self, name)
 		self.name = name
+		self.needs_reg = needs_reg
 
 	def __str__(self):
 		return self.name
