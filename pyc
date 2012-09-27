@@ -67,20 +67,20 @@ def run(options):
 	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
 
 	more_alloc_needed = 1
-	patched_asm_list = asm_list
+	adjusted_asm_list = asm_list
 	symtbl = pyc_reg_allocator.SymTable()
 
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
-		live_list, graph = pyc_var_analyzer.interference_graph(patched_asm_list)
+		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
 	
 		pyc_reg_allocator.alloc(live_list, graph, symtbl)
 	
 		log( lambda : "mem allocation offsets:\n\t%s" % str(symtbl) )
 	
-		(more_alloc_needed, patched_asm_list) = pyc_reg_allocator.patch(patched_asm_list, symtbl) 
+		(more_alloc_needed, adjusted_asm_list) = pyc_reg_allocator.adjust(adjusted_asm_list, symtbl) 
 		
-		log( lambda : "patched asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in patched_asm_list])) )
+		log( lambda : "adjusted asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
 
 
 	insns = []
@@ -90,8 +90,8 @@ def run(options):
 	if stacksize > 0:
 		insns.append("subl\t$%s, %%esp" % stacksize)
 
-	for ins in patched_asm_list:
-		insns.append(str(ins))
+	for ins in adjusted_asm_list:
+		insns.append(str(pyc_reg_allocator.patch_insn(ins, symtbl)))
 
 	insns.extend(asm_suffix())
 
