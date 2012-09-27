@@ -87,8 +87,9 @@ def run(options):
 	insns.extend(asm_prefix())
 
 	stacksize = symtbl.stack()
+	align = 16
 	if stacksize > 0:
-		insns.append("subl\t$%s, %%esp" % stacksize)
+		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
 
 	for ins in adjusted_asm_list:
 		insns.append(str(pyc_reg_allocator.patch_insn(ins, symtbl)))
