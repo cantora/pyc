@@ -69,29 +69,32 @@ def run(options):
 	asm_list = reduce(lambda a,b: a + b, asm_list, [])
 	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
 	t_flatten = time.time()
-	#print "flatten time: %d" % (t_flatten - t0) 
+	print "flatten time: %d" % (t_flatten - t0) 
 	
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
 	symtbl = pyc_reg_allocator.SymTable()
-	alloc_timeout = 10
+	alloc_timeout = 5
+	fast_mode = False
 
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
 		t0 = time.time()
 		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
 		t_graph = time.time()
-		#print "graph time: %d" % (t_graph - t0) 
+		print "graph time: %d" % (t_graph - t0) 
 
 		t0 = time.time()
-		pyc_reg_allocator.alloc(live_list, graph, symtbl, alloc_timeout)
+		timed_out = pyc_reg_allocator.alloc(live_list, graph, symtbl, alloc_timeout, fast_mode)
 		t_alloc = time.time()
-		#print "alloc time: %d" % (t_alloc - t0) 
+		print "alloc time: %d" % (t_alloc - t0) 
 
 		#we only want to restrict the time of the first pass
 		#because the subsequent passes may have vars which need
 		#registers
 		alloc_timeout = 0
+		if timed_out and fast_mode == False:
+			fast_mode = True
 
 		log( lambda : "mem allocation offsets:\n\t%s" % str(symtbl) )
 	

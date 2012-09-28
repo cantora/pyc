@@ -39,6 +39,12 @@ class SymTable:
 			if not isinstance(var, Register) and self.mem_map[var] < len(Register.registers):
 				del self.mem_map[var]
 
+	def boot_eax_dwellers(self):
+		eax_index = reg_to_index("eax")
+		for var in self.mem_map.keys():
+			if not isinstance(var, Register) and self.mem_map[var] == eax_index:
+				del self.mem_map[var]
+
 	def map(self, node, loc):
 		if node in self.mem_map:
 			raise Exception("%s is already mapped to %d" % (repr(node), self.mem_map[node]) )
@@ -88,11 +94,16 @@ class ConstraintDict(dict):
 """
 
 class Allocator:
-	def __init__(self, live_list, graph, symtbl, timeout=0):
+	def __init__(self, live_list, graph, symtbl, timeout=0, fast_mode=False):
 		self.live_list = live_list
 		self.graph = graph
 		self.symtbl = symtbl
-		self.symtbl.boot_reg_dwellers()
+		self.fast_mode = fast_mode
+		if self.fast_mode:
+			self.symtbl.boot_eax_dwellers()
+		else:
+			self.symtbl.boot_reg_dwellers()
+
 		self.constraints = {}
 		self.timeout = timeout
 
@@ -158,10 +169,15 @@ class Allocator:
 		return sorted_items[0][0]
 
 	def throw_the_rest_on_the_stack(self):
+		eax_index = reg_to_index("eax")
 		i = self.symtbl.high_index() + 1
 		for node in self.todo:
 			if node.needs_reg and i > (len(Register.registers) - 1):
-				raise Exception("%s needs a reg!" % repr(node))
+				if self.fast_mode:
+					self.symtbl.map(node, eax_index)
+					continue
+				else:
+					raise Exception("%s needs a reg!" % repr(node))
 	
 			self.symtbl.map(node, i)
 			i = i+1
@@ -171,23 +187,27 @@ class Allocator:
 				
 
 	def run(self):
-		t0 = time.time()
+		timedout = False
 
-		while len(self.todo) > 0:
-			log("todo: %s" % repr(self.todo))
-			log("constraints: %s" % repr(self.constraints) )
-			
-			self.allocate_mem(self.next())
-			if self.timeout > 0 and (time.time() - t0) > self.timeout:
-				self.throw_the_rest_on_the_stack()
-				break
+		if self.fast_mode:
+			self.throw_the_rest_on_the_stack()
+		else:
+			t0 = time.time()
+			while len(self.todo) > 0:
+				log("todo: %s" % repr(self.todo))
+				log("constraints: %s" % repr(self.constraints) )
+				
+				self.allocate_mem(self.next())
+				if self.timeout > 0 and (time.time() - t0) > self.timeout:
+					timedout = True
+					self.throw_the_rest_on_the_stack()
+					break
+	
+		return timedout
 
 
-		return self.symtbl
-
-
-def alloc(live_list, graph, symtbl, timeout=0):
-	al = Allocator(live_list, graph, symtbl, timeout)
+def alloc(*args):
+	al = Allocator(*args)
 
 	return al.run()
 
