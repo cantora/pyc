@@ -36,6 +36,9 @@ class IntfGraph(dict):
 
 def to_intf_graph(live_list):
 	graph = IntfGraph({})
+	
+	for reg in Register.registers:
+		graph.init_node(Register(reg))
 
 	for (ins, live) in live_list:
 		writes = get_vars(ins.writes())

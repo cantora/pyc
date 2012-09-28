@@ -3,6 +3,7 @@ from pyc_asm_nodes import *
 from pyc_log import *
 from pyc_ast import DiscardSSList
 
+
 def from_ss_list(ss_list):
 	asm_list = []
 	vt = dict()
@@ -20,14 +21,26 @@ def from_ss_list(ss_list):
 
 
 def py_ss_to_asm(ss, var_tbl):
+	result = []
 	if isinstance(ss, compiler.ast.Assign):
-		return assign_to_asm(ss, var_tbl)
+		result = assign_to_asm(ss, var_tbl)
 	elif isinstance(ss, compiler.ast.Printnl):
-		return printnl_to_asm(ss, var_tbl)
-	
-	raise Exception("didnt expect ast node of type %s" % ss.__class__.__name__)
+		result =  printnl_to_asm(ss, var_tbl)
+	else:
+		raise Exception("didnt expect ast node of type %s" % ss.__class__.__name__)
 
-	
+	if len(result) < 1:
+		raise Exception("expected non empty result")
+
+	for ins in result:
+		if not isinstance(ins, Inst):
+			raise Exception("expected instruction node")
+
+		ins.origin = ss
+
+	return result
+
+
 def assign_to_asm(assign, var_tbl):
 	log(repr(assign))
 	

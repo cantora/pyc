@@ -4,57 +4,37 @@ from pyc_asm_nodes import *
 import random
 import copy
 
-
-
-caller_save = [
-	"ecx",
-	"edx",
-	"eax"
-]
-
-callee_save = [
-	"ebx",
-	"esi",
-	"edi"
-]
-
-registers = callee_save + caller_save
-
 reg_index_map = {}
-for i in range(0, len(registers) ):
-	reg_index_map[registers[i]] = i
+for i in range(0, len(Register.registers) ):
+	reg_index_map[Register.registers[i]] = i
 
 def reg_to_index(reg):
 	global reg_index_map
 	return reg_index_map[reg]
 	
 def index_to_loc(index):
-	global registers
 
 	if index < 0:
 		raise Exception("invalid index %d" % index)
-	elif index < len(registers):
-		return Register(registers[index])
+	elif index < len(Register.registers):
+		return Register(Register.registers[index])
 	else:
-		return EBPIndirect( (index - len(registers))*4 )
+		return EBPIndirect( (index - len(Register.registers))*4 )
 		
 
 class SymTable:
 	def __init__(self):
-		global registers
 		self.mem_map = {}
 		self.swaps = set([])
 
 		#registers are like variables for which we must allocate
 		#themselves
-		for i in range(0, len(registers)):
-			self.map(Register(registers[i]), i)
+		for i in range(0, len(Register.registers)):
+			self.map(Register(Register.registers[i]), i)
 
 	def boot_reg_dwellers(self):
-		global registers
-
 		for var in self.mem_map.keys():
-			if not isinstance(var, Register) and self.mem_map[var] < len(registers):
+			if not isinstance(var, Register) and self.mem_map[var] < len(Register.registers):
 				del self.mem_map[var]
 
 	def map(self, node, loc):
@@ -104,26 +84,20 @@ class ConstraintDict(dict):
 
 class Allocator:
 	def __init__(self, live_list, graph, symtbl):
-		global registers
 		self.live_list = live_list
 		self.graph = graph
 		self.symtbl = symtbl
 		self.symtbl.boot_reg_dwellers()
 		self.constraints = {}
 
-		self.todo = set(self.graph.keys()) - set(self.symtbl.mem_map.keys()) - set([Register(x) for x in registers])
+		reg_nodes = [Register(x) for x in Register.registers]
+		self.todo = set(self.graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
+		
+		for node in reg_nodes:
+			self.propagate_constraints(node, self.symtbl[node])
+		
 
-	
-	def allocate_mem(self, node):
-		log("allocate memory for %s" % repr(node) )
-		i = 0
-		while node in self.constraints and i in self.constraints[node]:
-			i = i+1
-
-		if node.needs_reg and i > (len(registers) - 1):
-			raise Exception("%s needs a reg!" % repr(node))
-
-		self.symtbl.map(node, i)
+	def propagate_constraints(self, node, index):
 		for intf_node in self.graph[node]:
 			if intf_node not in self.todo:
 				continue
@@ -131,8 +105,21 @@ class Allocator:
 			if intf_node not in self.constraints:
 				self.constraints[intf_node] = set([])
 
-			self.constraints[intf_node].add(i)
-	
+			self.constraints[intf_node].add(index)
+		
+		
+	def allocate_mem(self, node):
+		log("allocate memory for %s" % repr(node) )
+		i = 0
+		while node in self.constraints and i in self.constraints[node]:
+			i = i+1
+
+		if node.needs_reg and i > (len(Register.registers) - 1):
+			raise Exception("%s needs a reg!" % repr(node))
+
+		self.symtbl.map(node, i)
+		self.propagate_constraints(node, i)
+		
 		log("  allocated %d" % i)
 		self.todo.remove(node)
 	

@@ -3,6 +3,7 @@ import compiler
 import pyc_gen_name
 import copy
 
+
 class AsmNode(compiler.ast.Node):
 	def __init__(self, *args):
 		self.con_args = args
@@ -64,7 +65,7 @@ class Inst(AsmNode):
 
 	def __init__(self, *args):
 		AsmNode.__init__(self, *args)
-		
+		self.origin = None		
 		self.operand_props = {}
 
 	def is_noop(self):
@@ -135,7 +136,9 @@ class Inst(AsmNode):
 			#print("patch op %s" % repr(name))
 			args.append(fn_to_mem_loc(asm_node) )
 
-		return self.__class__(*args)
+		result = self.__class__(*args)
+		result.origin = self.origin
+		return result
 
 	@staticmethod
 	def is_mem_to_mem(op1, op2):
@@ -224,7 +227,7 @@ class Call(Inst):
 		return self.inst_join(["call", self.name])
 
 	def writes(self):
-		return [Register(x) for x in ["eax", "ecx", "edx"] ]
+		return [Register(x) for x in Register.caller_save ]
 
 	def patch_vars(self, mem_map):
 		return copy.copy(self)
@@ -261,6 +264,20 @@ class Var(AsmNode):
 """
 
 class Register(Var):
+	caller_save = [
+		"ecx",
+		"edx",
+		"eax"
+	]
+	
+	callee_save = [
+		"ebx",
+		"esi",
+		"edi"
+	]
+	
+	registers = callee_save + caller_save
+
 	def __init__(self, name):
 		Var.__init__(self, name)
 
