@@ -74,7 +74,7 @@ def run(options):
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
 	symtbl = pyc_reg_allocator.SymTable()
-	alloc_timeout = 10
+	alloc_timeout = 20
 
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
