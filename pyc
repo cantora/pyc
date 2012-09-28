@@ -64,7 +64,7 @@ def run(options):
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
-	asm_list = reduce(lambda a,b: a + b, asm_list)
+	asm_list = reduce(lambda a,b: a + b, asm_list, [])
 	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
 
 	more_alloc_needed = 1
