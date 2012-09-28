@@ -10,4 +10,5 @@ BAD TESTS:
 	Everest_Testy.py		no input file?
 	starcroce_test0.py		undefined var
 	wonder_test02.py		undefined var
+	Everest_Test-2.py		.in file without enough input
 	
