@@ -5,3 +5,9 @@ to compile on 64 bit:
 		-on ubuntu:
 			sudo apt-get install gcc-multilib libc6-i386 libc6-dev-i386
 
+
+BAD TESTS:
+	Everest_Testy.py		no input file?
+	starcroce_test0.py		undefined var
+	wonder_test02.py		undefined var
+	

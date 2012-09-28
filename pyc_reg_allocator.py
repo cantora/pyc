@@ -1,8 +1,10 @@
 from pyc_var_analyzer import IntfGraph
 from pyc_log import *
 from pyc_asm_nodes import *
+
 import random
 import copy
+import time
 
 reg_index_map = {}
 for i in range(0, len(Register.registers) ):
@@ -51,8 +53,11 @@ class SymTable:
 	def get(self, node):
 		return self.mem_map.get(node, None)
 
+	def high_index(self):
+		return max(self.mem_map.values())
+
 	def stack(self):
-		return (max(self.mem_map.values()) - 6)*4 + 4
+		return (self.high_index() - 6)*4 + 4
 
 	#throws key error if the arg isnt mapped
 	def __getitem__(self, arg):
@@ -83,12 +88,13 @@ class ConstraintDict(dict):
 """
 
 class Allocator:
-	def __init__(self, live_list, graph, symtbl):
+	def __init__(self, live_list, graph, symtbl, timeout=0):
 		self.live_list = live_list
 		self.graph = graph
 		self.symtbl = symtbl
 		self.symtbl.boot_reg_dwellers()
 		self.constraints = {}
+		self.timeout = timeout
 
 		reg_nodes = [Register(x) for x in Register.registers]
 		self.todo = set(self.graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
@@ -151,19 +157,37 @@ class Allocator:
 
 		return sorted_items[0][0]
 
+	def throw_the_rest_on_the_stack(self):
+		i = self.symtbl.high_index() + 1
+		for node in self.todo:
+			if node.needs_reg and i > (len(Register.registers) - 1):
+				raise Exception("%s needs a reg!" % repr(node))
+	
+			self.symtbl.map(node, i)
+			i = i+1
+
+		self.constraints.clear()
+		self.todo.clear()
+				
 
 	def run(self):
+		t0 = time.time()
+
 		while len(self.todo) > 0:
 			log("todo: %s" % repr(self.todo))
 			log("constraints: %s" % repr(self.constraints) )
 			
 			self.allocate_mem(self.next())
+			if self.timeout > 0 and (time.time() - t0) > self.timeout:
+				self.throw_the_rest_on_the_stack()
+				break
+
 
 		return self.symtbl
 
 
-def alloc(live_list, graph, symtbl):
-	al = Allocator(live_list, graph, symtbl)
+def alloc(live_list, graph, symtbl, timeout=0):
+	al = Allocator(live_list, graph, symtbl, timeout)
 
 	return al.run()
 

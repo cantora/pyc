@@ -10,6 +10,7 @@ import pyc_asm_nodes
 
 from pyc_log import *
 import os.path
+import time
 
 def opt_parser():
 	parser = argparse.ArgumentParser(description='compile python to x86 assembly.')
@@ -57,6 +58,7 @@ def run(options):
 	log( lambda : repr(as_tree))
 	log( lambda : pyc_ast.str(as_tree))
 
+	t0 = time.time()
 	ss_list = pyc_ast.to_ss_list(as_tree)
 	log("se list: ")
 	log(lambda : "\n".join([repr(ss) for ss in ss_list]) )
@@ -66,17 +68,31 @@ def run(options):
 
 	asm_list = reduce(lambda a,b: a + b, asm_list, [])
 	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
-
+	t_flatten = time.time()
+	#print "flatten time: %d" % (t_flatten - t0) 
+	
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
 	symtbl = pyc_reg_allocator.SymTable()
+	alloc_timeout = 10
 
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
+		t0 = time.time()
 		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
-	
-		pyc_reg_allocator.alloc(live_list, graph, symtbl)
-	
+		t_graph = time.time()
+		#print "graph time: %d" % (t_graph - t0) 
+
+		t0 = time.time()
+		pyc_reg_allocator.alloc(live_list, graph, symtbl, alloc_timeout)
+		t_alloc = time.time()
+		#print "alloc time: %d" % (t_alloc - t0) 
+
+		#we only want to restrict the time of the first pass
+		#because the subsequent passes may have vars which need
+		#registers
+		alloc_timeout = 0
+
 		log( lambda : "mem allocation offsets:\n\t%s" % str(symtbl) )
 	
 		(more_alloc_needed, adjusted_asm_list) = pyc_reg_allocator.adjust(adjusted_asm_list, symtbl) 
