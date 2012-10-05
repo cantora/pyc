@@ -77,15 +77,6 @@ class SymTable:
 
 	#log( lambda : "mem allocations:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(pyc_reg_allocator.index_to_loc(v))) for (k,v) in mem_map.items()]) )
 
-"""
-class ConstraintDict(dict):
-
-	def __getitem__(self, arg):
-		if not arg in self:
-			self[arg] = set([])
-		
-		return dict.__getitem__(self, arg)
-"""
 
 class Allocator:
 	def __init__(self):
@@ -177,24 +168,7 @@ class Allocator:
 		return (sorted_items[0][0], False)
 
 
-	def throw_the_rest_on_the_stack(self):
-		i = self.symtbl.high_index() + 1
-		for node in self.todo:
-			if node.needs_reg and i > (len(Register.registers) - 1):
-				raise Exception("%s needs a reg!" % repr(node))
-	
-			self.symtbl.map(node, i)
-			i = i+1
-
-		self.constraints.clear()
-		self.todo.clear()
-
-		#since no registers have been allocated, get rid of those constraints
-		#for (node, cons) in self.constraints.items():
-		#	for rnode in reg_nodes:
-		#		cons.discard(rnode)
-
-	def allocate(self, graph, timeout=0):
+	def allocate(self, graph):
 		reg_constraints = {}
 		self.symtbl.boot_reg_dwellers()
 		
@@ -224,11 +198,6 @@ class Allocator:
 				del reg_constraints[node]
 			except KeyError:
 				pass
-	
-			#if timeout > 0 and (time.time() - t0) > timeout:
-			#	self.throw_the_rest_on_the_stack()
-			#	break
-
 
 		if len(reg_constraints) > 0:
 			raise Exception("why are constraints non empty?")

@@ -92,7 +92,6 @@ def run(options):
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
 	allocator = pyc_reg_allocator.Allocator()
-	alloc_timeout = 20
 
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
@@ -102,14 +101,9 @@ def run(options):
 		#print "graph time: %d" % (t_graph - t0) 
 
 		t0 = time.time()
-		allocator.allocate(graph, alloc_timeout)
+		allocator.allocate(graph)
 		t_alloc = time.time()
 		#print "alloc time: %d" % (t_alloc - t0) 
-
-		#we only want to restrict the time of the first pass
-		#because the subsequent passes may have vars which need
-		#registers
-		alloc_timeout = 0
 
 		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
 	
