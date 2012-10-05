@@ -88,74 +88,94 @@ class ConstraintDict(dict):
 """
 
 class Allocator:
-	def __init__(self, live_list, graph, symtbl, timeout=0):
-		self.live_list = live_list
-		self.graph = graph
-		self.symtbl = symtbl
-		self.symtbl.boot_reg_dwellers()
-		self.constraints = {}
-		self.timeout = timeout
+	def __init__(self):
+		self.symtbl = SymTable()
+		self.stack_constraints = {}
 
-		reg_nodes = [Register(x) for x in Register.registers]
-		self.todo = set(self.graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
-		
-		for node in reg_nodes:
-			self.propagate_constraints(node, self.symtbl[node])
-		
-
-	def propagate_constraints(self, node, index):
-		for intf_node in self.graph[node]:
-			if intf_node not in self.todo:
+	def propagate_reg_constraints(self, reg_constraints, graph, todo, node, index):
+		for n in todo:
+			if n not in graph[node]:
 				continue
 
-			if intf_node not in self.constraints:
-				self.constraints[intf_node] = set([])
+			if n not in reg_constraints:
+				reg_constraints[n] = set([])
 
-			self.constraints[intf_node].add(index)
-		
-		
-	def allocate_mem(self, node):
-		log("allocate memory for %s" % repr(node) )
-		i = 0
-		while node in self.constraints and i in self.constraints[node]:
-			i = i+1
+			reg_constraints[n].add(index)
 
-		if node.needs_reg and i > (len(Register.registers) - 1):
+
+	def propagate_stack_constraints(self, graph, node, index):
+		for intf_node in graph[node]:
+			if intf_node not in self.stack_constraints:
+				self.stack_constraints[intf_node] = set([])
+
+			self.stack_constraints[intf_node].add(index)
+
+
+	def allocate_stack(self, node, graph):
+		if node.needs_reg:
 			raise Exception("%s needs a reg!" % repr(node))
 
-		self.symtbl.map(node, i)
-		self.propagate_constraints(node, i)
+		i = len(Register.registers)
+		while node in self.stack_constraints and i in self.stack_constraints[node]:
+			i = i+1
 		
-		log("  allocated %d" % i)
-		self.todo.remove(node)
-	
-		try:
-			del self.constraints[node]
-		except KeyError:
-			pass
+		self.symtbl.map(node, i)
+		self.propagate_stack_constraints(graph, node, i)
 
 		return i
-
-	def next(self):
-		if len(self.constraints) < 1:
-			for node in self.todo:
-				if node.needs_reg == True:
-					return node
-	
-			return node
 		
-		to_sort = [(node, len(self.graph[node]) - len(v)) for (node, v) in self.constraints.items() ]
-		sorted_items = sorted(to_sort, key = lambda (node, v): v )
-		low_score = sorted_items[0][1]
+
+	def allocate_reg(self, node, reg_constraints, graph, todo):
+		regamt = len(Register.registers)
+
+		i = 0
+		if node in reg_constraints:
+			for i in range(0, regamt):
+				if i not in reg_constraints[node]:
+					break
+
+		if i >= regamt:
+			raise Exception("no reg available!")
+
+		self.symtbl.map(node, i)
+		self.propagate_reg_constraints(reg_constraints, graph, todo, node, i)
+		
+		return i
+
+
+	def next(self, todo, reg_constraints):
+		if len(reg_constraints) < 1:
+			for node in todo:
+				if node.needs_reg == True:
+					return (node, False)
+	
+			return (node, False)
+		
+		regamt = len(Register.registers)
+		to_sort = []
+		for (node, v) in reg_constraints.items():
+			saturation = len(v)
+
+			#if its already out of the running on a reg
+			#there is no need to break ties
+			if saturation >= regamt:
+				return (node, True)
+
+			to_sort.append( (node, saturation) )
+
+
+		sorted_items = sorted(to_sort, key = lambda (node, v): v, reverse=True )
+		high_score = sorted_items[0][1]
 
 		for (node, score) in sorted_items:
 			if node.needs_reg == True:
-				return node
+				return (node, False)
 
-			if score != low_score:
+			if score != high_score:
 				break
 
-		return sorted_items[0][0]
+		return (sorted_items[0][0], False)
+
 
 	def throw_the_rest_on_the_stack(self):
 		i = self.symtbl.high_index() + 1
@@ -168,28 +188,52 @@ class Allocator:
 
 		self.constraints.clear()
 		self.todo.clear()
-				
 
-	def run(self):
+		#since no registers have been allocated, get rid of those constraints
+		#for (node, cons) in self.constraints.items():
+		#	for rnode in reg_nodes:
+		#		cons.discard(rnode)
+
+	def allocate(self, graph, timeout=0):
+		reg_constraints = {}
+		self.symtbl.boot_reg_dwellers()
+		
+		reg_nodes = [Register(x) for x in Register.registers]
+		todo = set(graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
+
+		#registers are implicitly allocated to themselves 
+		for rnode in reg_nodes:			
+			self.propagate_reg_constraints(reg_constraints, graph, todo, rnode, self.symtbl[rnode])
+		
 		t0 = time.time()
 
-		while len(self.todo) > 0:
-			log("todo: %s" % repr(self.todo))
-			log("constraints: %s" % repr(self.constraints) )
+		while len(todo) > 0:
+			#log("todo: %s" % repr(self.todo))
+			#log("constraints: %s" % repr(self.reg_constraints) )
 			
-			self.allocate_mem(self.next())
-			if self.timeout > 0 and (time.time() - t0) > self.timeout:
-				self.throw_the_rest_on_the_stack()
-				break
+			(node, saturated) = self.next(todo, reg_constraints)
+			log("allocate reg for %s" % repr(node) )
+			index = \
+				self.allocate_stack(node, graph) if saturated \
+				else self.allocate_reg(node, reg_constraints, graph, todo)
 
+			log("  allocated %d" % index)
+			todo.remove(node)
+	
+			try:
+				del reg_constraints[node]
+			except KeyError:
+				pass
+	
+			#if timeout > 0 and (time.time() - t0) > timeout:
+			#	self.throw_the_rest_on_the_stack()
+			#	break
+
+
+		if len(reg_constraints) > 0:
+			raise Exception("why are constraints non empty?")
 
 		return self.symtbl
-
-
-def alloc(live_list, graph, symtbl, timeout=0):
-	al = Allocator(live_list, graph, symtbl, timeout)
-
-	return al.run()
 
 
 def adjust(asm_list, symtbl):
@@ -202,12 +246,17 @@ def adjust(asm_list, symtbl):
 		new_ins = patch_insn(ins, symtbl)
 
 		if new_ins == ins:
-			result.append(new_ins)
+			result.append(ins)
 			continue
 		
 		log( lambda : "  patched: %s" % repr(new_ins))
 
-		if new_ins.is_noop():
+		#cant eliminate noops just yet because locations arent set in stone
+		#however we also dont want to fix operand violations of the form:
+		#  mov -4(%ebp), -4(%ebp)
+		#so just continue...
+		if new_ins.is_noop(): 
+			result.append(ins)
 			continue
 
 		alt_insns = new_ins.fix_operand_violations()
@@ -216,7 +265,7 @@ def adjust(asm_list, symtbl):
 			result.extend(alt_insns)
 			has_alts = True
 		else:
-			result.append(new_ins)
+			result.append(ins)
 			
 	
 	return (has_alts, result)

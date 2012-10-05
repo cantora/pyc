@@ -7,17 +7,22 @@ import pyc_asm_list
 import pyc_var_analyzer
 import pyc_reg_allocator
 import pyc_asm_nodes
-
+import compiler
 from pyc_log import *
 import os.path
 import time
 
+g_phases = ["ss-list", "asm-node-list"]
+
 def opt_parser():
+	global g_phases
+
 	parser = argparse.ArgumentParser(description='compile python to x86 assembly.')
 	parser.add_argument('file', nargs='?', type=argparse.FileType('r'), help='file to compile')
 	parser.add_argument('-c', '--code', help='code to compile')
 	parser.add_argument('-o', '--output', help='output file.')
 	parser.add_argument('-v', '--verbose', action='store_true', help='print debug output.')
+	parser.add_argument('-p', '--phase', help=('stop and print intermediate compiler result. phases: %s' % ", ".join(g_phases)) )
 
 	return parser
 
@@ -32,6 +37,7 @@ def validate(options):
 
 
 def run(options):
+	global g_phases
 	#print options
 	validate(options)
 
@@ -49,6 +55,9 @@ def run(options):
 	if isinstance(options.src, basestring) != True:
 		raise Exception('invalid src variable. type: %s' % (options.src.__class__.__name__) )
 
+	if (not options.phase is None) and options.phase not in g_phases:
+		raise Exception('invalid phase variable: %s' % options.phase)
+
 	log(options)
 	#import parser only now because we want to know if
 	#we are verbose or not first.
@@ -61,19 +70,28 @@ def run(options):
 	t0 = time.time()
 	ss_list = pyc_ast.to_ss_list(as_tree)
 	log("se list: ")
-	log(lambda : "\n".join([repr(ss) for ss in ss_list]) )
-	
+	ss_list_str = lambda : "\n".join([repr(ss) for ss in ss_list]) 
+	if options.phase == 'ss-list':
+		print ss_list_str()
+		exit(0)
+
+	log(ss_list_str)
 
 	asm_list = pyc_asm_list.from_ss_list(ss_list)
 
 	asm_list = reduce(lambda a,b: a + b, asm_list, [])
-	log( lambda : "\n".join([repr(n) for n in asm_list]) )	
+	asm_list_str = lambda : "\n".join([repr(n) for n in asm_list])
+	if options.phase == 'asm-node-list':
+		print asm_list_str()
+		exit(0)
+
+	log(asm_list_str)	
 	t_flatten = time.time()
 	#print "flatten time: %d" % (t_flatten - t0) 
 	
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
-	symtbl = pyc_reg_allocator.SymTable()
+	allocator = pyc_reg_allocator.Allocator()
 	alloc_timeout = 20
 
 	while more_alloc_needed:
@@ -84,7 +102,7 @@ def run(options):
 		#print "graph time: %d" % (t_graph - t0) 
 
 		t0 = time.time()
-		pyc_reg_allocator.alloc(live_list, graph, symtbl, alloc_timeout)
+		allocator.allocate(graph, alloc_timeout)
 		t_alloc = time.time()
 		#print "alloc time: %d" % (t_alloc - t0) 
 
@@ -93,40 +111,72 @@ def run(options):
 		#registers
 		alloc_timeout = 0
 
-		log( lambda : "mem allocation offsets:\n\t%s" % str(symtbl) )
+		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
 	
-		(more_alloc_needed, adjusted_asm_list) = pyc_reg_allocator.adjust(adjusted_asm_list, symtbl) 
+		(more_alloc_needed, adjusted_asm_list) = pyc_reg_allocator.adjust(adjusted_asm_list, allocator.symtbl) 
 		
 		log( lambda : "adjusted asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
-
-
+	
 	insns = []
 	insns.extend(asm_prefix())
 
-	stacksize = symtbl.stack()
+	stacksize = allocator.symtbl.stack()
 	align = 16
 	if stacksize > 0:
 		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
 
-	for ins in adjusted_asm_list:
-		insns.append(format_insn_node(ins, symtbl) )
-
+	insns.extend(format_insn_nodes(adjusted_asm_list, ss_list, allocator.symtbl) )
 	insns.extend(asm_suffix())
 
 	output(options, insns)
 
-def format_insn_node(ins, symtbl):
-	if not isinstance(ins, pyc_asm_nodes.Inst):
-		raise Exception("expected instruction node")
+def format_insn_nodes(ins_nodes, ss_list, symtbl):
+	result = []
+	previous = None
+	f = open("/tmp/asdf", "w")
+	
+	#for ss in ss_list:
+	#	if isinstance(ss, compiler.ast.Assign):
+	#		exec(pyc_ast.assign_to_py(ss))
 
-	s = str(pyc_reg_allocator.patch_insn(ins, symtbl))
-	if format_insn_node.previous is None or format_insn_node.previous.origin != ins.origin:
-		s = "%-20s %s" % (s, "#"+repr(ins.origin))
+	for ins in ins_nodes:
+		if not isinstance(ins, pyc_asm_nodes.Inst):
+			raise Exception("expected instruction node")
 
-	format_insn_node.previous = ins
-	return s
+		patched = pyc_reg_allocator.patch_insn(ins, symtbl)
+		
+		if patched.is_noop():
+			continue
+		
+		s = str(patched)
+		if previous is None or previous.origin != ins.origin:
+			val = ""
+			#if isinstance(ins.origin, compiler.ast.Assign):
+			#	x = eval(ins.origin.nodes[0].name)
+			#	val = "(%s = %s) " % (ins.origin.nodes[0].name, x) 
+			#	f.write("%s\n" % x)
+	
+			s = "%-20s #%s%s" % (s, val, repr(ins.origin))
+			if False: #(not previous is None) and isinstance(previous.origin, compiler.ast.Assign):
+				result.extend([
+					"push %ecx",
+					"push %edx",
+					"push %eax",
+					"push %s" % pyc_reg_allocator.index_to_loc(symtbl[previous.origin.nodes[0].name]),
+					"call print_int_nl",
+					"pop %eax",
+					"pop %eax",
+					"pop %edx",
+					"pop %ecx"
+				])
 
-format_insn_node.previous = None
+
+	
+		previous = ins
+		result.append(s)
+
+	f.close()
+	return result
 
 def asm_headers():
 	return [
