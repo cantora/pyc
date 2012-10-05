@@ -1,10 +1,10 @@
 
 TMPDIR := /tmp/pyc
 SRCS	= $(filter-out ./parsetab.py, $(wildcard ./*.py) )
-TESTS	= $(wildcard ./grader_tests/*.py) \
-			$(filter-out %stack_test.py, $(wildcard ./test/*.py) ) \
-			$(wildcard ./student_tests/*.py)
-			
+P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) \
+			$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
+			$(wildcard ./p0tests/student_tests/*.py)
+
 
 .PHONY: pkg
 pkg: hw.zip
@@ -37,9 +37,9 @@ compile_test:
 		echo "[x] $$(basename $$i)"; \
 	done
 
-.PHONY: test
-test:
-	@for i in $(TESTS); do \
+.PHONY: p0tests
+p0tests:
+	@for i in $(P0TESTS); do \
 		VERBOSE=0 ./test.sh $$i; \
 		if [ $$? -ne 0 ]; then \
 			echo "FAILED: $$(basename $$i)"; \
@@ -54,6 +54,6 @@ clean:
 	rm -fv output
 	rm -fv ./clib/*.o
 	rm -fv *.pyc
-	for i in $$(find ./test/ -regex '.*\.\(\(expected\)\|\(out\)\|\(s\)\)'); do rm -v $$i; done
+	for i in $$(find ./p0tests/ -regex '.*\.\(\(expected\)\|\(out\)\|\(s\)\)'); do rm -v $$i; done
 	if [ -d ./ply ]; then rm -rv ./ply; fi
 
