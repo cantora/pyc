@@ -165,6 +165,26 @@ def _to_ss_list(node, depth=0):
 	return result
 
 
+def assign_to_py(node):
+	if len(node.nodes) > 1:
+		raise Exception("expected one lhs node")
+	elif not isinstance(node.nodes[0], compiler.ast.AssName):
+		raise Exception("unexpected node type %r in assign %r" % (node.nodes[0], node) )
 
+	return "%s = %s" % (node.nodes[0].name, expr_to_literal(node.expr))
 
+def expr_to_literal(expr):
+	if isinstance(expr, compiler.ast.UnarySub):
+		return "-%s" % expr_to_literal(expr.expr) 
 
+	elif isinstance(expr, compiler.ast.Name):
+		return expr.name
+
+	elif isinstance(expr, compiler.ast.Const):
+		return expr.value
+
+	elif isinstance(expr, compiler.ast.Add):
+		return "%s + %s" % (expr_to_literal(expr.left), expr_to_literal(expr.right) )
+
+	else:
+		raise Exception("cannot convert expr to literal: %r" % expr)
