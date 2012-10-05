@@ -89,37 +89,17 @@ def run(options):
 	t_flatten = time.time()
 	#print "flatten time: %d" % (t_flatten - t0) 
 	
-	more_alloc_needed = 1
-	adjusted_asm_list = asm_list
-	allocator = pyc_reg_allocator.Allocator()
+	(adjusted_asm_list, symtbl) = pyc_reg_allocator.allocate(asm_list)
 
-	while more_alloc_needed:
-		log("analyze asm nodes and assign memory locations")
-		t0 = time.time()
-		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
-		t_graph = time.time()
-		#print "graph time: %d" % (t_graph - t0) 
-
-		t0 = time.time()
-		allocator.allocate(graph)
-		t_alloc = time.time()
-		#print "alloc time: %d" % (t_alloc - t0) 
-
-		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
-	
-		(more_alloc_needed, adjusted_asm_list) = pyc_reg_allocator.adjust(adjusted_asm_list, allocator.symtbl) 
-		
-		log( lambda : "adjusted asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
-	
 	insns = []
 	insns.extend(asm_prefix())
 
-	stacksize = allocator.symtbl.stack()
+	stacksize = symtbl.stack()
 	align = 16
 	if stacksize > 0:
 		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
 
-	insns.extend(format_insn_nodes(adjusted_asm_list, ss_list, allocator.symtbl) )
+	insns.extend(format_insn_nodes(adjusted_asm_list, ss_list, symtbl) )
 	insns.extend(asm_suffix())
 
 	output(options, insns)
@@ -127,12 +107,7 @@ def run(options):
 def format_insn_nodes(ins_nodes, ss_list, symtbl):
 	result = []
 	previous = None
-	f = open("/tmp/asdf", "w")
 	
-	#for ss in ss_list:
-	#	if isinstance(ss, compiler.ast.Assign):
-	#		exec(pyc_ast.assign_to_py(ss))
-
 	for ins in ins_nodes:
 		if not isinstance(ins, pyc_asm_nodes.Inst):
 			raise Exception("expected instruction node")
@@ -145,31 +120,12 @@ def format_insn_nodes(ins_nodes, ss_list, symtbl):
 		s = str(patched)
 		if previous is None or previous.origin != ins.origin:
 			val = ""
-			#if isinstance(ins.origin, compiler.ast.Assign):
-			#	x = eval(ins.origin.nodes[0].name)
-			#	val = "(%s = %s) " % (ins.origin.nodes[0].name, x) 
-			#	f.write("%s\n" % x)
 	
 			s = "%-20s #%s%s" % (s, val, repr(ins.origin))
-			if False: #(not previous is None) and isinstance(previous.origin, compiler.ast.Assign):
-				result.extend([
-					"push %ecx",
-					"push %edx",
-					"push %eax",
-					"push %s" % pyc_reg_allocator.index_to_loc(symtbl[previous.origin.nodes[0].name]),
-					"call print_int_nl",
-					"pop %eax",
-					"pop %eax",
-					"pop %edx",
-					"pop %ecx"
-				])
-
-
 	
 		previous = ins
 		result.append(s)
 
-	f.close()
 	return result
 
 def asm_headers():

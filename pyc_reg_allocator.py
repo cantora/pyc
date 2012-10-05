@@ -2,6 +2,7 @@ from pyc_var_analyzer import IntfGraph
 from pyc_log import *
 from pyc_asm_nodes import *
 
+import pyc_var_analyzer 
 import random
 import copy
 import time
@@ -242,3 +243,28 @@ def adjust(asm_list, symtbl):
 
 def patch_insn(ins, symtbl):
 	return ins.patch_vars(lambda node: index_to_loc(symtbl[node]) )
+
+def allocate(asm_list):
+	more_alloc_needed = 1
+	adjusted_asm_list = asm_list
+	allocator = Allocator()
+
+	while more_alloc_needed:
+		log("analyze asm nodes and assign memory locations")
+		t0 = time.time()
+		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
+		t_graph = time.time()
+		#print "graph time: %d" % (t_graph - t0) 
+
+		t0 = time.time()
+		allocator.allocate(graph)
+		t_alloc = time.time()
+		#print "alloc time: %d" % (t_alloc - t0) 
+
+		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
+	
+		(more_alloc_needed, adjusted_asm_list) = adjust(adjusted_asm_list, allocator.symtbl) 
+		
+		log( lambda : "adjusted asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
+
+	return (adjusted_asm_list, allocator.symtbl)
