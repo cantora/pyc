@@ -24,17 +24,6 @@ class AsmNode(compiler.ast.Node):
 	def __hash__(self):
 		return str(self).__hash__()
 
-"""
-	def __eq__(self, other):
-		if type(other) is type(self):
-			return self.__dict__ == other.__dict__
-		else:
-			return False
-		
-	def __ne__(self, other):
-		return not __eq__(self, other)
-"""
-
 
 class Operand:
 	def __init__(self, asm_node):
@@ -258,16 +247,6 @@ class Var(AsmNode):
 	def __str__(self):
 		return self.name
 
-"""
-	def __eq__(self, other):
-		return str(self).__eq__(str(other))
-
-	def __ne__(self, other):
-		return not self.__eq__(other)
-
-	def __hash__(self):
-		return str(self).__hash__()
-"""
 
 class Register(Var):
 	caller_save = [

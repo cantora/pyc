@@ -1,20 +1,6 @@
 from pyc_log import *
 from pyc_asm_nodes import *
 
-"""
-		if write is None:
-			continue
-		
-		try:
-			graph[write]
-		except KeyError:
-			graph[write] = set([])
-
-		if isinstance(ins, Mov):
-			graph[write] 
-		else:
-"""
-
 def interference_graph(asm_list):
 	live_list = to_live_list(asm_list)
 	log(lambda: "live_list:\n\t%s" % "\n\t".join([repr(x) for x in reversed(live_list)]))
