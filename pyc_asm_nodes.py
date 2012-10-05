@@ -161,10 +161,13 @@ class Mov(Inst):
 			return []
 
 		temp = Var(pyc_gen_name.new(), True)
-		return [
+		result = [
 			Mov(self.src, temp),
 			Mov(temp, self.dest)
 		]
+		result[0].origin = self.origin
+		result[1].origin = self.origin
+		return result
 
 	def is_noop(self):
 		if self.src == self.dest:
@@ -187,10 +190,13 @@ class Add(Inst):
 			return []
 
 		temp = Var(pyc_gen_name.new(), True)
-		return [
+		result = [
 			Mov(self.left, temp),
 			Add(temp, self.right)
 		]
+		result[0].origin = self.origin
+		result[1].origin = self.origin
+		return result
 
 
 class Push(Inst):
