@@ -3,6 +3,7 @@ from pyc_asm_nodes import *
 from pyc_log import *
 from pyc_ast import DiscardSSList
 
+import compiler
 
 def from_ss_list(ss_list):
 	asm_list = []

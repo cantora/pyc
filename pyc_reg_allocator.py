@@ -242,7 +242,8 @@ def adjust(asm_list, symtbl):
 
 
 def patch_insn(ins, symtbl):
-	return ins.patch_vars(lambda node: index_to_loc(symtbl[node]) )
+	result = ins.patch_vars(lambda node: index_to_loc(symtbl[node]) )
+	return result
 
 def allocate(asm_list):
 	more_alloc_needed = 1

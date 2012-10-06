@@ -1,19 +1,11 @@
 
-import compiler
 import pyc_gen_name
 import copy
 
 
-class AsmNode(compiler.ast.Node):
-	def __init__(self, *args):
-		self.con_args = args
+class AsmNode:
+	def __init__(self):
 		self.asm_tab = "\t"
-
-	def __repr__(self):
-		tup = tuple([self.__class__.__name__] + [repr(x) for x in self.con_args])
-		arg_fmt = ", ".join(["%s" for x in range(0, len(self.con_args) )])
-		fmt = "%%s(%s)" % arg_fmt
-		return fmt % tup
 
 	def __eq__(self, other):
 		return str(self).__eq__(str(other))
@@ -44,6 +36,12 @@ class WriteOperand(Operand):
 class RWOperand(ReadOperand, WriteOperand):
 	pass
 
+def common_repr(klass_name, *args):
+	tup = (klass_name,) + args
+	arg_fmt = ", ".join(["%s"]*len(args) )
+	fmt = "%%s(%s)" % arg_fmt
+	return fmt % tup
+
 class Inst(AsmNode):
 
 	op_modes = {
@@ -52,10 +50,11 @@ class Inst(AsmNode):
 		'rw': RWOperand
 	}
 
-	def __init__(self, *args):
-		AsmNode.__init__(self, *args)
-		self.origin = None		
+	def __init__(self):
+		AsmNode.__init__(self)
+		self.origin = None	
 		self.operand_props = {}
+		self.operand_order = []
 
 	def is_noop(self):
 		return False
@@ -66,6 +65,7 @@ class Inst(AsmNode):
 
 		self.operand_props[name] = mode
 		setattr(self, name, operand)
+		self.operand_order.append(name)
 		
 	def get_operand(self, name):
 		return self.op_modes[self.operand_props[name]](self.get_operand_node(name))
@@ -74,7 +74,7 @@ class Inst(AsmNode):
 		return self.__dict__[name]
 
 	def operand_names(self):
-		return reversed(self.operand_props.keys())
+		return self.operand_order
 
 	def read_operand(self, name, asm_node):
 		self.new_operand(name, asm_node, 'r')
@@ -92,7 +92,7 @@ class Inst(AsmNode):
 		return [self.get_operand_node(name) for name in self.operand_names()]
 
 	def inst_join(self, list):
-		return self.asm_tab.join(list)
+		return "\t".join(list)
 
 	def read_operands(self):
 		return self.get_operands('r')
@@ -114,20 +114,19 @@ class Inst(AsmNode):
 
 	def patch_vars(self, fn_to_mem_loc):
 		args = []
+		klone = copy.deepcopy(self)
 
-		for name in self.operand_names():
+		for name in klone.operand_names():
 			#print name
-			asm_node = self.get_operand_node(name)
+			asm_node = klone.get_operand_node(name)
 			if not isinstance(asm_node, Var):
-				args.append(asm_node)
 				continue
 			
 			#print("patch op %s" % repr(name))
-			args.append(fn_to_mem_loc(asm_node) )
+			setattr(klone, name, fn_to_mem_loc(asm_node) )
 
-		result = self.__class__(*args)
-		result.origin = self.origin
-		return result
+		return klone
+
 
 	@staticmethod
 	def is_mem_to_mem(op1, op2):
@@ -136,9 +135,18 @@ class Inst(AsmNode):
 	def fix_operand_violations(self):
 		return []
 
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, *self.operand_nodes() )
+		
+	def beget(self, klass, *args):
+		new_inst = klass(*args)
+		new_inst.origin = self.origin
+		return new_inst
+		
+
 class Mov(Inst):
 	def __init__(self, src, dest):
-		Inst.__init__(self, src, dest)
+		Inst.__init__(self)
 		self.read_operand('src', src)
 		self.write_operand('dest', dest)
 
@@ -150,13 +158,10 @@ class Mov(Inst):
 			return []
 
 		temp = Var(pyc_gen_name.new(), True)
-		result = [
-			Mov(self.src, temp),
-			Mov(temp, self.dest)
+		return [
+			self.beget(Mov, self.src, temp),
+			self.beget(Mov, temp, self.dest)
 		]
-		result[0].origin = self.origin
-		result[1].origin = self.origin
-		return result
 
 	def is_noop(self):
 		if self.src == self.dest:
@@ -167,7 +172,7 @@ class Mov(Inst):
 	
 class Add(Inst):
 	def __init__(self, left, right):
-		Inst.__init__(self, left, right)
+		Inst.__init__(self)
 		self.read_operand('left', left)
 		self.read_write_operand('right', right)
 
@@ -179,18 +184,15 @@ class Add(Inst):
 			return []
 
 		temp = Var(pyc_gen_name.new(), True)
-		result = [
-			Mov(self.left, temp),
-			Add(temp, self.right)
+		return [
+			self.beget(Mov, self.left, temp),
+			self.beget(Add, temp, self.right)
 		]
-		result[0].origin = self.origin
-		result[1].origin = self.origin
-		return result
 
 
 class Push(Inst):
 	def __init__(self, operand):
-		Inst.__init__(self, operand)
+		Inst.__init__(self)
 		self.read_operand('operand', operand)
 
 	def __str__(self):
@@ -198,7 +200,7 @@ class Push(Inst):
 
 class Pop(Inst):
 	def __init__(self, operand):
-		Inst.__init__(self, operand)
+		Inst.__init__(self)
 		self.write_operand('operand', operand)
 		
 	def __str__(self):
@@ -207,7 +209,7 @@ class Pop(Inst):
 
 class Neg(Inst):
 	def __init__(self, operand):
-		Inst.__init__(self, operand)
+		Inst.__init__(self)
 		self.read_write_operand('operand', operand)
 
 	def __str__(self):
@@ -215,7 +217,7 @@ class Neg(Inst):
 
 class Call(Inst):
 	def __init__(self, name):
-		Inst.__init__(self, name)
+		Inst.__init__(self)
 		self.name = name
 
 	def __str__(self):
@@ -225,28 +227,38 @@ class Call(Inst):
 		return [Register(x) for x in Register.caller_save ]
 
 	def patch_vars(self, mem_map):
-		return copy.copy(self)
+		return self.beget(Call, self.name)
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.name)
+
+#END INSTRUCTIONS
 
 class Immed(AsmNode):
 	def __init__(self, node):
-		AsmNode.__init__(self, node)
+		AsmNode.__init__(self)
 		self.node = node
 
 	def __str__(self):
 		return "$%s" % str(self.node)
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.node)
 
 def get_vars(asm_nodes):
 	return [x for x in asm_nodes if isinstance(x, Var)]
 
 class Var(AsmNode):
 	def __init__(self, name, needs_reg=False):
-		AsmNode.__init__(self, name)
+		AsmNode.__init__(self)
 		self.name = name
 		self.needs_reg = needs_reg
 
 	def __str__(self):
 		return self.name
 
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.name)
 
 class Register(Var):
 	caller_save = [
@@ -269,12 +281,13 @@ class Register(Var):
 	def __str__(self):
 		return "%%%s" % self.name
 
+	
 class MemoryRef(AsmNode):
 	pass
 
 class Indirect(MemoryRef):
 	def __init__(self, reg, offset):
-		MemoryRef.__init__(self, reg, offset)
+		MemoryRef.__init__(self)
 		if isinstance(reg, Register) != True:
 			raise Exception("invalid register: %s" % reg.__class__.__name__)
 			
@@ -293,7 +306,9 @@ class Indirect(MemoryRef):
 
 		return s
 		
-
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.reg, self.offset)
+	
 """
 an offset of 0 => -4(%ebp)
 an offset of 4 => -8(%ebp)
@@ -303,7 +318,6 @@ an offset of N => -(4+N)(%ebp)
 class EBPIndirect(Indirect):
 	def __init__(self, offset):
 		Indirect.__init__(self, Register("ebp"), offset)
-		AsmNode.__init__(self, offset)
 
 	def __str__(self):
 		return self._to_s(-(self.offset+4) )
@@ -311,16 +325,15 @@ class EBPIndirect(Indirect):
 		
 class Int(AsmNode):
 	def __init__(self, val):
-		AsmNode.__init__(self, val)
+		AsmNode.__init__(self)
 		self.val = val
 
 	def __str__(self):
 		return str(self.val)
 
-#class Global(MemoryRef):
-#	def __init__(self, name):
-#		MemoryRef.__init__(self, name)
-#		self.name = name
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.val)
+
 
 
 
