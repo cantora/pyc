@@ -14,7 +14,7 @@ from pyc_log import *
 import os.path
 import time
 
-g_phases = ["parse", "explicate", "ss-list", "asm-node-list"]
+g_phases = ["parse", "explicate", "sir-list", "asm-node-list"]
 
 def opt_parser():
 	global g_phases
@@ -78,11 +78,11 @@ def run(options):
 		exit(0)
 		
 	t0 = time.time()
-	ss_list = pyc_ast.to_ss_list(as_tree)
-	log("se list: ")
-	ss_list_str = lambda : "\n".join([repr(ss) for ss in ss_list]) 
-	if options.phase == 'ss-list':
-		print ss_list_str()
+	sir_mod = pyc_ast.simple_ir(ir_tree)
+	log("sir list: ")
+	sir_list_str = lambda : "\n".join([pyc_ir.dump(sir) for sir in sir_mod.body]) 
+	if options.phase == 'sir-list':
+		print sir_list_str()
 		exit(0)
 
 	log(ss_list_str)

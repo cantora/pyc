@@ -1,10 +1,13 @@
-
-import compiler
 from pyc_log import *
 import pyc_gen_name
+import pyc_vis
+import pyc_ir
+import ast
+
+import copy
 
 #list of simple statement which can be discarded
-class DiscardSSList(compiler.ast.Node):
+class DiscardSSList:
 	def __init__(self, nodes, lineno=None):
 		self.nodes = nodes
 
@@ -16,10 +19,6 @@ class DiscardSSList(compiler.ast.Node):
 
 	def __repr__(self):
 		return "DiscardSSList(%s)" % repr(self.nodes)
-
-	
-class OutOfScope(Exception):
-	pass
 
 def to_str_fmt_func(node, user, depth):
 	val = node.__class__.__name__
@@ -43,148 +42,114 @@ def _traverse(node, func, user, depth=0):
 	for n in node.getChildNodes():
 		_traverse(n, func, user, depth+1)
 
-#convert an abstract syntax tree into a list of
-#simple expressions
-#a simple expression: an expression which has only
-#one operation on at most two things
-def to_ss_list(as_tree):
-	dummy, ss_list = _to_ss_list(as_tree)
-	return ss_list
 
-def user_name(original):
-	return "user_%s" % original
-
-def assert_simple_node(node):
-	if( isinstance(node, compiler.ast.Name) != True \
-			and isinstance(node, compiler.ast.Const) != True):
-		raise TypeError("expected simple node type, got %s" % node.__class__.__name__) 
-
-def convert_ass_names(ass_names):
-	result = []
-
-	for n in ass_names:
-		result.append( compiler.ast.AssName( user_name(n.name), 0) )
-
-	return result
-
-
-def _to_ss_list(node, depth=0):
-	val = node.__class__.__name__
-	if len(node.getChildNodes()) < 1:
-		val = repr(node)
-
-	log("_to_ss_list:%s %s" % (' '*depth, val))
-	result = None
-
-	if( isinstance(node, compiler.ast.Module) ):
-		result = _to_ss_list(node.node, depth+1)
-
-	elif( isinstance(node, compiler.ast.Stmt) ):
-		l = []
-		for n in node.nodes:
-			(name, ss_list) = _to_ss_list(n, depth+1)
-			l += ss_list
-
-		result = (None, l)
+class IRTreeSimplifier(pyc_vis.Visitor):
 	
-	elif( isinstance(node, compiler.ast.Assign) ):
-		(name, ss_list) = _to_ss_list(node.expr, depth + 1)
+	def __init__(self):
+		pyc_vis.Visitor.__init__(self)
 
-		new_ass = compiler.ast.Assign( convert_ass_names(node.nodes), name)
-		ss_list.append(new_ass)
-		result = (None, ss_list)
+	def var_ref(self, name):
+		return ast.Name( id = name, ctx = ast.Load() )
 
-	elif( isinstance(node, compiler.ast.Add) ):
-		(l_name, l_ss_list) = _to_ss_list(node.left, depth + 1)
-		(r_name, r_ss_list) = _to_ss_list(node.right, depth + 1)
+	def visit_Module(self, node):
+		sir_body = []
+		for n in node.body:
+			(name, sir_list) = pyc_vis.visit(self, n)
+			sir_body += sir_list
+
+		return ast.Module(body = sir_body)
+
+	def visit_Assign(self, node):	
+		(name, sir_list) = pyc_vis.visit(self, node.value)
+
+		sir_list.append(ast.Assign(
+			targets = [copy.deepcopy(node.targets[0])],
+			value = name
+		))
+		return (None, sir_list)
+
+	def visit_BinOp(self, node):
+		(l_name, l_sir_list) = pyc_vis.visit(self, node.left)
+		(r_name, r_sir_list) = pyc_vis.visit(self, node.right)
 		
 		result_name = pyc_gen_name.new()
-		l_ss_list += r_ss_list
-		l_ss_list.append( compiler.ast.Assign( \
-							[compiler.ast.AssName(result_name, 0)], \
-							compiler.ast.Add( (l_name, r_name) ) \
-						) )
-		result = (compiler.ast.Name(result_name), l_ss_list)
+		l_sir_list += r_sir_list
+		l_sir_list.append(ast.Assign(
+			targets = [self.var_ref(result_name)],
+			value = ast.BinOp( 
+				left = l_name, 
+				op = node.op.__class__(),
+				right = r_name
+			)
+		))
 
-	elif( isinstance(node, compiler.ast.CallFunc) ):
-		#log(repr(node.args) #result = (node		
-		args = []
-		l = []
+		return (self.var_ref(result_name), l_sir_list)
 
-		for n in node.args:
-			(name, ss_list) = _to_ss_list(n, depth+1)
-			args.append( name )
-			l += ss_list
+	def visit_UnaryOp(self, node):
+		(name, sir_list) = pyc_vis.visit(self, node.operand)
+		result_name = pyc_gen_name.new()
+		sir_list.append(ast.Assign(
+			targets = [self.var_ref(result_name)],
+			value = ast.UnaryOp(
+				op = node.__class__(),
+				operand = name
+			)
+		))
+
+		return (self.var_ref(result_name), sir_list)
+
+	def visit_Call(self, node):
+		if not node.kwargs is None \
+				or not node.starargs is None \
+				or hasattr(node, 'keywords'):
+			raise Exception("havent implemented kwargs or starargs")
+
+		fn_args = []
+		sir_list = []
+
+		if hasattr(node, 'args'):
+			for n in node.args:
+				(name, arg_sir_list) = pyc_vis.visit(self, n)
+				fn_args.append( name )
+				sir_list += arg_sir_list
 		
 		result_name = pyc_gen_name.new()
-		new_ass = compiler.ast.Assign( \
-			[compiler.ast.AssName(result_name, 0)], \
-			compiler.ast.CallFunc(node.node, args) \
+		sir_list.append(ast.Assign(
+			targets = [self.var_ref(result_name)],
+			value = ast.Call(
+				func = copy.deepcopy(node.func), 
+				args = fn_args
 			)
+		))
 
-		l.append( new_ass )
-		result = (compiler.ast.Name(result_name), l)
+		return (self.var_ref(result_name), sir_list)
 
-	elif( isinstance(node, compiler.ast.UnarySub) ):
-		(name, ss_list) = _to_ss_list(node.expr, depth+1)
-		result_name = pyc_gen_name.new()
-		new_ass = compiler.ast.Assign( \
-			[compiler.ast.AssName(result_name, 0)], \
-			compiler.ast.UnarySub(name) \
-			)
-		ss_list.append(new_ass)
+	def visit_Name(self, node):
+		return (self.var_ref(node.id), [] )
 
-		result = (compiler.ast.Name(result_name), ss_list)
+	def make_print(self, args):
+		return ast.Print(dest=None, values=args, nl=True)
 
-	elif( isinstance(node, compiler.ast.Discard) ):
-		(dummy, ss_list) = _to_ss_list(node.expr, depth+1) 
-		result = (None, [DiscardSSList(ss_list)])
-
-	elif( isinstance(node, compiler.ast.Printnl) ):
-		nlen = len(node.nodes)
+	def visit_Print(self, node):
+		nlen = len(node.values)
 		if nlen == 0 :
-			result = (node, [])			
+			return (None, [self.make_print([])])
 		elif nlen == 1 :
-			(name, ss_list) = _to_ss_list(node.nodes[0], depth+1)
-			ss_list.append(compiler.ast.Printnl([name], node.dest))
-			result = (None, ss_list)
-		else :
-			raise OutOfScope("print statements may only print one item (%d)" % nlen)
+			(name, sir_list) = pyc_vis.visit(self, node.values[0])
+			sir_list.append(self.make_print([name]))
+			return (None, sir_list)
+
+		raise Exception("print statements may only print one item (%d)" % nlen)
+
 
 		
-	elif( isinstance(node, compiler.ast.Name) ):
-		result = (compiler.ast.Name( user_name(node.name) ), [])
 
-	elif( isinstance(node, compiler.ast.Const) ):
-		result = (node, [])
-	else:
-		raise Exception("unexpected node: %s" % (node.__class__.__name__) )
-
-	log('_to_ss_list:%s %s => %s' % (' '*depth, val, repr(result) ))
-
-	return result
+	
+#convert an abstract syntax tree into a list of
+#simple IR statements
+def simple_ir(ir_tree):
+	return pyc_vis.walk(IRTreeSimplifier(), ir_tree)
 
 
-def assign_to_py(node):
-	if len(node.nodes) > 1:
-		raise Exception("expected one lhs node")
-	elif not isinstance(node.nodes[0], compiler.ast.AssName):
-		raise Exception("unexpected node type %r in assign %r" % (node.nodes[0], node) )
 
-	return "%s = %s" % (node.nodes[0].name, expr_to_literal(node.expr))
 
-def expr_to_literal(expr):
-	if isinstance(expr, compiler.ast.UnarySub):
-		return "-%s" % expr_to_literal(expr.expr) 
-
-	elif isinstance(expr, compiler.ast.Name):
-		return expr.name
-
-	elif isinstance(expr, compiler.ast.Const):
-		return expr.value
-
-	elif isinstance(expr, compiler.ast.Add):
-		return "%s + %s" % (expr_to_literal(expr.left), expr_to_literal(expr.right) )
-
-	else:
-		raise Exception("cannot convert expr to literal: %r" % expr)
