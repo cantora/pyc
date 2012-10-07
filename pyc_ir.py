@@ -1,6 +1,7 @@
 from pyc_astvisitor import ASTTxformer
 import pyc_vis
 import pyc_parser
+from pyc_log import *
 
 import ast
 
@@ -68,8 +69,12 @@ class AstToIRTxformer(ASTTxformer):
 		)
 
 
+
+
 def generate(as_tree):
-	return pyc_vis.walk(AstToIRTxformer(), as_tree)
+	v = AstToIRTxformer()
+	#v.log = log
+	return pyc_vis.walk(v, as_tree)
 
 def print_irtree(tree):
 	return pyc_parser.print_astree(tree)

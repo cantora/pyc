@@ -6,20 +6,7 @@ import ast
 
 import copy
 
-#list of simple statement which can be discarded
-class DiscardSSList:
-	def __init__(self, nodes, lineno=None):
-		self.nodes = nodes
-
-	def getChildren(self):
-		return self.nodes
-
-	def getChildNodes(self):
-		return self.nodes
-
-	def __repr__(self):
-		return "DiscardSSList(%s)" % repr(self.nodes)
-
+"""
 def to_str_fmt_func(node, user, depth):
 	val = node.__class__.__name__
 	if len(node.getChildNodes()) == 0:
@@ -42,6 +29,7 @@ def _traverse(node, func, user, depth=0):
 	for n in node.getChildNodes():
 		_traverse(n, func, user, depth+1)
 
+"""
 
 class IRTreeSimplifier(pyc_vis.Visitor):
 	
@@ -91,7 +79,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		sir_list.append(ast.Assign(
 			targets = [self.var_ref(result_name)],
 			value = ast.UnaryOp(
-				op = node.__class__(),
+				op = node.op.__class__(),
 				operand = name
 			)
 		))
@@ -141,9 +129,12 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		raise Exception("print statements may only print one item (%d)" % nlen)
 
-
+	def visit_Num(self, node):
+		return (ast.Num(n=node.n), [])
 		
-
+	def visit_Expr(self, node):
+		(dummy, sir_list) = pyc_vis.visit(self, node.value)
+		return (None, sir_list)
 	
 #convert an abstract syntax tree into a list of
 #simple IR statements

@@ -13,6 +13,7 @@ import compiler
 from pyc_log import *
 import os.path
 import time
+import resource
 
 g_phases = ["parse", "explicate", "sir-list", "asm-node-list"]
 
@@ -65,12 +66,16 @@ def run(options):
 	#we are verbose or not first.
 	import pyc_parser
 
+	# Increase max stack size from 8MB to 512MB
+	resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
+	sys.setrecursionlimit(10**6)
+
 	as_tree = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
 		pyc_parser.print_astree(as_tree)
 		exit(0)
 
-	log( lambda : pyc_ast.str(as_tree))
+	#log( lambda : pyc_ast.str(as_tree))
 
 	ir_tree = pyc_ir.generate(as_tree)
 	if options.phase == 'explicate':
@@ -85,9 +90,9 @@ def run(options):
 		print sir_list_str()
 		exit(0)
 
-	log(ss_list_str)
+	log(sir_list_str)
 
-	asm_list = pyc_asm_list.from_ss_list(ss_list)
+	asm_list = pyc_asm_list.from_sir_mod(sir_mod)
 
 	asm_list = reduce(lambda a,b: a + b, asm_list, [])
 	asm_list_str = lambda : "\n".join([repr(n) for n in asm_list])
@@ -109,12 +114,12 @@ def run(options):
 	if stacksize > 0:
 		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
 
-	insns.extend(format_insn_nodes(adjusted_asm_list, ss_list, symtbl) )
+	insns.extend(format_insn_nodes(adjusted_asm_list, sir_mod, symtbl) )
 	insns.extend(asm_suffix())
 
 	output(options, insns)
 
-def format_insn_nodes(ins_nodes, ss_list, symtbl):
+def format_insn_nodes(ins_nodes, sir_mod, symtbl):
 	result = []
 	previous = None
 	
@@ -131,7 +136,7 @@ def format_insn_nodes(ins_nodes, ss_list, symtbl):
 		if previous is None or previous.origin != ins.origin:
 			val = ""
 	
-			s = "%-20s #%s%s" % (s, val, repr(ins.origin))
+			s = "%-20s #%s%s" % (s, val, pyc_ir.dump(ins.origin))
 	
 		previous = ins
 		result.append(s)
