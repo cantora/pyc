@@ -29,7 +29,7 @@ class ASTTxformer(pyc_vis.Visitor):
 		pyc_vis.Visitor.__init__(self)
 
 	def default(self, node):
-		node = copy.deepcopy(node)
+		new_node = node.__class__()
 		for field, old_value in ast.iter_fields(node):
 			old_value = getattr(node, field, None)
 			if isinstance(old_value, list):
@@ -43,11 +43,17 @@ class ASTTxformer(pyc_vis.Visitor):
 							new_values.extend(value)
 							continue
 					new_values.append(value)
-				old_value[:] = new_values
+				setattr(new_node, field, new_values)
 			elif isinstance(old_value, ast.AST):
-				new_node = pyc_vis.visit(self, old_value)
-				if new_node is None:
-					delattr(node, field)
-				else:
-					setattr(node, field, new_node)
-		return node
+				new_child = pyc_vis.visit(self, old_value)
+				if not new_child is None:
+					setattr(new_node, field, new_child)
+
+			elif isinstance(old_value, int):
+				setattr(new_node, field, old_value)
+
+			else:
+				raise Exception("didnt expect to copy field with class %r: %r" % (old_value.__class__, old_value) )
+
+		return new_node
+
