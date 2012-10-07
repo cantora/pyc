@@ -12,7 +12,7 @@ from pyc_log import *
 import os.path
 import time
 
-g_phases = ["parse", "ss-list", "asm-node-list"]
+g_phases = ["parse", "explicate", "ss-list", "asm-node-list"]
 
 def opt_parser():
 	global g_phases
@@ -65,12 +65,16 @@ def run(options):
 
 	as_tree = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
-		print pyc_ast.str(as_tree)
+		pyc_parser.print_astree(as_tree)
 		exit(0)
 
-	log( lambda : repr(as_tree))
 	log( lambda : pyc_ast.str(as_tree))
 
+	ir = pyc_ir.generate(as_tree)
+	if options.phase == 'explicate':
+		pyc_ir.print_irtree(ir_tree)
+		exit(0)
+		
 	t0 = time.time()
 	ss_list = pyc_ast.to_ss_list(as_tree)
 	log("se list: ")
