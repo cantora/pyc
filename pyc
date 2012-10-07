@@ -7,6 +7,8 @@ import pyc_asm_list
 import pyc_var_analyzer
 import pyc_reg_allocator
 import pyc_asm_nodes
+import pyc_ir
+
 import compiler
 from pyc_log import *
 import os.path
@@ -70,7 +72,7 @@ def run(options):
 
 	log( lambda : pyc_ast.str(as_tree))
 
-	ir = pyc_ir.generate(as_tree)
+	ir_tree = pyc_ir.generate(as_tree)
 	if options.phase == 'explicate':
 		pyc_ir.print_irtree(ir_tree)
 		exit(0)

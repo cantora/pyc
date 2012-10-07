@@ -5,7 +5,7 @@ class Visitor:
 
 	def default(self, node, *args):
 		raise Exception('no visit method for type %s in %s at depth %d' \
-			% (node.__class__, self.__class__), self.depth)
+			% (node.__class__, self.__class__, self.depth) )
 	
 
 def dispatch(instance, node, *args):
