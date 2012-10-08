@@ -149,10 +149,13 @@ def tag_switch(name, int_node, bool_node, big_node):
 					rhs = Tag.big_tag
 				),
 				body = big_node,
-				orelse = Error("unknown tag type")
+				orelse = make_error("unknown tag type")
 			)
 		)			
 	)
+
+def make_error(msg):
+	return Error(ast.Str(s = msg) )
 
 #left and right must be names or code duplication will result
 def make_cmp(lname, rname):
