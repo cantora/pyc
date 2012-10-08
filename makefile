@@ -5,6 +5,7 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) \
 			$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
 			$(wildcard ./p0tests/student_tests/*.py)
 
+P1TESTS	= $(wildcard ./p1tests/mytests/*.py) 
 
 .PHONY: pkg
 pkg: hw.zip
@@ -40,6 +41,17 @@ compile_test:
 .PHONY: p0tests
 p0tests:
 	@for i in $(P0TESTS); do \
+		VERBOSE=0 ./test.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+		echo "[x] $$(basename $$i)"; \
+	done
+
+.PHONY: p1tests
+p1tests:
+	@for i in $(P1TESTS); do \
 		VERBOSE=0 ./test.sh $$i; \
 		if [ $$? -ne 0 ]; then \
 			echo "FAILED: $$(basename $$i)"; \
