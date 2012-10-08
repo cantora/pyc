@@ -9,15 +9,21 @@ class Visitor:
 			% (node.__class__, self.__class__, self.depth) )
 	
 
-def dispatch(instance, node, *args):
+def dispatch_to_prefix(instance, prefix, default, node, *args):
 	klass = node.__class__
-	className = klass.__name__
-	meth = getattr(instance, 'visit_' + className, instance.default)
+	meth = getattr(
+		instance, 
+		prefix + klass.__name__, 
+		getattr(instance, default)
+	)
 
 	if hasattr(instance.log, '__call__'):
 		instance.log("%s%s => %s" % (" "*instance.depth, node.__class__.__name__, meth.__name__) )
 
 	return meth(node, *args)
+
+def dispatch(instance, node, *args):
+	return dispatch_to_prefix(instance, 'visit_', 'default', node, *args)
 
 def visit(instance, node, *args):
 	instance.depth += 1
