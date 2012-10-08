@@ -1,8 +1,12 @@
 from pyc_astvisitor import ASTTxformer
+from pyc_astvisitor import ASTVisitor
 import pyc_vis
 import pyc_parser
 from pyc_log import *
+from pyc_ir_nodes import *
+import pyc_gen_name
 
+import StringIO
 import ast
 
 class AstToIRTxformer(ASTTxformer):
@@ -43,30 +47,48 @@ class AstToIRTxformer(ASTTxformer):
 			nl = True
 		)
 
+	def gen_name(self):
+		return pyc_gen_name.new("ir_")
+
 	def visit_Name(self, node):
-		name_id = "user_"+node.id
+		name_id = pyc_gen_name.user_name(node.id)
 		return ast.Name(
 			id = name_id,
 			ctx = node.ctx.__class__()
 		)
 
-	def visit_IfExp(self, node):
-		
-		return ast.IfExp(
-			test = pyc_vis.visit(self, node.test),
-			body = pyc_vis.visit(self, node.body),
-			orelse = pyc_vis.visit(self, node.orelse)
-		)
 
+	def visit_Compare(self, node):
+		if len(node.ops) != 1:
+			raise BadAss("expected 1 compare op: %s" % dump(node) )
+		elif not isinstance(node.ops[0], ast.Eq):
+			raise BadAss("expected compare to use equality context: %s" % dump(node) )
+		elif len(node.comparators) != 1:
+			raise BadAss("expected 1 comparator: %s" % dump(node) )
+
+		l_name = var_ref(self.gen_name())
+		comp_name = var_ref(self.gen_name() )
+
+		return Let(
+			l_name,
+			pyc_vis.visit(self, node.left),
+			Let(
+				comp_name, 
+				pyc_vis.visit(self, node.comparators[0]),
+				InjectFromBool(make_cmp(l_name, comp_name))
+			)
+		)
+			
+		
 	def visit_Call(self, node):
 		if node.func.id != "input":
 			raise InvalidP1("the only function in p1 is input >_<: %r" % node)
 		
-		return ast.Call(
+		return InjectFromInt(ast.Call(
 			func = ast.Name( id = "input", ctx = ast.Load() ),
 			kwargs = None,
 			starargs = None
-		)
+		))
 
 
 
@@ -84,3 +106,25 @@ def str(tree):
 
 def dump(tree):
 	return ast.dump(tree)
+
+
+class PrintPyVisitor(ASTVisitor):
+	
+	def __init__(self, io):
+		ASTVisitor.__init__(self)
+		self.io = io
+
+	def default_ast(self, node, field=""):
+		pass
+
+	def default_non_ast(self, obj, field=""):
+		pass
+
+
+def to_py(ir_node):
+	s = StringIO.StringIO()
+	v = PrintPyVisitor(s)	
+	v.log = log
+	pyc_vis.walk(v, ir_node)
+	return v.io.getvalue()
+	
