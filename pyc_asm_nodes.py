@@ -59,6 +59,10 @@ class Inst(AsmNode):
 	def is_noop(self):
 		return False
 
+	@staticmethod
+	def gen_name():
+		return pyc_gen_name.new("temp_op")
+
 	def new_operand(self, name, operand, mode):
 		if mode not in self.op_modes.keys():
 			raise Exception("invalid operand mode: %s" % repr(mode))
@@ -131,6 +135,19 @@ class Inst(AsmNode):
 	@staticmethod
 	def is_mem_to_mem(op1, op2):
 		return isinstance(op1, MemoryRef) and isinstance(op2, MemoryRef)
+	
+	@staticmethod
+	def fix_two_op_operand_violation(instance, op_a, op_b):
+		a = getattr(instance, op_a)
+		b = getattr(instance, op_b)
+		if not Inst.is_mem_to_mem(a, b):
+			return []
+
+		temp = Var(Inst.gen_name(), True)
+		return [
+			instance.beget(Mov, copy.deepcopy(a), temp),
+			instance.beget(instance.__class__, temp, copy.deepcopy(b))
+		]
 
 	def fix_operand_violations(self):
 		return []
@@ -154,14 +171,7 @@ class Mov(Inst):
 		return self.inst_join(["movl", "%s, %s" % (str(self.src), str(self.dest) )])
 
 	def fix_operand_violations(self):
-		if not Inst.is_mem_to_mem(self.src, self.dest):
-			return []
-
-		temp = Var(pyc_gen_name.new(), True)
-		return [
-			self.beget(Mov, self.src, temp),
-			self.beget(Mov, temp, self.dest)
-		]
+		return Inst.fix_two_op_operand_violation(self, 'src', 'dest')
 
 	def is_noop(self):
 		if self.src == self.dest:
@@ -180,14 +190,7 @@ class Add(Inst):
 		return self.inst_join(["addl", "%s, %s" % (str(self.left), str(self.right) )])
 
 	def fix_operand_violations(self):
-		if not Inst.is_mem_to_mem(self.left, self.right):
-			return []
-
-		temp = Var(pyc_gen_name.new(), True)
-		return [
-			self.beget(Mov, self.left, temp),
-			self.beget(Add, temp, self.right)
-		]
+		return Inst.fix_two_op_operand_violation(self, 'left', 'right')
 
 
 class Push(Inst):
@@ -232,6 +235,93 @@ class Call(Inst):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.name)
 
+
+class Cmp(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_operand('right', right)
+	
+	def __str__(self):
+		return self.inst_join(["cmpl", "%s, %s" % (str(self.left), str(self.right) ) ] )
+
+	def fix_operand_violations(self):
+		return Inst.fix_two_op_operand_violation(self, 'left', 'right')
+
+class Sete(Inst):
+	def __init__(self, dest):
+		Inst.__init__(self)
+		self.write_operand('dest', dest)
+
+	def __str__(self):
+		return self.inst_join(["sete", str(self.dest)])
+
+	def fix_operand_violations(self):
+		if isinstance(self.dest, CuteReg):
+			return []
+
+		raise Exception("ohnos!")
+
+class Setne(Sete):
+	def __init__(self, dest):
+		Sete.__init__(self, dest)
+
+	def __str__(self):
+		return self.inst_join(["setne", str(self.dest)])
+
+class Movzbl(Inst):
+	def __init__(self, src, dest):
+		Inst.__init__(self)
+		self.read_operand('src', src)
+		self.write_operand('dest', dest)
+
+	def __str__(self):
+		return self.inst_join(["movzbl", "%s, %s" % (str(self.src), str(self.dest) ) ] )
+
+	def fix_operand_violations(self):
+		if not Inst.is_mem_to_mem():
+			return []
+
+		raise Exception("im working on this...")
+
+class Interrupt(Inst):
+	def __init__(self, code):
+		Inst.__init__(self)
+		self.read_operand('code', code)
+		
+	def __str__(self):
+		return self.inst_join(["int", str(code)])
+
+
+class AsmIf(Inst):
+	def __init__(self, test, body, orelse):
+		Inst.__init__(self)
+		self.test = test
+		self.body = body
+		self.orelse = orelse
+
+	def __repr__(self):
+		return "\n".join(self.inspect())
+
+	def inspect(self, depth=0):
+		lines = []
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
+		lines.extend(self.inspect_branch(self.body, depth+1))
+		lines.extend(self.inspect_branch(self.orelse, depth+1))
+		lines.append("%send(%r)" % (" "*depth, self.test) )
+
+		return lines
+
+	def inspect_branch(self, list, depth=0):
+		lines = []
+		for ins in list:
+			if isinstance(ins, AsmIf):
+				lines.extend(ins.inspect(depth) )
+			else:
+				lines.append("%s%s" % (" "*depth, repr(ins)) )
+
+		return lines
+			
 #END INSTRUCTIONS
 
 class Immed(AsmNode):
@@ -281,7 +371,23 @@ class Register(Var):
 	def __str__(self):
 		return "%%%s" % self.name
 
+#awwww.... your just one lil byte arentcha?
+class CuteReg(Register):
 	
+	def __init__(self, name):
+		Register.__init__(self, name)
+	
+	def parent(self):
+		map = {
+			"a": "eax",
+			"b": "ebx",
+			"c": "ecx",
+			"d": "edx"
+		}
+
+		return Register(map[self.name[0:1]])
+
+
 class MemoryRef(AsmNode):
 	pass
 
@@ -323,7 +429,7 @@ class EBPIndirect(Indirect):
 		return self._to_s(-(self.offset+4) )
 		
 		
-class Int(AsmNode):
+class DecInt(AsmNode):
 	def __init__(self, val):
 		AsmNode.__init__(self)
 		self.val = val
@@ -333,6 +439,29 @@ class Int(AsmNode):
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.val)
+
+class HexInt(AsmNode):
+	def __init__(self, val):
+		AsmNode.__init__(self)
+		self.val = val
+
+	def __str__(self):
+		return "%02x" % self.val
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, str(self))
+
+class GlobalString(AsmNode):
+	def __init__(self, value):
+		AsmNode.__init__(self)
+		self.name = pyc_gen_name.new("global_str_")
+		self.value = value
+
+	def __str__(self):
+		return self.name
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.name, self.value)
 
 
 
