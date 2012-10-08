@@ -1,9 +1,8 @@
 
 prefix_count = {
-	"gen_": 0
 }
 
-def new(prefix="gen_"):
+def new(prefix):
 	global prefix_count
 	if not prefix in prefix_count:
 		prefix_count[prefix] = 0
