@@ -25,7 +25,17 @@ def opt_parser():
 	parser.add_argument('-c', '--code', help='code to compile')
 	parser.add_argument('-o', '--output', help='output file.')
 	parser.add_argument('-v', '--verbose', action='store_true', help='print debug output.')
-	parser.add_argument('-p', '--phase', help=('stop and print intermediate compiler result. phases: %s' % ", ".join(g_phases)) )
+	parser.add_argument(
+		'-p', 
+		'--phase', 
+		help=('stop and print intermediate compiler result. phases: %s' % ", ".join(g_phases)) 
+	)
+	parser.add_argument(
+		'-i', 
+		'--IR', 
+		action='store_true', 
+		help='output intermediate representation python program instead of x86'
+	)
 
 	return parser
 
@@ -91,6 +101,13 @@ def run(options):
 		exit(0)
 
 	log(sir_list_str)
+
+	if options.IR:
+		#with output_file(options, "python") as f:
+		#	for stmt in sir_mod.body:
+		#		print >>f, pyc_ir.to_py(stmt)
+		raise Exception("not implemented")
+		exit(0)
 
 	asm_list = pyc_asm_list.from_sir_mod(sir_mod)
 
@@ -165,26 +182,36 @@ def asm_suffix():
 		"ret"
 	]
 
+def output_is_to_stdout(options):
+	return (options.src_type == 'cmdline' or options.output == '-')
 
-def output(options, insns):
-	if options.src_type == 'cmdline' or options.output == '-':
-		for hdr in asm_headers():
-			print hdr
-		for ins in insns:
-			print "\t" + ins
+def output_file(options, type):
+	if output_is_to_stdout(options):
+		return sys.stdout
 	else:
-		
-		output_fname = "%s.s" % os.path.splitext(options.file.name)[0]
+		ext = "py" if type == "python" else "s"
+		output_fname = "%s.%s" % (os.path.splitext(options.file.name)[0], ext)
 		ofile = open(output_fname, 'w')
+		return ofile
+	
+	
+def with_output_file(options, type, bloc):
+	ofile = output_file(options, type)
 
-		for hdr in asm_headers():
-			ofile.write(hdr + "\n")
-		
-		for ins in insns:
-			ofile.write("\t" + ins + "\n")
+	bloc(ofile)
 
+	ofile.flush()
+	if ofile != sys.stdout:
 		ofile.close()
-			
+
+	
+	
+def output(options, insns):
+	with output_file(options, "asm") as f:
+		for hdr in asm_headers():
+			print >>f, (hdr)
+		for ins in insns:
+			print >>f, ("\t" + ins)
 			
 	
 
