@@ -113,10 +113,16 @@ def var_ref(name_id):
 		ctx = ast.Load()
 	)
 
+def make_assign(target, value):
+	return ast.Assign(
+		targets = [target],
+		value = value
+	)
+
 def simple_compare(lhs, rhs):
 	return ast.Compare(
 		left = lhs,
-		op = ast.Eq(),
+		ops = [ast.Eq()],
 		comparators = [rhs]
 	)
 
