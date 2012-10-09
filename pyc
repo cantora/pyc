@@ -94,13 +94,13 @@ def run(options):
 		
 	t0 = time.time()
 	sir_mod = pyc_ast.simple_ir(ir_tree)
-	log("sir list: ")
-	sir_list_str = lambda : "\n".join([pyc_ir.dump(sir) for sir in sir_mod.body]) 
+
 	if options.phase == 'sir-list':
-		print sir_list_str()
+		print pyc_ast.sir_list_to_str(sir_mod.body)
 		exit(0)
 
-	log(sir_list_str)
+	log("sir list: ")
+	log(pyc_ast.sir_list_to_str(sir_mod.body) )
 
 	if options.IR:
 		#with output_file(options, "python") as f:

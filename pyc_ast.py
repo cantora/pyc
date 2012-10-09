@@ -32,6 +32,24 @@ def _traverse(node, func, user, depth=0):
 
 """
 
+def sir_list_to_str(sir_list):
+	return "\n".join(_sir_list_to_str(sir_list))
+
+def _sir_list_to_str(sir_list, depth=0):
+	lines = []
+	for sir in sir_list:
+		if isinstance(sir, ast.If):
+			lines.append("%sIf(%s)" % (" "*depth, ast.dump(sir.test)) )
+			lines.extend(_sir_list_to_str(sir.body, depth+1) )
+			lines.append("%selse(%s)" % (" "*depth, ast.dump(sir.test)) )
+			lines.extend(_sir_list_to_str(sir.orelse, depth+1) )
+			lines.append("%send(%s)" % (" "*depth, ast.dump(sir.test)) )
+		else:
+			lines.append("%s%s" % (" "*depth, pyc_ir.dump(sir) ) )
+			
+
+	return lines
+
 class IRTreeSimplifier(pyc_vis.Visitor):
 	
 	def __init__(self):

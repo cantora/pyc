@@ -307,6 +307,7 @@ class AsmIf(Inst):
 		lines = []
 		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
 		lines.extend(self.inspect_branch(self.body, depth+1))
+		lines.append("%selse(%r)" % (" "*depth, self.test ) ) 
 		lines.extend(self.inspect_branch(self.orelse, depth+1))
 		lines.append("%send(%r)" % (" "*depth, self.test) )
 
