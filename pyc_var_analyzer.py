@@ -32,41 +32,53 @@ class IntfGraph(dict):
 
 def to_intf_graph(live_list):
 	graph = IntfGraph({})
-	
+
 	for reg in Register.registers:
 		graph.init_node(Register(reg))
 
-	for (ins, live) in live_list:
-		writes = get_vars(ins.writes())
-		if len(writes) < 1:
-			continue
-
-		log("(%s) => %s \n\t%s" % (ins.__class__.__name__, repr(writes), repr(live) ) )
-
-		for write in writes:
-			graph.init_node(write)
-
-		for var in live:
-			graph.init_node(var)			
-			if isinstance(ins, Call):
-				for write in writes:
-					graph.add_edge(write, var)
-
-			elif isinstance(ins, Mov):
-				reads = get_vars(ins.reads())
-				if len(reads) > 0 and var == reads[0]:
-					continue
-
-				graph.add_edge(writes[0], var)
-
+	def _to_intf_graph(live_list, graph, depth):
+		log("%screate interference graph from live_list" % (" "*depth))	
+		for (ins, live) in live_list:
+			if isinstance(ins, AsmIf):
+				log("%sAsmIf.orelse" % (" "*depth))
+				graph = _to_intf_graph(ins.orelse, graph, depth+1)
+				log("%sAsmIf.body" % (" "*depth) )
+				graph = _to_intf_graph(ins.body, graph, depth+1)
+				log("%sAsmIf(%s)" % (" "*depth, repr(ins.test) ) )
 			else:
-				if len(writes) != 1:
-					raise Exception("expected 1 write from %s" % ins)
+				writes = get_vars(ins.writes())
+				if len(writes) < 1:
+					continue
+		
+				log("%s(%s) => %s \n\t%s" % (" "*depth, ins.__class__.__name__, repr(writes), repr(live) ) )
+		
+				for write in writes:
+					graph.init_node(write)
+		
+				for var in live:
+					graph.init_node(var)			
+					if isinstance(ins, Call):
+						for write in writes:
+							graph.add_edge(write, var)
+		
+					elif isinstance(ins, Mov):
+						reads = get_vars(ins.reads())
+						if len(reads) > 0 and var == reads[0]:
+							continue
+		
+						graph.add_edge(writes[0], var)
+		
+					else:
+						if len(writes) != 1:
+							raise Exception("expected 1 write from %s" % ins)
+		
+						graph.add_edge(writes[0], var)
+				#for var in live
+			#else (not AsmIf)
+		return graph
+	#def _to_intf_graph
 
-				graph.add_edge(writes[0], var)
-
-	return graph
-
+	return _to_intf_graph(live_list, graph, 0)
 
 def to_live_list(asm_list, live = set([]), depth=0):
 	result = []
