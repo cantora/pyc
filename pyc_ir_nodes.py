@@ -23,6 +23,11 @@ class InjectFrom(IRNode):
 
 		assert_type_exists(self.typ)
 
+	@staticmethod
+	def inject(node, typ):
+		inj_klass = eval("InjectFrom%s" % typ.capitalize())
+		return inj_klass(node)
+
 class InjectFromInt(InjectFrom):
 	def __init__(self, arg):
 		InjectFrom.__init__(self, 'int', arg)
@@ -43,6 +48,11 @@ class ProjectTo(IRNode):
 		self._fields = ('typ', 'arg')
 
 		assert_type_exists(self.typ)
+
+	@staticmethod
+	def project(node, typ):
+		proj_klass = eval("ProjectTo%s" % typ.capitalize())
+		return proj_klass(node)
 
 class ProjectToInt(ProjectTo):
 	def __init__(self, arg):
@@ -76,9 +86,9 @@ class CastIntToBool(Cast):
 		Cast.__init__(self, 'int', 'bool', arg)
 
 class Tag(IRNode):
-	int_tag = ast.Num(n=0)
-	bool_tag = ast.Num(n=1)
-	big_tag = ast.Num(n=3)
+	int = ast.Num(n=0)
+	bool = ast.Num(n=1)
+	big = ast.Num(n=3)
 
 	def __init__(self, arg):
 		IRNode.__init__(self)
@@ -129,24 +139,38 @@ def simple_compare(lhs, rhs):
 def false_node():
 	return var_ref("False")
 	
+def let_env(body, *name_node_pairs):
+	if len(name_node_pairs) < 1:
+		return body
+
+	if not (isinstance(name_node_pairs[0], tuple) \
+			and len(name_node_pairs[0]) == 2 ):
+		raise Exception("not a name-node pair: %r" % name_node_pairs[0])
+
+	return Let(
+		name_node_pairs[0][0],
+		name_node_pairs[0][1],
+		let_env(body, *name_node_pairs[1:])
+	)
+
 
 def tag_switch(name, int_node, bool_node, big_node):
 	return ast.IfExp(
 		test = simple_compare(
 			lhs = Tag(name),
-			rhs = Tag.int_tag
+			rhs = Tag.int
 		),
 		body = int_node,
 		orelse = ast.IfExp(
 			test = simple_compare(
 				lhs = Tag(name),
-				rhs = Tag.bool_tag
+				rhs = Tag.bool
 			),
 			body = bool_node,
 			orelse = ast.IfExp(
 				test = simple_compare(
 					lhs = Tag(name),
-					rhs = Tag.big_tag
+					rhs = Tag.big
 				),
 				body = big_node,
 				orelse = make_error("unknown tag type")
@@ -157,7 +181,8 @@ def tag_switch(name, int_node, bool_node, big_node):
 def make_error(msg):
 	return Error(ast.Str(s = msg) )
 
-#left and right must be names or code duplication will result
+#arguments to make_* must be Let names or code duplication will result
+
 def make_cmp(lname, rname):
 	return tag_switch(
 		name = lname,
@@ -204,3 +229,127 @@ def make_big_cmp(lname, rname):
 			args = [ ProjectToBig(lname), ProjectToBig(rname) ]
 		)
 	)
+
+class PolySwitch:
+	tag_to_type = {
+		Tag.int: 'int',
+		Tag.bool: 'bool',
+		Tag.big: 'big'
+	}
+
+	def no_match(self, name_typ_list):
+ 		raise Exception('no method for form %s in %s' % (
+			repr([(ast.dump(name), typ) for (name, typ) in name_typ_list]), 
+			self.__class__
+		))
+
+	def match_types(self, typs):
+		meth_name = "_".join(typs)
+		meth = getattr(self, meth_name, None)
+		return meth
+	
+	def cast_int_to_bool(self, int_node):
+		return CastIntToBool(int_node)
+
+	def cast_bool_to_int(self, bool_node):
+		return CastBoolToInt(bool_node)
+		
+
+def polyswitch(instance, *names):
+	return _polyswitch(instance, (), names)
+
+def _polyswitch(instance, preceding, names):
+	if len(names) < 1:
+		return _polyswitch_base(instance, preceding)
+
+	this_name = names[0]
+	next_names = names[1:]
+
+	return tag_switch(
+		name = this_name,
+		int_node = _polyswitch(
+			instance, 
+			preceding + ((this_name, Tag.int),), 
+			next_names
+		),
+		bool_node = _polyswitch(
+			instance,
+			preceding + ((this_name, Tag.bool),),
+			next_names
+		),
+		big_node = _polyswitch(
+			instance,
+			preceding + ((this_name, Tag.big),),
+			next_names
+		)		
+	)
+
+
+def _polyswitch_base(instance, preceding):
+	#preceding contains a tuple of (name, tag)
+	(names, tags) = zip(*preceding) 		
+	typs = map(lambda tag: PolySwitch.tag_to_type[tag], tags)
+
+	meth = instance.match_types(typs)
+	if meth is None:
+		return polyswitch_match_types_with_casting(instance, preceding)
+	
+	projected_names = []
+	for (name, typ) in zip(names, typs):
+		projected_names.append(ProjectTo.project(name, typ) )
+		
+	return InjectFrom.inject(meth(*projected_names), typs[0])
+
+def polyswitch_match_types_with_casting(instance, preceding):
+	(names, tags) = zip(*preceding)
+	typs = map(lambda tag: PolySwitch.tag_to_type[tag], tags)
+
+	cast_fail = lambda : instance.no_match(zip(names, typs))
+
+	#can only type cast to match for 2 vars right now cause
+	#its really confusing
+	if len(preceding) != 2: 
+		return cast_fail()
+	
+	primary = typs[0]
+	
+	cast_meth = getattr(instance, "cast_%s_to_%s" % (typs[1], primary), None)
+	if cast_meth is None:
+		return cast_fail()
+
+	meth = instance.match_types([primary, primary])
+	if meth is None:
+		return cast_fail()
+
+	return InjectFrom.inject(
+		meth(*[
+			ProjectTo.project(names[0], primary),
+			cast_meth(names[1])
+		]),
+		primary
+	)
+		
+"""
+too complicated to do generically right now
+def polyswitch_match_types_with_casting(instance, preceding):
+	(names, tags) = zip(*preceding)
+	typs = map(lambda tag: PolySwitch.tag_to_type[tag], tags)
+
+	primary = typs[0]
+	convertable = {}
+
+	for i in range(1, len(typs)):
+		cast_meth = getattr(instance, "cast_%s_to_%s" % (typs[i], primary), None)
+		if not cast_meth is None:
+			convertable[i] = cast_meth
+
+	for i in range(0, len(names)):
+		
+
+		native_vars = [ProjectTo.project(names[0], primary)]
+
+		
+		
+	if meth is None:
+		return instance.no_match(zip(names, types))
+"""

@@ -65,9 +65,14 @@ def to_live_list(asm_list):
 	log("process asm_list into live_list")
 	for ins in reversed(asm_list):
 		log("ins: %s" % ins)
-
-		live = (live - set( get_vars(ins.writes()) ) ) \
-				| set( get_vars(ins.reads()) )
+		
+		#if isinstance(ins, AsmIf):
+		#		
+		#else:
+		live = (
+			live - set( get_vars(ins.writes()) ) ) \
+				| set( get_vars(ins.reads()) 
+		)
 		
 		result.append((ins, set(live)) )
 		log("live: %s" % repr(live))

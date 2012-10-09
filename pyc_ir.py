@@ -69,13 +69,15 @@ class AstToIRTxformer(ASTTxformer):
 		l_name = var_ref(self.gen_name())
 		comp_name = var_ref(self.gen_name() )
 
-		return Let(
-			l_name,
-			pyc_vis.visit(self, node.left),
-			Let(
+		return let_env(
+			InjectFromBool(make_cmp(l_name, comp_name)),
+			(
+				l_name,
+				pyc_vis.visit(self, node.left)
+			)
+			(
 				comp_name, 
-				pyc_vis.visit(self, node.comparators[0]),
-				InjectFromBool(make_cmp(l_name, comp_name))
+				pyc_vis.visit(self, node.comparators[0])
 			)
 		)
 			
@@ -90,7 +92,59 @@ class AstToIRTxformer(ASTTxformer):
 			starargs = None
 		))
 
+	def visit_BinOp(self, node):
+		l_name = var_ref(self.gen_name())
+		r_name = var_ref(self.gen_name())
+		
+		def unknown_op(node, *args):
+			raise Exception("unsupported BinOp: %s" % ast.dump(node))
 
+		return pyc_vis.dispatch_to_prefix(
+			self,
+			'visit_BinOp_',
+			unknown_op,			
+			node.op,
+			node,
+			l_name,
+			r_name
+		)
+		
+	def visit_BinOp_Add(self, dummy, node, l_name, r_name):
+
+		class AddPolySwitch(PolySwitch):
+
+			def no_match(self, name_typ_list):
+				return make_error(
+					"cant add %s to %s" % (
+						name_typ_list[1][1],
+						name_typ_list[0][1]
+					)
+				)
+
+			def add_bools_or_ints(self, l, r):
+				return ast.BinOp(left = l, op = ast.Add(), right = r)
+		
+			def int_int(self, l, r):
+				return self.add_bools_or_ints(l, r)
+
+			def bool_bool(self, l, r):
+				return self.add_bools_or_ints(l, r)
+
+			def big_big(self, l, r):
+				return ast.Call(func = var_ref("add"), args = [l, r])
+		#AddPolyswitch
+
+		return let_env(
+			polyswitch(AddPolySwitch(), l_name, r_name),
+			(
+				l_name,
+				pyc_vis.visit(self, node.left)
+			),
+			(
+				r_name,
+				pyc_vis.visit(self, node.right)
+			)
+		)
 
 
 def generate(as_tree):
@@ -101,8 +155,8 @@ def generate(as_tree):
 def print_irtree(tree):
 	return pyc_parser.print_astree(tree)
 
-def str(tree):
-	return pyc_parser.str(tree)
+def tree_to_str(tree):
+	return pyc_parser.tree_to_str(tree)
 
 def dump(tree):
 	return ast.dump(tree)
