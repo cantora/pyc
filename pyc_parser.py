@@ -31,7 +31,7 @@ class PrintASTVisitor(ASTVisitor):
 def parse(src):
 	return ast.parse(src)
 
-def str(astree):
+def tree_to_str(astree):
 	s = StringIO.StringIO()
 	v = PrintASTVisitor(s)	
 	pyc_vis.walk(v, astree)
