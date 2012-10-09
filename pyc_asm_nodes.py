@@ -117,7 +117,6 @@ class Inst(AsmNode):
 		return [op.asm_node for op in self.read_operands() + self.read_write_operands()]
 
 	def patch_vars(self, fn_to_mem_loc):
-		args = []
 		#log("patch vars: %r" % self)
 		klone = copy.deepcopy(self)
 
@@ -241,14 +240,14 @@ class Call(Inst):
 	def writes(self):
 		return [Register(x) for x in Register.caller_save ]
 
-	def patch_vars(self, mem_map):
-		return copy.deepcopy(self)
+	#def patch_vars(self, mem_map):
+	#	return copy.deepcopy(self)
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.name)
 
 	def __deepcopy__(self, memo):
-		return self.beget(Call, {}, self.name)
+		return self.beget(Call, memo, self.name)
 
 
 class Cmp(Inst):
@@ -308,6 +307,33 @@ class Interrupt(Inst):
 		return self.inst_join(["int", str(self.code)])
 
 
+class Jmp(Inst):
+	def __init__(self, label):
+		Inst.__init__(self)
+		self.label = label
+		
+	def __str__(self):
+		return self.inst_join(["jmp", self.label])
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.label)
+
+	@staticmethod
+	def label_str(prefix=""):
+		parts = []
+		if len(prefix) > 0:
+			parts.append(prefix)
+		parts.append("label_")
+
+		return pyc_name_gen.new("_".join(parts) )
+
+class Je(Jmp):
+	def __init__(self, label):
+		Jmp.__init__(self, label)
+
+	def __str__(self):
+		return self.inst_join(["je", self.label])
+		
 class AsmIf(Inst):
 	def __init__(self, test, body, orelse):
 		Inst.__init__(self)
@@ -343,6 +369,56 @@ class AsmIf(Inst):
 
 	def __deepcopy__(self, memo):
 		raise Exception("cannot deepcopy AsmIf")
+	
+	def beget_test_compare(self):
+		return self.beget(Cmp, {}, self.test, Immed(Int(0)))
+
+	def convert(self, depth=0):
+		result = []
+		else_label = Jmp.label_str("else")
+		end_label = Jmp.label_str("end")
+		result.extend([
+			self.beget_test_compare(),
+			self.beget(Je, {}, else_label)
+		])
+
+		result.extend(AsmIf.patch(self.body, depth+1) )
+
+		result.extend([
+			self.beget(Jmp, {}, end_label),
+			self.beget(Label, {}, else_label)
+		])
+		result.extend(AsmIf.patch(self.orelse, depth+1) )
+		result.append(self.beget(Label, {}, end_label) )
+
+		return result
+		
+	@staticmethod
+	def patch(asm_list, depth=0):
+		result = []
+		
+		log("patch AsmIf nodes in %d instructions" % len(asm_list) )
+		for ins in asm_list:
+			if isinstance(ins, AsmIf):
+				result.extend(ins.convert(depth))
+			else:
+				result.append(ins)
+
+		return result
+
+class Label(Inst):
+	def __init__(self, s):
+		Inst.__init__(self)
+		self.s = s
+
+	def __str__(self):
+		return "%s:" % self.s
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__, self.s)
+		
+	def __deepcopy__(self, memo):
+		return self.beget(Label, memo, self.s)
 
 #END INSTRUCTIONS
 
