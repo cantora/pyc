@@ -197,10 +197,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		return insns
 		
 	def visit_Print(self, pr_node, var_tbl):
-		nodelen = len(pr_node.values)
-		insns = []
-	
-		if nodelen != 1:
+		if len(pr_node.values) != 1:
 			raise Exception("expected pr_node with 1 node")
 		
 		return self.fn_call("print_int_nl", [pr_node.values[0]], var_tbl)
