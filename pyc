@@ -122,7 +122,9 @@ def run(options):
 	#print "flatten time: %d" % (t_flatten - t0) 
 	
 	(adjusted_asm_list, symtbl) = pyc_reg_allocator.allocate(asm_list)
-
+	
+	asm_ir_list = pyc_asm_nodes.IfAsm.patch(adjusted_asm_list)
+	raise Exception("asdf")
 	insns = []
 	insns.extend(asm_prefix())
 
@@ -131,7 +133,7 @@ def run(options):
 	if stacksize > 0:
 		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
 
-	insns.extend(format_insn_nodes(adjusted_asm_list, sir_mod, symtbl) )
+	insns.extend(format_insn_nodes(asm_ir_list, sir_mod, symtbl) )
 	insns.extend(asm_suffix())
 
 	output(options, insns)

@@ -205,37 +205,50 @@ class Allocator:
 
 		return self.symtbl
 
-
-def adjust(asm_list, symtbl):
+def adjust(asm_list, symtbl, depth=0):
 	has_alts = False
 	result = []
 
 	for ins in asm_list:
-		log(lambda : "set locs in %s" % repr(ins))
 
-		new_ins = patch_insn(ins, symtbl)
+		if isinstance(ins, AsmIf):
+			log("%sAsmIf" % (" "*depth) )
+			(body_has_alts, adjusted_body) = adjust(ins.body, symtbl, depth+1)
+			log("%sAsmIf-else" % (" "*depth) )
+			(els_has_alts, adjusted_els) = adjust(ins.orelse, symtbl, depth+1)
+			log("%sAsmIf-end" % (" "*depth) )
+			if body_has_alts or els_has_alts:
+				new_ins = ins.shallow_beget(ins.__class__, ins.test, adjusted_body, adjusted_els)
+				result.append(new_ins)			
+				has_alts = True
+			else:
+				result.append(ins)
 
-		if new_ins == ins:
-			result.append(ins)
-			continue
-		
-		log( lambda : "  patched: %s" % repr(new_ins))
-
-		#cant eliminate noops just yet because locations arent set in stone
-		#however we also dont want to fix operand violations of the form:
-		#  mov -4(%ebp), -4(%ebp)
-		#so just continue...
-		if new_ins.is_noop(): 
-			result.append(ins)
-			continue
-
-		alt_insns = new_ins.fix_operand_violations()
-		if len(alt_insns) > 0:
-			log(lambda : "  replace ins with: \n\t%s" % "\n\t".join([repr(x) for x in alt_insns]) )
-			result.extend(alt_insns)
-			has_alts = True
-		else:
-			result.append(ins)
+		else:	
+			log(lambda : "%sset locs in %s" % (" "*depth, repr(ins)) )
+			new_ins = patch_insn(ins, symtbl)
+	
+			if new_ins == ins:
+				result.append(ins)
+				continue
+			
+			log( lambda : "%s->patched: %s" % (" "*depth, repr(new_ins) ))
+	
+			#cant eliminate noops just yet because locations arent set in stone
+			#however we also dont want to fix operand violations of the form:
+			#  mov -4(%ebp), -4(%ebp)
+			#so just continue...
+			if new_ins.is_noop(): 
+				result.append(ins)
+				continue
+	
+			alt_insns = new_ins.fix_operand_violations()
+			if len(alt_insns) > 0:
+				log(lambda : "%s->replace ins with: \n\t%s" % (" "*depth, "\n\t".join([repr(x) for x in alt_insns])) )
+				result.extend(alt_insns)
+				has_alts = True
+			else:
+				result.append(ins)
 			
 	
 	return (has_alts, result)
@@ -266,6 +279,6 @@ def allocate(asm_list):
 	
 		(more_alloc_needed, adjusted_asm_list) = adjust(adjusted_asm_list, allocator.symtbl) 
 		
-		log( lambda : "adjusted asm list (more_alloc? = %d):\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
+		log( lambda : "adjusted asm list more_alloc? = %d)" % more_alloc_needed) #:\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
 
 	return (adjusted_asm_list, allocator.symtbl)
