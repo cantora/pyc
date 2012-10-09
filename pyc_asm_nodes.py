@@ -161,6 +161,11 @@ class Inst(AsmNode):
 		new_inst.origin = self.origin
 		return new_inst
 
+	def shallow_beget(self, klass, *args):
+		new_inst = klass(*args)
+		new_inst.origin = self.origin
+		return new_inst
+
 	#works only for instructions where all the data structure 
 	#elements are operands
 	def __deepcopy__(self, memo):
@@ -298,13 +303,13 @@ class Interrupt(Inst):
 		self.read_operand('code', code)
 		
 	def __str__(self):
-		return self.inst_join(["int", str(code)])
+		return self.inst_join(["int", str(self.code)])
 
 
 class AsmIf(Inst):
 	def __init__(self, test, body, orelse):
 		Inst.__init__(self)
-		self.test = test
+		self.read_operand('test', test)
 		self.body = body
 		self.orelse = orelse
 
@@ -461,7 +466,7 @@ class HexInt(AsmNode):
 		self.val = val
 
 	def __str__(self):
-		return "%02x" % self.val
+		return "0x%02x" % self.val
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, str(self))
