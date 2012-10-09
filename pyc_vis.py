@@ -11,10 +11,18 @@ class Visitor:
 
 def dispatch_to_prefix(instance, prefix, default, node, *args):
 	klass = node.__class__
+
+	if isinstance(default, str):
+		default_lam = lambda node, *args : getattr(instance, default)(node, *args)
+	elif hasattr(default, '__call__'):
+		default_lam = lambda node, *args : default(node, *args)
+	else:
+		raise Exception("unexpected default argument type: %r" % default)
+
 	meth = getattr(
 		instance, 
 		prefix + klass.__name__, 
-		getattr(instance, default)
+		default_lam		
 	)
 
 	if hasattr(instance.log, '__call__'):
