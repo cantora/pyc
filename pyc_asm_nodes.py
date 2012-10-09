@@ -1,4 +1,4 @@
-
+from pyc_log import *
 import pyc_gen_name
 import copy
 
@@ -118,6 +118,7 @@ class Inst(AsmNode):
 
 	def patch_vars(self, fn_to_mem_loc):
 		args = []
+		log("patch vars: %r" % self)
 		klone = copy.deepcopy(self)
 
 		for name in klone.operand_names():
@@ -145,8 +146,8 @@ class Inst(AsmNode):
 
 		temp = Var(Inst.gen_name(), True)
 		return [
-			instance.beget(Mov, copy.deepcopy(a), temp),
-			instance.beget(instance.__class__, temp, copy.deepcopy(b))
+			instance.beget(Mov, {}, copy.deepcopy(a), temp),
+			instance.beget(instance.__class__, {}, temp, copy.deepcopy(b))
 		]
 
 	def fix_operand_violations(self):
@@ -155,11 +156,15 @@ class Inst(AsmNode):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, *self.operand_nodes() )
 		
-	def beget(self, klass, *args):
-		new_inst = klass(*args)
+	def beget(self, klass, dc_memo, *args):
+		new_inst = klass(*[copy.deepcopy(x, dc_memo) for x in args] )
 		new_inst.origin = self.origin
 		return new_inst
-		
+
+	#works only for instructions where all the data structure 
+	#elements are operands
+	def __deepcopy__(self, memo):
+		return self.beget(self.__class__, memo, *(self.operand_nodes()) )
 
 class Mov(Inst):
 	def __init__(self, src, dest):
@@ -178,8 +183,8 @@ class Mov(Inst):
 			return True
 
 		return False
+
 		
-	
 class Add(Inst):
 	def __init__(self, left, right):
 		Inst.__init__(self)
@@ -230,10 +235,13 @@ class Call(Inst):
 		return [Register(x) for x in Register.caller_save ]
 
 	def patch_vars(self, mem_map):
-		return self.beget(Call, self.name)
+		return copy.deepcopy(self)
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.name)
+
+	def __deepcopy__(self, memo):
+		return self.beget(Call, {}, self.name)
 
 
 class Cmp(Inst):
@@ -322,7 +330,13 @@ class AsmIf(Inst):
 				lines.append("%s%s" % (" "*depth, repr(ins)) )
 
 		return lines
-			
+
+	def patch_vars(self, fn_to_mem_loc):
+		raise Exception("cannot patch vars in AsmIf node!")
+
+	def __deepcopy__(self, memo):
+		raise Exception("cannot deepcopy AsmIf")
+
 #END INSTRUCTIONS
 
 class Immed(AsmNode):
