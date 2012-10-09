@@ -118,7 +118,7 @@ class Inst(AsmNode):
 
 	def patch_vars(self, fn_to_mem_loc):
 		args = []
-		log("patch vars: %r" % self)
+		#log("patch vars: %r" % self)
 		klone = copy.deepcopy(self)
 
 		for name in klone.operand_names():
@@ -126,7 +126,9 @@ class Inst(AsmNode):
 			asm_node = klone.get_operand_node(name)
 			if not isinstance(asm_node, Var):
 				continue
-			
+			if isinstance(asm_node, Register):
+				continue
+
 			#print("patch op %s" % repr(name))
 			setattr(klone, name, fn_to_mem_loc(asm_node) )
 
@@ -292,7 +294,7 @@ class Movzbl(Inst):
 		return self.inst_join(["movzbl", "%s, %s" % (str(self.src), str(self.dest) ) ] )
 
 	def fix_operand_violations(self):
-		if not Inst.is_mem_to_mem():
+		if not Inst.is_mem_to_mem(self.src, self.dest):
 			return []
 
 		raise Exception("im working on this...")
@@ -356,7 +358,15 @@ class Immed(AsmNode):
 		return common_repr(self.__class__.__name__, self.node)
 
 def get_vars(asm_nodes):
-	return [x for x in asm_nodes if isinstance(x, Var)]
+	vars = []
+	for x in asm_nodes:
+		if isinstance(x, Var):
+			if isinstance(x, Register) and hasattr(x, 'parent'):
+				vars.append(x.parent())
+			else:
+				vars.append(x)
+
+	return vars
 
 class Var(AsmNode):
 	def __init__(self, name, needs_reg=False):
