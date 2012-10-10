@@ -27,7 +27,7 @@ class AstToIRTxformer(ASTTxformer):
 	def visit_Assign(self, node):
 		if len(node.targets) != 1:
 			raise InvalidP1("assign expected to have only one target: %r" % node)
-		elif not isinstance(node.targets[0], ast.Name):
+		elif not isinstance(node.targets[0], ast.Name) and not isinstance(node.targets[0], ast.Subscript):
 			raise BadAss("assumbed all targets were names: %r" % node)
 		elif not isinstance(node.targets[0].ctx, ast.Store):
 			raise BadAss("why isnt the target context store?: %r" % node)
@@ -129,7 +129,7 @@ class AstToIRTxformer(ASTTxformer):
 			elements.append(make_assign(
 				ast.Subscript(
 					value = var_ref(list_name),
-					slice = InjectFromInt(ast.Index(ast.Num(n=i))),
+					slice = ast.Index(pyc_vis.visit(self, ast.Num(n=i))),
 					ctx = ast.Store()
 				),
 				pyc_vis.visit(self, e))

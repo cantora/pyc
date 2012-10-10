@@ -64,6 +64,19 @@ class SIRtoASM(pyc_vis.Visitor):
 		
 	def set_var_default(self, node, var, var_tbl):
 		raise Exception("set_var_default: unexpected expr: %s" % ast.dump(node))
+
+	def set_var_to_Subscript(self, node, var, var_tbl):
+		return self.set_var_to_Call(
+			ast.Call(
+				func = var_ref("get_subscript"),
+				args = [	
+					node.value,
+					node.slice
+				]
+			),
+			var,
+			var_tbl
+		)
 		
 	def set_var_to_Num(self, node, var, var_tbl):
 		return [Mov(Immed(DecInt(node.n)), var)]
