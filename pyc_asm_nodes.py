@@ -117,7 +117,7 @@ class Inst(AsmNode):
 		return [op.asm_node for op in self.read_operands() + self.read_write_operands()]
 
 	def patch_vars(self, fn_to_mem_loc):
-		log("patch vars: %r" % self)
+		#log("patch vars: %r" % self)
 		klone = copy.deepcopy(self)
 
 		for name in klone.operand_names():
@@ -257,17 +257,15 @@ class Cmp(Inst):
 		self.read_operand('right', right)
 	
 	def __str__(self):
-		return self.inst_join(["cmpl", "%s, %s" % (str(self.left), str(self.right) ) ] )
+		a = self.left
+		b = self.right
+		if isinstance(self.left, Register) and isinstance(self.right, Immed):
+			(a,b) = (b,a)
+		
+		return self.inst_join(["cmpl", "%s, %s" % (str(a), str(b) ) ] )
 
 	def fix_operand_violations(self):
-		result = Inst.fix_two_op_operand_violation(self, 'left', 'right')
-		if len(result) > 0:
-			return result
-
-		if isinstance(self.left, Register) and isinstance(self.right, Immed):
-			return [self.beget(self.__class__, {}, self.right, self.left)]
-			
-		return []
+		return Inst.fix_two_op_operand_violation(self, 'left', 'right')
 
 class Sete(Inst):
 	def __init__(self, dest):
@@ -583,6 +581,14 @@ class GlobalString(AsmNode):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, GlobalString.cache[self.value], self.value)
 
+	@staticmethod
+	def data_headers():
+		headers = []
+		for (value, name) in GlobalString.cache.items():
+			headers.append("%s:\n\t.ascii \"%s\x00\"" % (name, value))
+
+		return headers
+		
 
 
 
