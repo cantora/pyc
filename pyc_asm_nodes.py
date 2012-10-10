@@ -569,16 +569,19 @@ class HexInt(AsmNode):
 		return common_repr(self.__class__.__name__, str(self))
 
 class GlobalString(AsmNode):
+	cache = {}
+
 	def __init__(self, value):
 		AsmNode.__init__(self)
-		self.name = pyc_gen_name.new("global_str_")
 		self.value = value
+		if GlobalString.cache.get(value, None) is None:
+			GlobalString.cache[value] = pyc_gen_name.new("global_str_")
 
 	def __str__(self):
-		return self.name
+		return GlobalString.cache[self.value]
 
 	def __repr__(self):
-		return common_repr(self.__class__.__name__, self.name, self.value)
+		return common_repr(self.__class__.__name__, GlobalString.cache[self.value], self.value)
 
 
 
