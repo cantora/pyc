@@ -210,6 +210,28 @@ class AstToIRTxformer(ASTTxformer):
 			)
 		)			
 				
+	def visit_BoolOp_Or(self, dummy, node, l_name, r_name):
+		if len(node.values) != 2:
+			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
+
+		return let_env(
+			ast.IfExp(
+				test = simple_compare(
+					lhs = IsTrue(l_name),
+					rhs = ast.Num(1)
+				),
+				body = l_name,
+				orelse = r_name
+			),
+			(
+				l_name,
+				pyc_vis.visit(self, node.values[0])
+			),
+			(
+				r_name,
+				pyc_vis.visit(self, node.values[1])
+			)
+		)			
 
 
 def generate(as_tree):
