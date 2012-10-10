@@ -80,18 +80,23 @@ def run(options):
 	resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 	sys.setrecursionlimit(10**6)
 
+	t0 = time.time()
 	as_tree = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
 		pyc_parser.print_astree(as_tree)
 		exit(0)
 
 	#log( lambda : pyc_ast.str(as_tree))
+	#print "parse time: %d" % (time.time() - t0)
 
+	t0 = time.time()
 	ir_tree = pyc_ir.generate(as_tree)
 	if options.phase == 'explicate':
 		pyc_ir.print_irtree(ir_tree)
 		exit(0)
-		
+	
+	#print "explicate time: %d" % (time.time() - t0)	
+
 	t0 = time.time()
 	sir_mod = pyc_ast.simple_ir(ir_tree)
 
@@ -100,7 +105,7 @@ def run(options):
 		exit(0)
 
 	log("sir list: ")
-	log(pyc_ast.sir_list_to_str(sir_mod.body) )
+	log(lambda : pyc_ast.sir_list_to_str(sir_mod.body) )
 
 	if options.IR:
 		#with output_file(options, "python") as f:
@@ -109,6 +114,10 @@ def run(options):
 		raise Exception("not implemented")
 		exit(0)
 
+	
+	#print "flatten time: %d" % (time.time() - t0) 
+	
+	t0 = time.time()
 	asm_list = pyc_asm_list.from_sir_mod(sir_mod)
 
 	asm_list = reduce(lambda a,b: a + b, asm_list, [])
@@ -118,11 +127,13 @@ def run(options):
 		exit(0)
 
 	log(asm_list_str)	
-	t_flatten = time.time()
-	#print "flatten time: %d" % (t_flatten - t0) 
-	
+	#print "instruction selection time: %d" % (time.time() - t0)
+
+	t0 = time.time()
 	(adjusted_asm_list, symtbl) = pyc_reg_allocator.allocate(asm_list)
-	
+	#print "allocation time: %d" % (time.time() - t0)
+
+	t0 = time.time()
 	asm_ir_list = pyc_asm_nodes.AsmIf.patch(adjusted_asm_list)
 
 	insns = []
@@ -137,6 +148,7 @@ def run(options):
 	insns.extend(asm_suffix())
 
 	output(options, insns)
+	#print "output time: %d" % (time.time() - t0)
 
 def format_insn_nodes(ins_nodes, sir_mod, symtbl):
 	result = []

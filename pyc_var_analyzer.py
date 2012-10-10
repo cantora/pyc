@@ -1,5 +1,6 @@
 from pyc_log import *
 from pyc_asm_nodes import *
+import time
 
 def live_list_to_str_lines(live_list):
 	lines = []
@@ -12,10 +13,14 @@ def live_list_to_str_lines(live_list):
 	return lines
 
 def interference_graph(asm_list):
+	t0 = time.time()
 	live_list = to_live_list(asm_list)
+	#print "    live list time %d" % (time.time() - t0)
 	log(lambda: "live_list:\n\t%s" % ("\n\t".join(live_list_to_str_lines(live_list) ) ) )
 
+	t0 = time.time()
 	graph = to_intf_graph(live_list)
+	#print "    interference time: %d" % (time.time() - t0)
 
 	log(lambda: "graph:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(v)) for (k,v) in graph.items()]) )
 	
@@ -39,6 +44,7 @@ def to_intf_graph(live_list):
 	def _to_intf_graph(live_list, graph, depth):
 		log("%screate interference graph from live_list" % (" "*depth))	
 		for (ins, live) in live_list:
+			#print "live=%d, depth=%d" % (len(live), depth)
 			if isinstance(ins, AsmIf):
 				log("%sAsmIf.orelse" % (" "*depth))
 				graph = _to_intf_graph(ins.orelse, graph, depth+1)
@@ -51,7 +57,7 @@ def to_intf_graph(live_list):
 					continue
 		
 				log("%s(%s) => %s \n\t%s" % (" "*depth, ins.__class__.__name__, repr(writes), repr(live) ) )
-		
+						
 				for write in writes:
 					graph.init_node(write)
 		
@@ -101,7 +107,7 @@ def to_live_list(asm_list, live = set([]), depth=0):
 				| set( get_vars(ins.reads()) 
 		)
 		result.append((ins, set(live)) )
-		log("%slive: %s" % (" "*depth, repr(live) ) )
+		log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
 
 
 	return result
