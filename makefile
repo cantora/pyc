@@ -1,11 +1,11 @@
 
 TMPDIR := /tmp/pyc
 SRCS	= $(filter-out ./parsetab.py, $(wildcard ./*.py) )
-P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) \
-			$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
-			$(wildcard ./p0tests/student_tests/*.py)
+P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
+			#$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
+			#$(wildcard ./p0tests/student_tests/*.py)
 
-P1TESTS	= $(wildcard ./p1tests/mytests/*.py) 
+P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py) 
 
 .PHONY: pkg
 pkg: hw.zip

@@ -75,6 +75,9 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		))
 		return (None, sir_list)
 
+	def visit_IsTrue(self, node):
+		return self.flatten_single_arg_ir_fn(node)
+
 	def visit_BinOp(self, node):
 		(l_name, l_sir_list) = pyc_vis.visit(self, node.left)
 		(r_name, r_sir_list) = pyc_vis.visit(self, node.right)
@@ -154,6 +157,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 	def visit_Expr(self, node):
 		(dummy, sir_list) = pyc_vis.visit(self, node.value)
 		return (None, sir_list)
+
 
 	def flatten_single_arg_ir_fn(self, node):
 		(name, sir_list) = pyc_vis.visit(self, node.arg)

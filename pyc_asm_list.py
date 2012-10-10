@@ -97,6 +97,9 @@ class SIRtoASM(pyc_vis.Visitor):
 	def set_var_to_Tag(self, node, var, var_tbl):
 		return self.set_var_to_single_arg_ir_fn(node, 'tag', var, var_tbl)
 
+	def set_var_to_IsTrue(self, node, var, var_tbl):
+		return self.set_var_to_single_arg_ir_fn(node, 'is_true', var, var_tbl)
+
 	def set_var_to_single_arg_ir_fn(self, node, fn, var, var_tbl):
 
 		return self.set_var_to_Call(
@@ -130,6 +133,27 @@ class SIRtoASM(pyc_vis.Visitor):
 			Interrupt(Immed(HexInt(0x80))),
 			Mov(Immed(DecInt(0)), var)
 		]
+
+	def set_var_to_BoolOp(self, node, var, var_tbl):
+		def unknown_boolop(op, node, var, var_tbl):
+			raise Exception("unknown bool op: %s" % ast.dump(op))
+
+		return pyc_vis.dispatch_to_prefix(
+			self, 
+			'set_var_to_BoolOp_', 
+			unknown_boolop,
+			node.op, 
+			node,
+			var,
+			var_tbl
+		)
+
+	#def set_var_to_BoolOp_And(self, dummy, node, var, var_tbl):
+	#	return self.fn_call(	
+	#		"is_true", 
+	#		[node.values[0]],
+	#		var_tbl
+	#	) + [Mov(Register("eax"), 
 
 	def cmp(self, a, b, dest, log_not=False):
 		return [

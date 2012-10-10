@@ -9,17 +9,17 @@ import pyc_gen_name
 import StringIO
 import ast
 
+class InvalidSyntax(Exception):
+	pass
+
+class InvalidP1(InvalidSyntax):
+	pass
+
+#bad assumption ^_^
+class BadAss(Exception):
+	pass
+
 class AstToIRTxformer(ASTTxformer):
-
-	class InvalidSyntax(Exception):
-		pass
-
-	class InvalidP1(InvalidSyntax):
-		pass
-
-	#bad assumption ^_^
-	class BadAss(Exception):
-		pass
 		
 	def __init__(self):
 		ASTTxformer.__init__(self)
@@ -126,10 +126,13 @@ class AstToIRTxformer(ASTTxformer):
 
 			def add_bools_or_ints(self, l, r):
 				return ast.BinOp(left = l, op = ast.Add(), right = r)
-		
+
+			#int, bool => int, cast(bool, int) 
 			def int_int(self, l, r):
 				return self.add_bools_or_ints(l, r)
 
+			#bool, int => int, cast(int, bool) = X
+			#we want to treat the addition ast int_int
 			def bool_bool(self, l, r):
 				return self.add_bools_or_ints(l, r)
 
@@ -149,11 +152,63 @@ class AstToIRTxformer(ASTTxformer):
 			)
 		)
 
+	def visit_BoolOp(self, node):
+		def unknown_op(node, *args):
+			raise Exception("unsupported BoolOp: %s" % ast.dump(node))
+		l_name = var_ref(self.gen_name())
+		r_name = var_ref(self.gen_name())
+
+		return pyc_vis.dispatch_to_prefix(
+			self,
+			'visit_BoolOp_',
+			unknown_op,			
+			node.op,
+			node,
+			l_name,
+			r_name
+		)
+
+	def visit_BoolOp_And(self, dummy, node, l_name, r_name):
+		if len(node.values) != 2:
+			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
+
+		return let_env(
+			ast.IfExp(
+				test = simple_compare(
+					lhs = IsTrue(l_name),
+					rhs = ast.Num(1)
+				),
+				body = r_name,
+				orelse = l_name
+			),
+			(
+				l_name,
+				pyc_vis.visit(self, node.values[0])
+			),
+			(
+				r_name,
+				pyc_vis.visit(self, node.values[1])
+			)
+		)			
+				
+
 
 def generate(as_tree):
 	v = AstToIRTxformer()
 	#v.log = log
-	return pyc_vis.walk(v, as_tree)
+	ir = pyc_vis.walk(v, as_tree)
+	#set False and True for the program environment
+	ir.body.insert(
+		0, 
+		make_assign(var_set('user_False'), InjectFromBool(ast.Num(n=0)) )
+	)
+	ir.body.insert(
+		0, 
+		make_assign(var_set('user_True'), InjectFromBool(ast.Num(n=1)) )
+	)
+
+	return ir
+	
 
 def print_irtree(tree):
 	return pyc_parser.print_astree(tree)

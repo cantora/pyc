@@ -85,6 +85,11 @@ class CastIntToBool(Cast):
 	def __init__(self, arg):
 		Cast.__init__(self, 'int', 'bool', arg)
 
+class IsTrue(IRNode):
+	def __init__(self, arg):
+		self.arg = arg
+		self._fields = tuple(['arg'])
+
 class Tag(IRNode):
 	int = ast.Num(n=0)
 	bool = ast.Num(n=1)
@@ -116,6 +121,11 @@ class Error(IRNode):
 		self.msg = msg
 		self._fields = tuple(['msg'])
 
+def var_set(name_id):
+	return ast.Name(
+		id = name_id,
+		ctx = ast.Store()
+	)
 
 def var_ref(name_id):
 	return ast.Name(
