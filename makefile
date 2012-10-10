@@ -46,7 +46,6 @@ p0tests:
 			echo "FAILED: $$(basename $$i)"; \
 			break; \
 		fi; \
-		echo "[x] $$(basename $$i)"; \
 	done
 
 .PHONY: p1tests
@@ -57,7 +56,6 @@ p1tests:
 			echo "FAILED: $$(basename $$i)"; \
 			break; \
 		fi; \
-		echo "[x] $$(basename $$i)"; \
 	done
 
 .PHONY: clean

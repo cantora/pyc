@@ -77,7 +77,7 @@ class AstToIRTxformer(ASTTxformer):
 			(
 				l_name,
 				pyc_vis.visit(self, node.left)
-			)
+			),
 			(
 				comp_name, 
 				pyc_vis.visit(self, node.comparators[0])
