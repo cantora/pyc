@@ -162,12 +162,16 @@ def format_insn_nodes(ins_nodes, sir_mod, symtbl):
 	return result
 
 def asm_headers():
-	return [
+	headers = []
+	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
+	headers.extend([
 		".text",
 		".globl  main",
 		".type   main, @function",
 		"main:"
-	]
+	])
+
+	return headers
 
 
 def asm_prefix():
