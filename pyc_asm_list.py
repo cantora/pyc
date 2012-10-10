@@ -31,13 +31,27 @@ class SIRtoASM(pyc_vis.Visitor):
 		if nodelen != 1:
 			raise Exception("expected Assign with a single assignment")
 	
-		var = Var(assign.targets[0].id)
-			
-		result = self.set_var(var, assign.value, var_tbl)
-		var_tbl[var] = True
-	
-		return result
+		if isinstance(assign.targets[0], ast.Subscript):
+			return self.set_subscript(assign, var_tbl)
+		else:
+			var = Var(assign.targets[0].id)
+				
+			result = self.set_var(var, assign.value, var_tbl)
+			var_tbl[var] = True
+		
+			return result
 
+	def set_subscript(self, node, var_tbl):
+		return self.fn_call(
+			"set_subscript",
+			[
+				node.targets[0].value,
+				node.targets[0].slice,
+				node.value
+			],
+			var_tbl
+		)
+		
 	def set_var(self, var, expr, var_tbl):
 		return pyc_vis.dispatch_to_prefix(
 			self, 
@@ -142,6 +156,16 @@ class SIRtoASM(pyc_vis.Visitor):
 			Mov(Immed(DecInt(0)), var)
 		]
 
+	def set_var_to_ListRef(self, node, var, var_tbl):
+		return self.set_var_to_Call(
+			ast.Call(
+				func = var_ref("create_list"),
+				args = [node.size]
+			),
+			var,
+			var_tbl
+		)
+
 	#def set_var_to_BoolOp(self, node, var, var_tbl):
 	#	def unknown_boolop(op, node, var, var_tbl):
 	#		raise Exception("unknown bool op: %s" % ast.dump(op))
@@ -202,7 +226,8 @@ class SIRtoASM(pyc_vis.Visitor):
 			return var
 		elif isinstance(expr, ast.Str):
 			return Immed(GlobalString(expr.s))
-			
+		elif isinstance(expr, ast.Index):
+			return self.se_to_operand(expr.value, var_tbl)
 	
 		raise Exception("expected name or constant, got %s" % expr.__class__.__name__)
 	
@@ -220,6 +245,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		op = self.se_to_operand(node.operand, var_tbl)
 	
 		return self.cmp(Immed(DecInt(0)), op, var)
+
 
 	def fn_call(self, name, args, var_tbl):
 		insns = []

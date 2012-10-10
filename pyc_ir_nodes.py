@@ -115,6 +115,22 @@ class Let(IRNode):
 		self.body = body
 		self._fields = ('name', 'rhs', 'body')
 
+class BigRef(IRNode):
+	pass
+
+class ListRef(BigRef):
+	def __init__(self, size):
+		BigRef.__init__(self)
+		self.size = size
+		self._fields = tuple(['size'])
+
+class BigInit(IRNode):
+	def __init__(self, pyobj_name, body):
+		self.pyobj_name = pyobj_name
+		self.body = body
+		self._fields = tuple(['pyobj_name', 'body'])
+
+
 class Error(IRNode):
 	def __init__(self, msg):
 		IRNode.__init__(self)

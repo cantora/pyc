@@ -66,15 +66,48 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return ast.Module(body = sir_body)
 
+	def visit_ListRef(self, node):
+		(size_name, size_sir_list) = pyc_vis.visit(self, node.size)
+		result_name = self.gen_name()
+		
+		return (
+			var_ref(result_name), 
+			size_sir_list + [make_assign(
+				var_ref(result_name),
+				ListRef(size_name)
+			)]
+		)
+
+	def visit_BigInit(self, node):
+		init_sir_list = []
+
+		for n in node.body:
+			(name, sir_list) = pyc_vis.visit(self, n)
+			init_sir_list.extend( sir_list )
+
+		return (node.pyobj_name, init_sir_list)
+
 	def visit_Assign(self, node):	
 		(name, sir_list) = pyc_vis.visit(self, node.value)
+		(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
 
-		sir_list.append(ast.Assign(
-			targets = [copy.deepcopy(node.targets[0])],
-			value = name
+		sir_list.append(make_assign(
+			target,			
+			name
 		))
-		return (None, sir_list)
+		return (None, target_sir_list + sir_list)
 
+	def visit_Subscript(self, node):
+		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
+		return (
+			ast.Subscript(
+				value = var_ref(node.value.id),
+				slice = slice_name,
+				ctx = node.ctx.__class__()
+			),
+			slice_sir_list
+		)
+		
 	def visit_IsTrue(self, node):
 		return self.flatten_single_arg_ir_fn(node)
 
@@ -84,9 +117,9 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		
 		result_name = self.gen_name()
 		l_sir_list += r_sir_list
-		l_sir_list.append(ast.Assign(
-			targets = [var_ref(result_name)],
-			value = ast.BinOp( 
+		l_sir_list.append(make_assign(
+			var_ref(result_name),
+			ast.BinOp( 
 				left = l_name, 
 				op = node.op.__class__(),
 				right = r_name
@@ -98,9 +131,9 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 	def visit_UnaryOp(self, node):
 		(name, sir_list) = pyc_vis.visit(self, node.operand)
 		result_name = self.gen_name()
-		sir_list.append(ast.Assign(
-			targets = [var_ref(result_name)],
-			value = ast.UnaryOp(
+		sir_list.append(make_assign(
+			var_ref(result_name),
+			ast.UnaryOp(
 				op = node.op.__class__(),
 				operand = name
 			)
@@ -136,6 +169,9 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 	def visit_Name(self, node):
 		return (var_ref(node.id), [] )
+
+	def visit_Index(self, node):
+		return (ast.Index(node.value), [])
 
 	def make_print(self, args):
 		return ast.Print(dest=None, values=args, nl=True)

@@ -5,7 +5,7 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
 			#$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
 			#$(wildcard ./p0tests/student_tests/*.py)
 
-P1TESTS	= $(filter-out %dict0.py %dict1.py %eq1.py %is0.py %list0.py %list1.py %list2.py %list3.py %list4.py %list5.py %list6.py %list7.py, $(wildcard ./p1tests/grader_tests/*.py) )
+P1TESTS	= $(filter-out %dict0.py %dict1.py %eq1.py %is0.py %list1.py %list2.py %list3.py %list4.py %list5.py %list6.py %list7.py, $(wildcard ./p1tests/grader_tests/*.py) )
 
 .PHONY: pkg
 pkg: hw.zip

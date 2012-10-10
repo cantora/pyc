@@ -117,6 +117,35 @@ class AstToIRTxformer(ASTTxformer):
 			starargs = None
 		))
 
+	def visit_List(self, node):
+		if not isinstance(node.ctx, ast.Load):
+			raise BadAss("unexpected context for list: %s" % (ast.dump(node)) )
+		
+		list_name = self.gen_name()
+
+		elements = []
+		for i in range(0, len(node.elts)):
+			e = node.elts[i]
+			elements.append(make_assign(
+				ast.Subscript(
+					value = var_ref(list_name),
+					slice = InjectFromInt(ast.Index(ast.Num(n=i))),
+					ctx = ast.Store()
+				),
+				pyc_vis.visit(self, e))
+			)
+
+		
+		return Let( 
+			name = var_ref(list_name),
+			rhs = InjectFromBig(
+				ListRef(
+					InjectFromInt(ast.Num(n=len(node.elts) ) )
+				)
+			),
+			body = BigInit(var_ref(list_name), elements)
+		)
+
 	def visit_BinOp(self, node):
 		l_name = var_ref(self.gen_name())
 		r_name = var_ref(self.gen_name())
