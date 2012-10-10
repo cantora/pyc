@@ -260,7 +260,14 @@ class Cmp(Inst):
 		return self.inst_join(["cmpl", "%s, %s" % (str(self.left), str(self.right) ) ] )
 
 	def fix_operand_violations(self):
-		return Inst.fix_two_op_operand_violation(self, 'left', 'right')
+		result = Inst.fix_two_op_operand_violation(self, 'left', 'right')
+		if len(result) > 0:
+			return result
+
+		if isinstance(self.left, Register) and isinstance(self.right, Immed):
+			return [self.beget(self.__class__, {}, self.right, self.left)]
+			
+		return []
 
 class Sete(Inst):
 	def __init__(self, dest):
@@ -375,7 +382,7 @@ class AsmIf(Inst):
 		raise Exception("cannot deepcopy AsmIf")
 	
 	def beget_test_compare(self):
-		return self.beget(Cmp, {}, self.test, Immed(DecInt(0)))
+		return self.beget(Cmp, {}, Immed(DecInt(0)), self.test)
 
 	def convert(self, depth=0):
 		result = []
