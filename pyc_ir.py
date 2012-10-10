@@ -60,6 +60,15 @@ class AstToIRTxformer(ASTTxformer):
 			ctx = node.ctx.__class__()
 		)
 
+	def visit_UnaryOp(self, node):
+		if isinstance(node.op, ast.Not):
+			return InjectFromBool(ast.UnaryOp(
+				op = ast.Not(),
+				operand = IsTrue(pyc_vis.visit(self, node.operand) )
+			))
+		else:
+			return self.default(node)
+
 	def visit_IfExp(self, node):
 		return ast.IfExp(
 			test = IsTrue(pyc_vis.visit(self, node.test)),

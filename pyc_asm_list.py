@@ -70,10 +70,18 @@ class SIRtoASM(pyc_vis.Visitor):
 		]
 	
 	def set_var_to_UnaryOp(self, node, var, var_tbl):
-		if isinstance(node.op, ast.USub):
-			return self.neg_to_var(var, node.operand, var_tbl)
+		def unknown_unaryop(op, node, var, var_tbl):
+			raise Exception("unknown unary op: %s" % ast.dump(op))
 
-		raise Exception("unexpected unaryop: %s", ast.dump(expr))
+		return pyc_vis.dispatch_to_prefix(
+			self, 
+			'set_var_to_UnaryOp_', 
+			unknown_unaryop,
+			node.op, 
+			node,
+			var,
+			var_tbl
+		)
 
 
 	def set_var_to_InjectFromInt(self, node, var, var_tbl):
@@ -134,20 +142,20 @@ class SIRtoASM(pyc_vis.Visitor):
 			Mov(Immed(DecInt(0)), var)
 		]
 
-	def set_var_to_BoolOp(self, node, var, var_tbl):
-		def unknown_boolop(op, node, var, var_tbl):
-			raise Exception("unknown bool op: %s" % ast.dump(op))
-
-		return pyc_vis.dispatch_to_prefix(
-			self, 
-			'set_var_to_BoolOp_', 
-			unknown_boolop,
-			node.op, 
-			node,
-			var,
-			var_tbl
-		)
-
+	#def set_var_to_BoolOp(self, node, var, var_tbl):
+	#	def unknown_boolop(op, node, var, var_tbl):
+	#		raise Exception("unknown bool op: %s" % ast.dump(op))
+	#
+	#	return pyc_vis.dispatch_to_prefix(
+	#		self, 
+	#		'set_var_to_BoolOp_', 
+	#		unknown_boolop,
+	#		node.op, 
+	#		node,
+	#		var,
+	#		var_tbl
+	#	)
+	#
 	#def set_var_to_BoolOp_And(self, dummy, node, var, var_tbl):
 	#	return self.fn_call(	
 	#		"is_true", 
@@ -198,16 +206,21 @@ class SIRtoASM(pyc_vis.Visitor):
 	
 		raise Exception("expected name or constant, got %s" % expr.__class__.__name__)
 	
-	def neg_to_var(self, var, expr, var_tbl):
+	def set_var_to_UnaryOp_USub(self, dummy, node, var, var_tbl):
 		insns = []
-		op = self.se_to_operand(expr, var_tbl)
+		op = self.se_to_operand(node.operand, var_tbl)
 	
 		insns.extend( self.mov(op, var) )
 		insns.append( Neg(var) )		
 	
 		return insns
+
+	def set_var_to_UnaryOp_Not(self, dummy, node, var, var_tbl):
+		insns = []
+		op = self.se_to_operand(node.operand, var_tbl)
 	
-	
+		return self.cmp(Immed(DecInt(0)), op, var)
+
 	def fn_call(self, name, args, var_tbl):
 		insns = []
 		
