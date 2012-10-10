@@ -298,10 +298,19 @@ class Movzbl(Inst):
 		return self.inst_join(["movzbl", "%s, %s" % (str(self.src), str(self.dest) ) ] )
 
 	def fix_operand_violations(self):
-		if not Inst.is_mem_to_mem(self.src, self.dest):
-			return []
+		if Inst.is_mem_to_mem(self.src, self.dest):
+			raise Exception("im working on this...")
 
-		raise Exception("im working on this...")
+		#this works because we only alter our use of a memory ref, which will
+		#not be reassigned in any allocator passes
+		if isinstance(self.src, Register) and isinstance(self.dest, MemoryRef):
+			temp = Var(Inst.gen_name(), True)
+			return [
+				self.beget(self.__class__, {}, copy.deepcopy(self.src), temp),
+				self.beget(Mov, {}, temp, copy.deepcopy(self.dest))
+			]
+		
+		return []
 
 class Interrupt(Inst):
 	def __init__(self, code):

@@ -99,36 +99,38 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return (node.pyobj_name, init_sir_list)
 
 	def visit_Assign(self, node):	
-		(name, sir_list) = pyc_vis.visit(self, node.value)
 		(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
-
+		(name, name_sir_list) = pyc_vis.visit(self, node.value)
+		
+		sir_list = name_sir_list + target_sir_list # + name_sir_list
 		sir_list.append(make_assign(
 			target,			
 			name
 		))
-		return (None, target_sir_list + sir_list)
+		
+		return (None, sir_list)
 
 	def visit_Subscript(self, node):
 		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
 		(var_name, var_sir_list) = pyc_vis.visit(self, node.value)
 
+		sir_list = var_sir_list + slice_sir_list #+ 
 		new_sub = ast.Subscript(
 			value = var_name,
 			slice = slice_name,
 			ctx = node.ctx.__class__()
 		)
 
-		slice_sir_list.extend(var_sir_list)
 		if isinstance(node.ctx, ast.Load):
 			result_name = self.gen_name()
-			slice_sir_list.append(make_assign(
+			sir_list.append(make_assign(
 				var_ref(result_name),
 				new_sub		
 			))
-			return (var_ref(result_name), slice_sir_list)
+			return (var_ref(result_name), sir_list)
 		
 		#we are storing, so we need Subscript as left hand value
-		return (new_sub, slice_sir_list)
+		return (new_sub, sir_list)
 		
 		
 	def visit_IsTrue(self, node):
