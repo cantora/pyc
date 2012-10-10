@@ -70,8 +70,8 @@ class SIRtoASM(pyc_vis.Visitor):
 		]
 	
 	def set_var_to_UnaryOp(self, node, var, var_tbl):
-		if isinstance(expr.op, ast.USub):
-			return self.neg_to_var(var, expr.operand, var_tbl)
+		if isinstance(node.op, ast.USub):
+			return self.neg_to_var(var, node.operand, var_tbl)
 
 		raise Exception("unexpected unaryop: %s", ast.dump(expr))
 
@@ -127,7 +127,8 @@ class SIRtoASM(pyc_vis.Visitor):
 	def set_var_to_Error(self, node, var, var_tbl):
 		return self.fn_call("puts", [node.msg], var_tbl) + [
 			Mov(Immed(DecInt(1)), Register("eax") ),
-			Interrupt(Immed(HexInt(0x80)))
+			Interrupt(Immed(HexInt(0x80))),
+			Mov(Immed(DecInt(0)), var)
 		]
 
 	def cmp(self, a, b, dest, log_not=False):
