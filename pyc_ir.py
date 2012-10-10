@@ -117,6 +117,31 @@ class AstToIRTxformer(ASTTxformer):
 			starargs = None
 		))
 
+	def visit_Dict(self, node):
+		d_name = self.gen_name()
+
+		elements = []
+		for (k,v) in zip(node.keys, node.values):
+
+			elements.append(make_assign(
+				ast.Subscript(
+					value = var_ref(d_name),
+					slice = ast.Index(pyc_vis.visit(self, k)),
+					ctx = ast.Store()
+				),
+				pyc_vis.visit(self, v))
+			)
+
+		
+		return Let( 
+			name = var_ref(d_name),
+			rhs = InjectFromBig(
+				DictRef()
+			),
+			body = BigInit(var_ref(d_name), elements)
+		)		
+
+
 	def visit_List(self, node):
 		if not isinstance(node.ctx, ast.Load):
 			raise BadAss("unexpected context for list: %s" % (ast.dump(node)) )

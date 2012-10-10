@@ -78,6 +78,17 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 			)]
 		)
 
+	def visit_DictRef(self, node):
+		result_name = self.gen_name()
+		
+		return (
+			var_ref(result_name),
+			[make_assign(
+				var_ref(result_name),
+				DictRef()
+			)]
+		)
+
 	def visit_BigInit(self, node):
 		init_sir_list = []
 
@@ -99,13 +110,15 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 	def visit_Subscript(self, node):
 		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
-		
+		(var_name, var_sir_list) = pyc_vis.visit(self, node.value)
+
 		new_sub = ast.Subscript(
-			value = var_ref(node.value.id),
+			value = var_name,
 			slice = slice_name,
 			ctx = node.ctx.__class__()
 		)
 
+		slice_sir_list.extend(var_sir_list)
 		if isinstance(node.ctx, ast.Load):
 			result_name = self.gen_name()
 			slice_sir_list.append(make_assign(

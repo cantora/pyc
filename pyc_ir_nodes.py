@@ -124,6 +124,9 @@ class ListRef(BigRef):
 		self.size = size
 		self._fields = tuple(['size'])
 
+class DictRef(BigRef):
+	pass
+
 class BigInit(IRNode):
 	def __init__(self, pyobj_name, body):
 		self.pyobj_name = pyobj_name

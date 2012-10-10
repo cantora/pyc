@@ -169,6 +169,16 @@ class SIRtoASM(pyc_vis.Visitor):
 			Mov(Immed(DecInt(0)), var)
 		]
 
+	def set_var_to_DictRef(self, node, var, var_tbl):
+		return self.set_var_to_Call(
+			ast.Call(
+				func = var_ref("create_dict"),
+				args = []
+			),
+			var,
+			var_tbl
+		)
+
 	def set_var_to_ListRef(self, node, var, var_tbl):
 		return self.set_var_to_Call(
 			ast.Call(
