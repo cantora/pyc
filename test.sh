@@ -3,7 +3,11 @@
 set -e
 FILE=$(dirname $1)/$(basename $1 .py )
 
-./pyc ${FILE}.py 
+TIME="/usr/bin/time -f '%e'"
+COMP_T=/tmp/pyc_test_compile_time
+RUN_T=/tmp/pyc_test_run_time
+
+$TIME ./pyc ${FILE}.py 2>$COMP_T
 if [ ! "$VERBOSE" = "0" ]; then
   cat ${FILE}.s 
 fi
@@ -11,7 +15,7 @@ fi
 make -s -C ./clib
 
 gcc -m32 -o output ${FILE}.s ./clib/*.o -lm
-./output < ${FILE}.in > ${FILE}.out 
+$TIME ./output < ${FILE}.in > ${FILE}.out 2>$RUN_T
 python ${FILE}.py < ${FILE}.in > ${FILE}.expected || true
 
 set +e
@@ -25,14 +29,13 @@ if [ ! "$VERBOSE" = "0" ]; then
   echo "out vs expected"
 fi
 
-if [ ! "$VERBOSE" = "0" ]; then
-  diff ${FILE}.out ${FILE}.expected
-  if [ $? == 0 ]; then
-    echo "test passed"
-  else
-    echo "test failed"
-  fi
+TIME_RESULT="compile=$(cat $COMP_T) run=$(cat $RUN_T)"
+FNAME=$(basename $FILE)
+diff ${FILE}.out ${FILE}.expected
+if [ $? == 0 ]; then
+  echo "[x] $TIME_RESULT $FNAME"
 else
-  diff ${FILE}.out ${FILE}.expected
+  echo "[-] $TIME_RESULT $FNAME"
 fi
+
 
