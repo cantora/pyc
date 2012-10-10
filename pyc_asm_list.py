@@ -98,10 +98,11 @@ class SIRtoASM(pyc_vis.Visitor):
 		return self.set_var_to_single_arg_ir_fn(node, 'tag', var, var_tbl)
 
 	def set_var_to_single_arg_ir_fn(self, node, fn, var, var_tbl):
+
 		return self.set_var_to_Call(
 			ast.Call(
 				func = var_ref(fn),
-				args = [var_ref(node.arg.id)]
+				args = [node.arg]
 			),
 			var,
 			var_tbl			
@@ -124,7 +125,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		return self.cmp(Immed(DecInt(0)), op, var, True)
 
 	def set_var_to_Error(self, node, var, var_tbl):
-		return self.fn_call("error_pyobj", [node.msg], var_tbl) + [
+		return self.fn_call("puts", [node.msg], var_tbl) + [
 			Mov(Immed(DecInt(1)), Register("eax") ),
 			Interrupt(Immed(HexInt(0x80)))
 		]
@@ -200,7 +201,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		if len(pr_node.values) != 1:
 			raise Exception("expected pr_node with 1 node")
 		
-		return self.fn_call("print_int_nl", [pr_node.values[0]], var_tbl)
+		return self.fn_call("print_any", [pr_node.values[0]], var_tbl)
 
 	def visit_If(self, ifnode, var_tbl):
 		testop = self.se_to_operand(ifnode.test, var_tbl)
