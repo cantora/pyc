@@ -79,15 +79,15 @@ class AstToIRTxformer(ASTTxformer):
 	def visit_Compare(self, node):
 		if len(node.ops) != 1:
 			raise BadAss("expected 1 compare op: %s" % dump(node) )
-		elif not isinstance(node.ops[0], ast.Eq):
-			raise BadAss("expected compare to use equality context: %s" % dump(node) )
+		elif not isinstance(node.ops[0], ast.Eq) and not isinstance(node.ops[0], ast.NotEq):
+			raise BadAss("unexpected compare context: %s" % dump(node) )
 		elif len(node.comparators) != 1:
 			raise BadAss("expected 1 comparator: %s" % dump(node) )
 
 		l_name = var_ref(self.gen_name())
 		comp_name = var_ref(self.gen_name() )
 
-		return let_env(
+		result = let_env(
 			InjectFromBool(make_cmp(l_name, comp_name)),
 			(
 				l_name,
@@ -99,6 +99,13 @@ class AstToIRTxformer(ASTTxformer):
 			)
 		)
 			
+		if isinstance(node.ops[0], ast.NotEq):
+			return InjectFromBool(ast.UnaryOp(
+				op = ast.Not(),
+				operand = IsTrue(result)
+			))
+
+		return result
 		
 	def visit_Call(self, node):
 		if node.func.id != "input":
