@@ -60,7 +60,13 @@ class AstToIRTxformer(ASTTxformer):
 			ctx = node.ctx.__class__()
 		)
 
-
+	def visit_IfExp(self, node):
+		return ast.IfExp(
+			test = IsTrue(pyc_vis.visit(self, node.test)),
+			body = pyc_vis.visit(self, node.body),
+			orelse = pyc_vis.visit(self, node.orelse)
+		)
+	
 	def visit_Compare(self, node):
 		if len(node.ops) != 1:
 			raise BadAss("expected 1 compare op: %s" % dump(node) )
@@ -129,12 +135,16 @@ class AstToIRTxformer(ASTTxformer):
 
 			#int, bool => int, cast(bool, int) 
 			def int_int(self, l, r):
-				return self.add_bools_or_ints(l, r)
+				return InjectFromInt(self.add_bools_or_ints(ProjectToInt(l), ProjectToInt(r)))
 
-			#bool, int => int, cast(int, bool) = X
-			#we want to treat the addition ast int_int
+			def int_bool(self, l, r):
+				return InjectFromInt(self.add_bools_or_ints(ProjectToInt(l), CastBoolToInt(ProjectToBool(r))))
+
 			def bool_bool(self, l, r):
-				return self.add_bools_or_ints(l, r)
+				return InjectFromInt(self.add_bools_or_ints(CastBoolToInt(ProjectToBool(l)), CastBoolToInt(ProjectToBool(r))))
+
+			def bool_int(self, l, r):
+				return InjectFromInt(self.add_bools_or_ints(CastBoolToInt(ProjectToBool(l)), ProjectToInt(r)))
 
 			def big_big(self, l, r):
 				return ast.Call(func = var_ref("add"), args = [l, r])

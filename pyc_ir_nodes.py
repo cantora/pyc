@@ -294,7 +294,21 @@ def _polyswitch(instance, preceding, names):
 		)		
 	)
 
+def _polyswitch_base(instance, preceding):
+	#preceding contains a tuple of (name, tag)
+	(names, tags) = zip(*preceding) 		
+	typs = map(lambda tag: PolySwitch.tag_to_type[tag], tags)
 
+	meth = instance.match_types(typs)
+	if meth is None:
+		return instance.no_match(zip(names, typs))
+	
+	return meth(*names)
+
+"""
+#taking this out for now, as it is doing too much
+#ill try to find a way to bring it back if i find a 
+#situation where i need it
 def _polyswitch_base(instance, preceding):
 	#preceding contains a tuple of (name, tag)
 	(names, tags) = zip(*preceding) 		
@@ -339,8 +353,9 @@ def polyswitch_match_types_with_casting(instance, preceding):
 		primary
 	)
 		
-"""
-too complicated to do generically right now
+
+#more complete version of match types with casting: not finished. also... needed?
+#too complicated to do generically right now
 def polyswitch_match_types_with_casting(instance, preceding):
 	(names, tags) = zip(*preceding)
 	typs = map(lambda tag: PolySwitch.tag_to_type[tag], tags)
