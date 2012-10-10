@@ -123,8 +123,8 @@ def run(options):
 	
 	(adjusted_asm_list, symtbl) = pyc_reg_allocator.allocate(asm_list)
 	
-	asm_ir_list = pyc_asm_nodes.IfAsm.patch(adjusted_asm_list)
-	raise Exception("asdf")
+	asm_ir_list = pyc_asm_nodes.AsmIf.patch(adjusted_asm_list)
+
 	insns = []
 	insns.extend(asm_prefix())
 
@@ -153,9 +153,8 @@ def format_insn_nodes(ins_nodes, sir_mod, symtbl):
 		
 		s = str(patched)
 		if previous is None or previous.origin != ins.origin:
-			val = ""
-	
-			s = "%-20s #%s%s" % (s, val, pyc_ir.dump(ins.origin))
+			origin_s = repr(None) if ins.origin is None else pyc_ir.dump(ins.origin)
+			s = "%-20s #%s" % (s, origin_s)
 	
 		previous = ins
 		result.append(s)
