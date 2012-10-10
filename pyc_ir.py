@@ -76,16 +76,50 @@ class AstToIRTxformer(ASTTxformer):
 			orelse = pyc_vis.visit(self, node.orelse)
 		)
 	
+	def visit_Compare_Is(self, node, l_name, comp_name):
+		
+		class IsPolySwitch(PolySwitch):
+
+			def no_match(self, name_typ_list):
+				return false_node()
+
+			def int_int(self, l, r):
+				return simple_compare(ProjectToInt(l), ProjectToInt(r))
+
+			def bool_bool(self, l, r):
+				return simple_compare(ProjectToBool(l), ProjectToBool(r))
+
+			def big_big(self, l, r):
+				return simple_compare(ProjectToBig(l), ProjectToBig(r))
+		#end IsPolySwitch
+
+		return let_env(
+			InjectFromBool(polyswitch(IsPolySwitch(), l_name, comp_name)) ,
+			(
+				l_name,
+				pyc_vis.visit(self, node.left)
+			),
+			(
+				comp_name,
+				pyc_vis.visit(self, node.comparators[0])
+			)
+		)
+
 	def visit_Compare(self, node):
 		if len(node.ops) != 1:
 			raise BadAss("expected 1 compare op: %s" % dump(node) )
-		elif not isinstance(node.ops[0], ast.Eq) and not isinstance(node.ops[0], ast.NotEq):
+		elif not isinstance(node.ops[0], ast.Eq) \
+				and not isinstance(node.ops[0], ast.NotEq) \
+				and not isinstance(node.ops[0], ast.Is):
 			raise BadAss("unexpected compare context: %s" % dump(node) )
 		elif len(node.comparators) != 1:
 			raise BadAss("expected 1 comparator: %s" % dump(node) )
 
 		l_name = var_ref(self.gen_name())
 		comp_name = var_ref(self.gen_name() )
+
+		if isinstance(node.ops[0], ast.Is):
+			return self.visit_Compare_Is(node, l_name, comp_name)
 
 		result = let_env(
 			InjectFromBool(make_cmp(l_name, comp_name)),

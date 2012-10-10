@@ -5,7 +5,7 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
 			#$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
 			#$(wildcard ./p0tests/student_tests/*.py)
 
-P1TESTS	= $(filter-out %eq1.py %is0.py , $(wildcard ./p1tests/grader_tests/*.py) )
+P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py)
 
 .PHONY: pkg
 pkg: hw.zip
