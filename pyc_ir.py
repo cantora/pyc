@@ -37,6 +37,9 @@ class AstToIRTxformer(ASTTxformer):
 			value = pyc_vis.visit(self, node.value)
 		)
 
+	def visit_Num(self, node):
+		return InjectFromInt(ast.Num(n=node.n))
+
 	def visit_Print(self, node):
 		if len(node.values) != 1:
 			raise InvalidP1("print expected to have only one arg")
