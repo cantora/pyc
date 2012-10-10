@@ -192,7 +192,7 @@ class AstToIRTxformer(ASTTxformer):
 				return InjectFromInt(self.add_bools_or_ints(CastBoolToInt(ProjectToBool(l)), ProjectToInt(r)))
 
 			def big_big(self, l, r):
-				return ast.Call(func = var_ref("add"), args = [l, r])
+				return InjectFromBig(ast.Call(func = var_ref("add"), args = [ProjectToBig(l), ProjectToBig(r)]))
 		#AddPolyswitch
 
 		return let_env(
