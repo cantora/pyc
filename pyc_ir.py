@@ -270,7 +270,6 @@ class AstToIRTxformer(ASTTxformer):
 		def unknown_op(node, *args):
 			raise Exception("unsupported BoolOp: %s" % ast.dump(node))
 		l_name = var_ref(self.gen_name())
-		r_name = var_ref(self.gen_name())
 
 		return pyc_vis.dispatch_to_prefix(
 			self,
@@ -278,55 +277,43 @@ class AstToIRTxformer(ASTTxformer):
 			unknown_op,			
 			node.op,
 			node,
-			l_name,
-			r_name
+			l_name
 		)
 
-	def visit_BoolOp_And(self, dummy, node, l_name, r_name):
+	def visit_BoolOp_And(self, dummy, node, l_name):
 		if len(node.values) != 2:
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
-		return let_env(
-			ast.IfExp(
+		return Let(
+			name = l_name,
+			rhs = pyc_vis.visit(self, node.values[0]),
+			body = ast.IfExp(
 				test = simple_compare(
 					lhs = IsTrue(l_name),
 					rhs = ast.Num(1)
 				),
-				body = r_name,
+				body = pyc_vis.visit(self, node.values[1]),
 				orelse = l_name
-			),
-			(
-				l_name,
-				pyc_vis.visit(self, node.values[0])
-			),
-			(
-				r_name,
-				pyc_vis.visit(self, node.values[1])
 			)
-		)			
+		)
+					
 				
-	def visit_BoolOp_Or(self, dummy, node, l_name, r_name):
+	def visit_BoolOp_Or(self, dummy, node, l_name):
 		if len(node.values) != 2:
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
-		return let_env(
-			ast.IfExp(
+		return Let(
+			name = l_name,
+			rhs = pyc_vis.visit(self, node.values[0]),
+			body = ast.IfExp(
 				test = simple_compare(
 					lhs = IsTrue(l_name),
 					rhs = ast.Num(1)
 				),
 				body = l_name,
-				orelse = r_name
-			),
-			(
-				l_name,
-				pyc_vis.visit(self, node.values[0])
-			),
-			(
-				r_name,
-				pyc_vis.visit(self, node.values[1])
+				orelse = pyc_vis.visit(self, node.values[1])
 			)
-		)			
+		)		
 
 
 def generate(as_tree):
