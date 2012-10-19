@@ -13,6 +13,14 @@ class IRNode(ast.AST):
 	def __init__(self):
 		ast.AST.__init__(self)
 
+class Bloc(IRNode):
+	def __init__(self, args, body, klass):
+		IRNode.__init__(self)
+		self.args = args
+		self.body = body
+		self.klass = klass
+		self._fields = ('args', 'body', 'klass')
+	
 class InjectFrom(IRNode):
 	
 	def __init__(self, typ, arg):

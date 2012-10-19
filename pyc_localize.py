@@ -71,7 +71,7 @@ class Localizer(ASTTxformer):
 
 		body = [node.body] if isinstance(node, ast.Lambda) else node.body
 		return (
-			[pyc_vis.visit(self, n, lam_mappy) for n in node.args.args],
+			pyc_vis.visit(self, node.args, lam_mappy),
 			[pyc_vis.visit(self, n, lam_mappy) for n in body]
 		)
 
@@ -117,7 +117,6 @@ class LocalFinder(pyc_vis.Visitor):
 			)
 
 	def visit_Lambda(self, node):
-		print ast.dump(node)
 		if self.root != node:
 			return set([])
 		else:
@@ -128,10 +127,10 @@ class LocalFinder(pyc_vis.Visitor):
 
 def locals(node):
 	lf = LocalFinder(node)
-	lf.log = lambda s: log("LocalFinder: %s" % s)
+	#lf.log = lambda s: log("LocalFinder: %s" % s)
 	return pyc_vis.walk(lf, node)
 
 def txform(as_tree):
 	v = Localizer()
-	v.log = lambda s: log("Localizer  : %s" % s)
+	#v.log = lambda s: log("Localizer  : %s" % s)
 	return pyc_vis.walk(v, as_tree)

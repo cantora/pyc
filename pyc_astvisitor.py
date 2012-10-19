@@ -8,7 +8,6 @@ class ASTVisitor(pyc_vis.Visitor):
 		pyc_vis.Visitor.__init__(self)
 	
 	def default(self, node, *args):
-		"""Called if no explicit visitor function exists for a node."""
 
 		if isinstance(node, ast.AST):
 			self.default_ast(node, *args)
@@ -29,8 +28,10 @@ class ASTTxformer(pyc_vis.Visitor):
 		pyc_vis.Visitor.__init__(self)
 
 	def default(self, node, *args):
+
 		new_node = node.__class__()
 		for field, old_value in ast.iter_fields(node):
+			#print "%s => %s" % (field, old_value.__class__.__name__)
 			old_value = getattr(node, field, None)
 			if isinstance(old_value, list):
 				new_values = []

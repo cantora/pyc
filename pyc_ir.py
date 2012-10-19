@@ -348,10 +348,28 @@ class AstToIRTxformer(ASTTxformer):
 			)
 		)		
 
+	def visit_FunctionDef(self, node):
+		return make_assign(
+			var_ref(node.name),
+			Bloc(
+				args = pyc_vis.visit(self, node.args),
+				body = [pyc_vis.visit(self, n) for n in node.body],
+				klass = ast.FunctionDef
+			)
+		)
+
+	def visit_Lambda(self, node):
+		return Bloc(
+			args = pyc_vis.visit(self, node.args),
+			body = [ast.Return(
+				value = pyc_vis.visit(self, node.body)
+			)],
+			klass = ast.Lambda
+		)
 
 def generate(as_tree):
 	v = AstToIRTxformer()
-	#v.log = log
+	v.log = log
 	ir = pyc_vis.walk(v, as_tree)
 	#set False and True for the program environment
 	ir.body.insert(
