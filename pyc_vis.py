@@ -7,7 +7,10 @@ class Visitor:
 	def default(self, node, *args):
 		raise Exception('no visit method for type %s in %s at depth %d' \
 			% (node.__class__, self.__class__, self.depth) )
-	
+
+	def depth_fmt(self, s):
+		return "%s%s" % (" "*self.depth, s)
+			
 
 def dispatch_to_prefix(instance, prefix, default, node, *args):
 	klass = node.__class__
@@ -26,7 +29,7 @@ def dispatch_to_prefix(instance, prefix, default, node, *args):
 	)
 
 	if hasattr(instance.log, '__call__'):
-		instance.log("%s%s => %s" % (" "*instance.depth, node.__class__.__name__, meth.__name__) )
+		instance.log(instance.depth_fmt("%s => %s" % (node.__class__.__name__, meth.__name__) ) )
 
 	return meth(node, *args)
 

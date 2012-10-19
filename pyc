@@ -8,6 +8,7 @@ import pyc_var_analyzer
 import pyc_reg_allocator
 import pyc_asm_nodes
 import pyc_ir
+import pyc_localize
 
 import compiler
 from pyc_log import *
@@ -15,7 +16,7 @@ import os.path
 import time
 import resource
 
-g_phases = ["parse", "explicate", "sir-list", "asm-node-list"]
+g_phases = ["parse", "localize", "explicate", "sir-list", "asm-node-list"]
 
 def opt_parser():
 	global g_phases
@@ -81,16 +82,21 @@ def run(options):
 	sys.setrecursionlimit(10**6)
 
 	t0 = time.time()
-	as_tree = pyc_parser.parse(options.src)
+	as_tree1 = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
-		pyc_parser.print_astree(as_tree)
+		pyc_parser.print_astree(as_tree1)
 		exit(0)
 
-	#log( lambda : pyc_ast.str(as_tree))
+	#log( lambda : pyc_ast.str(as_tree1))
 	#print "parse time: %d" % (time.time() - t0)
 
+	as_tree2 = pyc_localize.txform(as_tree1)
+	if options.phase == 'localize':
+		pyc_parser.print_astree(as_tree2)
+		exit(0)
+
 	t0 = time.time()
-	ir_tree = pyc_ir.generate(as_tree)
+	ir_tree = pyc_ir.generate(as_tree2)
 	if options.phase == 'explicate':
 		pyc_ir.print_irtree(ir_tree)
 		exit(0)
