@@ -25,6 +25,7 @@ BAD TESTS:
 	cheetah_p1test1.py		uses strings
 	Midway_test_66.py		like 911... printing hash is different from standard python
 	synth_p1_8.py			invalid syntax
-	
+	Z23_true_false.py		multiple compares in one bool op
+		
 	
 	
