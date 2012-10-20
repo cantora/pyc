@@ -368,9 +368,7 @@ class AstToIRTxformer(ASTTxformer):
 		)
 
 def generate(as_tree):
-	v = AstToIRTxformer()
-	v.log = log
-	ir = pyc_vis.walk(v, as_tree)
+	ir = astree_to_ir(as_tree)
 	#set False and True for the program environment
 	ir.body.insert(
 		0, 
@@ -383,7 +381,11 @@ def generate(as_tree):
 
 	return ir
 	
-
+def astree_to_ir(astree):
+	v = AstToIRTxformer()
+	v.log = log
+	return pyc_vis.walk(v, astree)
+	
 def print_irtree(tree):
 	return pyc_parser.print_astree(tree)
 

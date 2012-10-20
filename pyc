@@ -9,6 +9,7 @@ import pyc_reg_allocator
 import pyc_asm_nodes
 import pyc_ir
 import pyc_localize
+import pyc_heapify
 
 import compiler
 from pyc_log import *
@@ -16,7 +17,14 @@ import os.path
 import time
 import resource
 
-g_phases = ["parse", "localize", "explicate", "sir-list", "asm-node-list"]
+g_phases = [
+	"parse", 
+	"localize", 
+	"explicate", 
+	"heapify", 
+	"sir-list", 
+	"asm-node-list"
+]
 
 def opt_parser():
 	global g_phases
@@ -103,8 +111,13 @@ def run(options):
 	
 	#print "explicate time: %d" % (time.time() - t0)	
 
+	heapified_ir_tree = pyc_heapify.txform(ir_tree)
+	if options.phase == 'heapify':
+		print pyc_ir.print_irtree(heapified_ir_tree)
+		exit(0)
+
 	t0 = time.time()
-	sir_mod = pyc_ast.simple_ir(ir_tree)
+	sir_mod = pyc_ast.simple_ir(heapified_ir_tree)
 
 	if options.phase == 'sir-list':
 		print pyc_ast.sir_list_to_str(sir_mod.body)

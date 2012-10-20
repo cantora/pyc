@@ -2,7 +2,7 @@ class Visitor:
 
 	def __init__(self):
 		self.depth = 0
-		self.log = None
+		self.log = lambda s: None
 
 	def default(self, node, *args):
 		raise Exception('no visit method for type %s in %s at depth %d' \

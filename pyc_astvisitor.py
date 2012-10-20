@@ -66,3 +66,18 @@ class ASTTxformer(pyc_vis.Visitor):
 
 		return new_node
 
+def names(node):
+	names = set([])
+
+	class NameFinder(ASTVisitor):
+		def default(self, node, *args):
+			pass
+
+		def visit_Name(self, node, *args):
+			return names.add(node.id)
+
+	v = NameFinder()
+	pyc_vis.walk(v, node)
+
+	return names
+

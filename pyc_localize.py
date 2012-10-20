@@ -12,11 +12,10 @@ class Localizer(ASTTxformer):
 	
 	def __init__(self):
 		ASTTxformer.__init__(self)
-		self.log = log
-		self.scope = "main"
 
-	def scope_fmt(self, s):
-		return "%s_%s" % (self.scope, s)
+	@staticmethod
+	def scope_fmt(scope, s):
+		return "%s_%s" % (scope, s)
 
 	def visit_Module(self, node):
 		locs = locals(node)
@@ -24,19 +23,19 @@ class Localizer(ASTTxformer):
 
 		mappy = {}
 		for loco in locs:
-			mappy[loco] = self.scope_fmt(loco)
+			mappy[loco] = Localizer.scope_fmt("main", loco)
 
 		return ast.Module(
-			body = [pyc_vis.visit(self, n, mappy) for n in node.body]
+			body = [pyc_vis.visit(self, n, mappy, "main") for n in node.body]
 		)
 
-	def visit_Name(self, node, mappy):
+	def visit_Name(self, node, mappy, scope):
 		return ast.Name(
 			id = mappy[node.id],
 			ctx = node.ctx
 		)
 
-	def visit_FunctionDef(self, node, mappy):
+	def visit_FunctionDef(self, node, mappy, scope):
 		fn_name = mappy[node.name]
 
 		(new_args, new_body) = self.localize_lambda(node, mappy, fn_name)
@@ -50,8 +49,8 @@ class Localizer(ASTTxformer):
 			body = new_body
 		)
 
-	def visit_Lambda(self, node, mappy):
-		name = pyc_gen_name.new(self.scope_fmt("l"))
+	def visit_Lambda(self, node, mappy, scope):
+		name = pyc_gen_name.new(Localizer.scope_fmt(scope, "l"))
 		(new_args, new_body) = self.localize_lambda(node, mappy, name)
 		return ast.Lambda(
 			args = new_args,
@@ -65,14 +64,13 @@ class Localizer(ASTTxformer):
 		self.log(self.depth_fmt("locals: %r" % locs) )
 
 		lam_mappy = copy.copy(mappy) #dont need deep copy, its a shallow dict
-		self.scope = lam_name
 		for loco in locs:
-			lam_mappy[loco] = self.scope_fmt(loco)
+			lam_mappy[loco] = Localizer.scope_fmt(lam_name, loco)
 
 		body = [node.body] if isinstance(node, ast.Lambda) else node.body
 		return (
-			pyc_vis.visit(self, node.args, lam_mappy),
-			[pyc_vis.visit(self, n, lam_mappy) for n in body]
+			pyc_vis.visit(self, node.args, lam_mappy, lam_name),
+			[pyc_vis.visit(self, n, lam_mappy, lam_name) for n in body]
 		)
 
 		
