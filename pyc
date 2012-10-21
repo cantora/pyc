@@ -113,7 +113,8 @@ def run(options):
 
 	heapified_ir_tree = pyc_heapify.txform(ir_tree)
 	if options.phase == 'heapify':
-		print pyc_ir.print_irtree(heapified_ir_tree)
+		pyc_ir.print_irtree(heapified_ir_tree)
+		#print pyc_parser.dump(heapified_ir_tree)
 		exit(0)
 
 	t0 = time.time()

@@ -38,7 +38,9 @@ class AstToIRTxformer(ASTTxformer):
 		)
 
 	def visit_Num(self, node):
-		return InjectFromInt(ast.Num(n=node.n))
+		return InjectFromInt(
+			arg = ast.Num(n=node.n)
+		)
 
 	def visit_Print(self, node):
 		if len(node.values) != 1:
@@ -53,18 +55,11 @@ class AstToIRTxformer(ASTTxformer):
 	def gen_name(self):
 		return pyc_gen_name.new("ir_")
 
-	def visit_Name(self, node):
-		name_id = pyc_gen_name.user_name(node.id)
-		return ast.Name(
-			id = name_id,
-			ctx = node.ctx.__class__()
-		)
-
 	def visit_UnaryOp(self, node):
 		if isinstance(node.op, ast.Not):
-			return InjectFromBool(ast.UnaryOp(
+			return InjectFromBool(arg = ast.UnaryOp(
 				op = ast.Not(),
-				operand = IsTrue(pyc_vis.visit(self, node.operand) )
+				operand = IsTrue(arg = pyc_vis.visit(self, node.operand) )
 			))
 		elif isinstance(node.op, ast.USub):
 			return self.visit_UnaryOp_USub(node)
@@ -86,10 +81,14 @@ class AstToIRTxformer(ASTTxformer):
 				)
 
 			def int(self, op):
-				return InjectFromInt(self.make_usub(ProjectToInt(op) ) )
+				return InjectFromInt(
+					arg = self.make_usub(ProjectToInt(arg=op) ) 
+				)
 
 			def bool(self, op):
-				return InjectFromInt(self.make_usub(ProjectToBool(op) ) )
+				return InjectFromInt(
+					arg = self.make_usub(ProjectToBool(arg=op) ) 
+				)
 
 		#end IsPolySwitch
 
@@ -104,7 +103,7 @@ class AstToIRTxformer(ASTTxformer):
 
 	def visit_IfExp(self, node):
 		return ast.IfExp(
-			test = IsTrue(pyc_vis.visit(self, node.test)),
+			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
 			body = pyc_vis.visit(self, node.body),
 			orelse = pyc_vis.visit(self, node.orelse)
 		)
@@ -126,19 +125,19 @@ class AstToIRTxformer(ASTTxformer):
 				return false_node()
 
 			def int_int(self, l, r):
-				return simple_compare(ProjectToInt(l), ProjectToInt(r))
+				return simple_compare(ProjectToInt(arg=l), ProjectToInt(arg=r))
 
 			def bool_bool(self, l, r):
-				return simple_compare(ProjectToBool(l), ProjectToBool(r))
+				return simple_compare(ProjectToBool(arg=l), ProjectToBool(arg=r))
 
 			def big_big(self, l, r):
-				return simple_compare(ProjectToBig(l), ProjectToBig(r))
+				return simple_compare(ProjectToBig(arg=l), ProjectToBig(arg=r))
 		#end IsPolySwitch
 
 		class CmpPolySwitch(IsPolySwitch):
 			
  			def int_bool(self, l, r):
-				return simple_compare(ProjectToInt(l), ProjectToBool(r))
+				return simple_compare(ProjectToInt(arg=l), ProjectToBool(arg=r))
 
 			def bool_int(self, l, r):
 				return self.int_bool(r, l)
@@ -146,7 +145,7 @@ class AstToIRTxformer(ASTTxformer):
 			def big_big(self, l, r):
 				return ast.Call(
 					func = var_ref('equal'),
-					args = [ ProjectToBig(l), ProjectToBig(r) ]
+					args = [ ProjectToBig(arg=l), ProjectToBig(arg=r) ]
 				)
 
 		l_name = var_ref(self.gen_name())
@@ -155,7 +154,7 @@ class AstToIRTxformer(ASTTxformer):
 		ps = IsPolySwitch() if isinstance(node.ops[0], ast.Is) else CmpPolySwitch()
 
 		result = let_env(
-			InjectFromBool(polyswitch(ps, l_name, comp_name)),
+			InjectFromBool(arg=polyswitch(ps, l_name, comp_name)),
 			(
 				l_name,
 				pyc_vis.visit(self, node.left)
@@ -167,19 +166,18 @@ class AstToIRTxformer(ASTTxformer):
 		)
 			
 		if isinstance(node.ops[0], ast.NotEq):
-			return InjectFromBool(ast.UnaryOp(
+			return InjectFromBool(arg=ast.UnaryOp(
 				op = ast.Not(),
-				operand = IsTrue(result)
+				operand = IsTrue(arg=result)
 			))
 
 		return result
 		
 	def visit_Call(self, node):
-		if node.func.id != "input":
-			raise InvalidP1("the only function in p1 is input >_<: %r" % node)
 		
-		return InjectFromInt(ast.Call(
-			func = ast.Name( id = "input", ctx = ast.Load() ),
+		return InjectFromInt(arg=ast.Call(
+			func = var_ref(node.func.id),
+			args = [pyc_vis.visit(self, n) for n in node.args],
 			kwargs = None,
 			starargs = None
 		))
@@ -203,10 +201,10 @@ class AstToIRTxformer(ASTTxformer):
 		return Let( 
 			name = var_ref(d_name),
 			rhs = InjectFromBig(
-				DictRef()
+				arg = DictRef()
 			),
-			body = BigInit(var_ref(d_name), elements)
-		)		
+			body = BigInit(pyobj_name = var_ref(d_name), body = elements)
+		)
 
 
 	def visit_List(self, node):
@@ -231,11 +229,11 @@ class AstToIRTxformer(ASTTxformer):
 		return Let( 
 			name = var_ref(list_name),
 			rhs = InjectFromBig(
-				ListRef(
-					InjectFromInt(ast.Num(n=len(node.elts) ) )
+				arg = ListRef(
+					size = InjectFromInt(arg = ast.Num(n=len(node.elts) ) )
 				)
 			),
-			body = BigInit(var_ref(list_name), elements)
+			body = BigInit(pyobj_name = var_ref(list_name), body = elements)
 		)
 
 	def visit_BinOp(self, node):
@@ -272,19 +270,39 @@ class AstToIRTxformer(ASTTxformer):
 
 			#int, bool => int, cast(bool, int) 
 			def int_int(self, l, r):
-				return InjectFromInt(self.add_bools_or_ints(ProjectToInt(l), ProjectToInt(r)))
+				return InjectFromInt(
+					arg = self.add_bools_or_ints(ProjectToInt(arg=l), ProjectToInt(arg=r))
+				)
 
 			def int_bool(self, l, r):
-				return InjectFromInt(self.add_bools_or_ints(ProjectToInt(l), CastBoolToInt(ProjectToBool(r))))
+				return InjectFromInt(
+					arg = self.add_bools_or_ints(ProjectToInt(arg=l), CastBoolToInt(arg=ProjectToBool(arg=r)))
+				)
 
 			def bool_bool(self, l, r):
-				return InjectFromInt(self.add_bools_or_ints(CastBoolToInt(ProjectToBool(l)), CastBoolToInt(ProjectToBool(r))))
+				return InjectFromInt(
+					arg = self.add_bools_or_ints(
+						CastBoolToInt(arg=ProjectToBool(arg=l)), 
+						CastBoolToInt(arg=ProjectToBool(arg=r))
+					)
+				)
 
 			def bool_int(self, l, r):
-				return InjectFromInt(self.add_bools_or_ints(CastBoolToInt(ProjectToBool(l)), ProjectToInt(r)))
+				return InjectFromInt(
+					arg = self.add_bools_or_ints(
+						CastBoolToInt(arg=ProjectToBool(arg=l)), 
+						ProjectToInt(arg=r)
+					)
+				)
 
 			def big_big(self, l, r):
-				return InjectFromBig(ast.Call(func = var_ref("add"), args = [ProjectToBig(l), ProjectToBig(r)]))
+				return InjectFromBig(
+					arg = ast.Call(
+						func = var_ref("add"), 
+						args = [ProjectToBig(arg=l), ProjectToBig(arg=r)]
+					)
+				)
+
 		#AddPolyswitch
 
 		return let_env(
@@ -322,7 +340,7 @@ class AstToIRTxformer(ASTTxformer):
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(l_name),
+					lhs = IsTrue(arg=l_name),
 					rhs = ast.Num(1)
 				),
 				body = pyc_vis.visit(self, node.values[1]),
@@ -340,7 +358,7 @@ class AstToIRTxformer(ASTTxformer):
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(l_name),
+					lhs = IsTrue(arg=l_name),
 					rhs = ast.Num(1)
 				),
 				body = l_name,
@@ -350,7 +368,7 @@ class AstToIRTxformer(ASTTxformer):
 
 	def visit_FunctionDef(self, node):
 		return make_assign(
-			var_ref(node.name),
+			pyc_vis.visit(self, var_ref(node.name)),
 			Bloc(
 				args = pyc_vis.visit(self, node.args),
 				body = [pyc_vis.visit(self, n) for n in node.body],
@@ -370,20 +388,12 @@ class AstToIRTxformer(ASTTxformer):
 def generate(as_tree):
 	ir = astree_to_ir(as_tree)
 	#set False and True for the program environment
-	ir.body.insert(
-		0, 
-		make_assign(var_set('user_False'), InjectFromBool(ast.Num(n=0)) )
-	)
-	ir.body.insert(
-		0, 
-		make_assign(var_set('user_True'), InjectFromBool(ast.Num(n=1)) )
-	)
 
 	return ir
 	
 def astree_to_ir(astree):
 	v = AstToIRTxformer()
-	v.log = log
+	#v.log = log
 	return pyc_vis.walk(v, astree)
 	
 def print_irtree(tree):

@@ -29,6 +29,7 @@ class ASTTxformer(pyc_vis.Visitor):
 
 	def default(self, node, *args):
 
+		#print "%s" % node.__class__.__name__
 		new_node = node.__class__()
 		for field, old_value in ast.iter_fields(node):
 			#print "%s => %s" % (field, old_value.__class__.__name__)

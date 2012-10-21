@@ -30,9 +30,12 @@ class Localizer(ASTTxformer):
 		)
 
 	def visit_Name(self, node, mappy, scope):
+		name_id = node.id if node.id in set(['True', 'False']) \
+							else mappy[node.id]
+		
 		return ast.Name(
-			id = mappy[node.id],
-			ctx = node.ctx
+			id = name_id,
+			ctx = node.ctx.__class__()
 		)
 
 	def visit_FunctionDef(self, node, mappy, scope):

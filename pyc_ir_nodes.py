@@ -13,140 +13,141 @@ class IRNode(ast.AST):
 	def __init__(self):
 		ast.AST.__init__(self)
 
+	def init_kwargs(self, **kwargs):
+		for f in self._fields:
+			if f in kwargs:
+				setattr(self, f, kwargs[f])
+
+
 class Bloc(IRNode):
-	def __init__(self, args, body, klass):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.args = args
-		self.body = body
-		self.klass = klass
 		self._fields = ('args', 'body', 'klass')
+		self.init_kwargs(**kwargs)
+
 	
 class InjectFrom(IRNode):
 	
-	def __init__(self, typ, arg):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.typ = typ
-		self.arg = arg
 		self._fields = ('typ', 'arg')
-
-		assert_type_exists(self.typ)
-
+		self.init_kwargs(**kwargs)
+		#assert_type_exists(self.typ)
+		
 	@staticmethod
 	def inject(node, typ):
 		inj_klass = eval("InjectFrom%s" % typ.capitalize())
-		return inj_klass(node)
+		return inj_klass(arg=node)
 
 class InjectFromInt(InjectFrom):
-	def __init__(self, arg):
-		InjectFrom.__init__(self, 'int', arg)
+	def __init__(self, **kwargs):
+		kwargs["typ"] = 'int'
+		InjectFrom.__init__(self, **kwargs)
 
 class InjectFromBool(InjectFrom):
-	def __init__(self, arg):
-		InjectFrom.__init__(self, 'bool', arg)
+	def __init__(self, **kwargs):
+		kwargs["typ"] = 'bool'
+		InjectFrom.__init__(self, **kwargs)
 
 class InjectFromBig(InjectFrom):
-	def __init__(self, arg):
-		InjectFrom.__init__(self, 'big', arg)
+	def __init__(self, **kwargs):
+		kwargs["typ"] = 'big'
+		InjectFrom.__init__(self, **kwargs)
 
 class ProjectTo(IRNode):
-	def __init__(self, typ, arg):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.typ = typ
-		self.arg = arg
 		self._fields = ('typ', 'arg')
-
-		assert_type_exists(self.typ)
+		self.init_kwargs(**kwargs)
+		#assert_type_exists(self.typ)
 
 	@staticmethod
 	def project(node, typ):
 		proj_klass = eval("ProjectTo%s" % typ.capitalize())
-		return proj_klass(node)
+		return proj_klass(arg=node)
 
 class ProjectToInt(ProjectTo):
-	def __init__(self, arg):
-		ProjectTo.__init__(self, 'int', arg)
-		
+	def __init__(self, **kwargs):
+		kwargs['typ'] = 'int'
+		ProjectTo.__init__(self, **kwargs)
+
 class ProjectToBool(ProjectTo):
-	def __init__(self, arg):
-		ProjectTo.__init__(self, 'bool', arg)
+	def __init__(self, **kwargs):
+		kwargs['typ'] = 'bool'
+		ProjectTo.__init__(self, **kwargs)
 
 class ProjectToBig(ProjectTo):
-	def __init__(self, arg):
-		ProjectTo.__init__(self, 'big', arg)
+	def __init__(self, **kwargs):
+		kwargs['typ'] = 'big'
+		ProjectTo.__init__(self, **kwargs)
 
 class Cast(IRNode):
-	def __init__(self, from_typ, to_typ, arg):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.from_typ = from_typ
-		self.to_typ = to_typ
-		self.arg = arg
 		self._fields = ('from_typ', 'to_typ', 'arg')
-
-		assert_type_exists(self.from_typ)
-		assert_type_exists(self.to_typ)		
+		self.init_kwargs(**kwargs)
+		#assert_type_exists(self.from_typ)
+		#assert_type_exists(self.to_typ)		
 
 class CastBoolToInt(Cast):
-	def __init__(self, arg):
-		Cast.__init__(self, 'bool', 'int', arg)
+	def __init__(self, **kwargs):
+		kwargs['from_typ'] = 'bool'		
+		kwargs['to_typ'] = 'int'
+		Cast.__init__(self, **kwargs)
 
 class CastIntToBool(Cast):
-	def __init__(self, arg):
-		Cast.__init__(self, 'int', 'bool', arg)
+	def __init__(self, **kwargs):
+		kwargs['from_typ'] = 'int'		
+		kwargs['to_typ'] = 'bool'
+		Cast.__init__(self, **kwargs)
+
 
 class IsTrue(IRNode):
-	def __init__(self, arg):
-		self.arg = arg
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
 		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
 
 class Tag(IRNode):
 	int = ast.Num(n=0)
 	bool = ast.Num(n=1)
 	big = ast.Num(n=3)
 
-	def __init__(self, arg):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.arg = arg
 		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
 
-
-class Type(IRNode):
-	def __init__(self, arg):
-		IRNode.__init__(self)
-		self.arg = arg
-		self._fields = tuple(['arg'])
-	
 class Let(IRNode):
-	def __init__(self, name, rhs, body):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.name = name
-		self.rhs = rhs
-		self.body = body
 		self._fields = ('name', 'rhs', 'body')
+		self.init_kwargs(**kwargs)
 
 class BigRef(IRNode):
 	pass
 
 class ListRef(BigRef):
-	def __init__(self, size):
+	def __init__(self, **kwargs):
 		BigRef.__init__(self)
-		self.size = size
 		self._fields = tuple(['size'])
+		self.init_kwargs(**kwargs)
 
 class DictRef(BigRef):
 	pass
 
 class BigInit(IRNode):
-	def __init__(self, pyobj_name, body):
-		self.pyobj_name = pyobj_name
-		self.body = body
+	def __init__(self, **kwargs):
 		self._fields = tuple(['pyobj_name', 'body'])
+		self.init_kwargs(**kwargs)
 
 
 class Error(IRNode):
-	def __init__(self, msg):
+	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self.msg = msg
 		self._fields = tuple(['msg'])
+		self.init_kwargs(**kwargs)
+
 
 def var_set(name_id):
 	return ast.Name(
@@ -185,28 +186,28 @@ def let_env(body, *name_node_pairs):
 		raise Exception("not a name-node pair: %r" % name_node_pairs[0])
 
 	return Let(
-		name_node_pairs[0][0],
-		name_node_pairs[0][1],
-		let_env(body, *name_node_pairs[1:])
+		name = name_node_pairs[0][0],
+		rhs = name_node_pairs[0][1],
+		body = let_env(body, *name_node_pairs[1:])
 	)
 
 
 def tag_switch(name, int_node, bool_node, big_node):
 	return ast.IfExp(
 		test = simple_compare(
-			lhs = Tag(name),
+			lhs = Tag(arg=name),
 			rhs = Tag.int
 		),
 		body = int_node,
 		orelse = ast.IfExp(
 			test = simple_compare(
-				lhs = Tag(name),
+				lhs = Tag(arg=name),
 				rhs = Tag.bool
 			),
 			body = bool_node,
 			orelse = ast.IfExp(
 				test = simple_compare(
-					lhs = Tag(name),
+					lhs = Tag(arg=name),
 					rhs = Tag.big
 				),
 				body = big_node,
@@ -215,57 +216,11 @@ def tag_switch(name, int_node, bool_node, big_node):
 		)			
 	)
 
-def make_error(msg):
-	return Error(ast.Str(s = msg) )
+def make_error(err_msg):
+	return Error(msg = ast.Str(s = err_msg) )
 
 #arguments to make_* must be Let names or code duplication will result
 
-def make_cmp(lname, rname):
-	return tag_switch(
-		name = lname,
-		int_node = make_int_cmp(lname, rname),
-		bool_node = make_bool_cmp(lname, rname),
-		big_node = make_big_cmp(lname, rname)
-	)
-
-def make_int_cmp(lname, rname):
-	return tag_switch(
-		name = rname,
-		int_node = simple_compare(
-			lhs = ProjectToInt(lname),
-			rhs = ProjectToInt(rname)
-		),
-		bool_node = simple_compare(
-			lhs = ProjectToInt(lname),
-			rhs = CastBoolToInt(rname)
-		),
-		big_node = false_node()
-	)
-
-def make_bool_cmp(lname, rname):
-	return tag_switch(
-		name = rname,
-		int_node = simple_compare(
-			lhs = ProjectToBool(lname),
-			rhs = CastIntToBool(rname)
-		),
-		bool_node = simple_compare(
-			lhs = ProjectToBool(lname),
-			rhs = ProjectToBool(rname)
-		),
-		big_node = false_node()
-	)
-
-def make_big_cmp(lname, rname):
-	return tag_switch(
-		name = rname,
-		int_node = false_node(),
-		bool_node = false_node(),
-		big_node = ast.Call(
-			func = var_ref('equal'),
-			args = [ ProjectToBig(lname), ProjectToBig(rname) ]
-		)
-	)
 
 class PolySwitch:
 	tag_to_type = {
@@ -286,10 +241,10 @@ class PolySwitch:
 		return meth
 	
 	def cast_int_to_bool(self, int_node):
-		return CastIntToBool(int_node)
+		return CastIntToBool(arg=int_node)
 
 	def cast_bool_to_int(self, bool_node):
-		return CastBoolToInt(bool_node)
+		return CastBoolToInt(arg=bool_node)
 		
 
 def polyswitch(instance, *names):

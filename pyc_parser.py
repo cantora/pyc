@@ -24,7 +24,7 @@ class PrintASTVisitor(ASTVisitor):
 
 		print >>self.io, self.format(self.depth, field, val)
 
-	def default_non_ast(self, obj, field=""):
+	def default_non_ast(self, obj, field=""):		
 		print >>self.io, self.format(self.depth, field, repr(obj) )
 
 
