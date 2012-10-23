@@ -44,11 +44,7 @@ class Localizer(ASTTxformer):
 		(new_args, new_body) = self.localize_lambda(node, mappy, fn_name)
 		return ast.FunctionDef(
 			name = fn_name,
-			args = ast.arguments(
-				args = new_args,
-				vararg = None,
-				kwarg = None
-			),
+			args = new_args,
 			body = new_body
 		)
 

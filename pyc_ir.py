@@ -175,12 +175,19 @@ class AstToIRTxformer(ASTTxformer):
 		
 	def visit_Call(self, node):
 		
-		return InjectFromInt(arg=ast.Call(
-			func = var_ref(node.func.id),
-			args = [pyc_vis.visit(self, n) for n in node.args],
-			kwargs = None,
-			starargs = None
-		))
+		args = [pyc_vis.visit(self, n) for n in node.args]
+
+		return pyc_vis.dispatch_to_prefix(
+			self,
+			'visit_Call_',
+			lambda func_id, node, args: make_call(func_id, args),
+			node.func.id,
+			node,
+			args
+		)
+	
+	def visit_Call_input(dummy, node, args):
+		return InjectFromInt(make_call('input', args) )
 
 	def visit_Dict(self, node):
 		d_name = self.gen_name()

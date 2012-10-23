@@ -161,6 +161,14 @@ def var_ref(name_id):
 		ctx = ast.Load()
 	)
 
+def make_call(func_id, args):
+	return ast.Call(
+		func = var_ref(func_id),
+		args = args,
+		kwargs = None,
+		starargs = None
+	)
+
 def make_assign(target, value):
 	return ast.Assign(
 		targets = [target],

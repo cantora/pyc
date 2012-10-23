@@ -23,6 +23,14 @@ class ASTVisitor(pyc_vis.Visitor):
 			#print "non ast:"
 			self.default_non_ast(node, *args)
 
+class ASTSearcher(ASTVisitor):
+	
+	def default_ast(self, node, *args):
+		pass
+
+	def default_non_ast(self, node, *args):
+		pass
+
 class ASTTxformer(pyc_vis.Visitor):
 	def __init__(self):
 		pyc_vis.Visitor.__init__(self)
@@ -70,15 +78,12 @@ class ASTTxformer(pyc_vis.Visitor):
 def names(node):
 	names = set([])
 
-	class NameFinder(ASTVisitor):
-		def default(self, node, *args):
-			pass
+	class NameFinder(ASTSearcher):
 
 		def visit_Name(self, node, *args):
-			return names.add(node.id)
+			names.add(node.id)
 
 	v = NameFinder()
 	pyc_vis.walk(v, node)
-
 	return names
 

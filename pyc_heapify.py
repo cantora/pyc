@@ -11,10 +11,19 @@ import pyc_ir
 import ast
 import copy
 
+class Lamb(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['lamb'])
+		self.init_kwargs(**kwargs)
+		
+
+	
 class Heapifier(ASTTxformer):
 	
 	def __init__(self):
 		ASTTxformer.__init__(self)
+		self.lamb_nodes = []
 
 	def visit_Module(self, node):
 		heap_vars = {}
@@ -31,29 +40,46 @@ class Heapifier(ASTTxformer):
 
 		result = [pyc_vis.visit(self, n, heap_vars, locs) for n in node.body]
 		inits = Heapifier.init_local_heap_vars(locs, env, heap_vars)
-		
+
+		self.patch_lamb_nodes()		
 		return ast.Module(
 			body = bool_inits + inits + result
 		)
 	
+	@staticmethod
+	def heapify_name(node, new_name):
+		return pyc_ir.astree_to_ir(ast.Subscript(
+			value = ast.Name(
+				id = new_name,
+				ctx = ast.Load()
+			),
+			slice = ast.Index(value=ast.Num(n=0)),
+			ctx = node.ctx.__class__()
+		))
+
+	@staticmethod
+	def heapify_switch(node, heap_vars):
+		if node.id in heap_vars:
+			return Heapifier.heapify_name(node, heap_vars[node.id])
+		else:
+			return ast.Name(
+				id = node.id,
+				ctx = node.ctx.__class__()
+			)
+
 	def visit_Name(self, node, heap_vars, locals):
 		if node.id in heap_vars or node.id not in locals:
 			heap_vars[node.id] = ("heap_%s" % node.id)
 			self.log(self.depth_fmt("heap: %s" % node.id))
-			return pyc_ir.astree_to_ir(ast.Subscript(
-				value = ast.Name(
-					id = heap_vars[node.id],
-					ctx = ast.Load()
-				),
-				slice = ast.Index(value=ast.Num(n=0)),
-				ctx = node.ctx.__class__()
-			))
+			return Heapifier.heapify_name(node, heap_vars[node.id])
 		else:
-			self.log(self.depth_fmt("stack: %s" % node.id))
-			return ast.Name(
-				id = node.id,
-				ctx = node.ctx
-			)
+			self.log(self.depth_fmt("defer: %s" % node.id))
+			exp = ast.Expr(Lamb(
+				lamb = lambda : Heapifier.heapify_switch(node, heap_vars)
+			))
+			self.lamb_nodes.append(exp)
+			#we will edit this node later by invoking the lambda
+			return exp
 
 
 	@staticmethod
@@ -84,14 +110,15 @@ class Heapifier(ASTTxformer):
 		locals = pyc_localize.locals(node)
 		self.log(self.depth_fmt("locals: %r" % locals) )
 		prms = pyc_astvisitor.names(node.args)		
+		self.log(self.depth_fmt("params: %r" % prms) )
 
 		result_body = [pyc_vis.visit(self, n, heap_vars, locals) for n in node.body]
 
-		#pass empty set for locals because none of the fn arg references should be "heapified"
+		#pass all params for locals because none of the fn arg references should be "heapified"
 		#because we copy those into new heapified vars before the function body.
 		#due to above pyc_vis call, all references to these parameters have been
 		#converted to the new heapified version we will initialized
-		result_args = pyc_vis.visit(self, node.args, heap_vars, set([]) )
+		result_args = pyc_vis.visit(self, node.args, heap_vars, prms )
 
 		inits = Heapifier.init_local_heap_vars(locals, prms, heap_vars)
 	
@@ -99,6 +126,13 @@ class Heapifier(ASTTxformer):
 			args = result_args,
 			body = inits + result_body
 		)
+
+	def patch_lamb_nodes(self):
+		log("patch lamb nodes:")
+		for expr in self.lamb_nodes:
+			expr.value = expr.value.lamb()
+			log("  ->%s" % ast.dump(expr.value))
+
 
 def txform(as_tree):
 	v = Heapifier()
