@@ -95,7 +95,7 @@ def run(options):
 		pyc_parser.print_astree(as_tree1)
 		exit(0)
 
-	#log( lambda : pyc_ast.str(as_tree1))
+	log( lambda : pyc_parser.tree_to_str(as_tree1))
 	#print "parse time: %d" % (time.time() - t0)
 
 	as_tree2 = pyc_localize.txform(as_tree1)

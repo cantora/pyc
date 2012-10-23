@@ -185,7 +185,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		sir_list.append(make_assign(
 			var_ref(result_name),
 			ast.Call(
-				func = var_ref(node.func.id), 
+				func = node.func, 
 				args = fn_args
 			)
 		))

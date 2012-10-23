@@ -12,6 +12,7 @@ class PrintASTVisitor(ASTVisitor):
 	def __init__(self, io):
 		ASTVisitor.__init__(self)
 		self.io = io
+		self.pass_fields = True
 
 	def format(self, depth, field, val):
 		fmt = "%s%s"
@@ -19,13 +20,13 @@ class PrintASTVisitor(ASTVisitor):
 		fmt += "%s"
 		return fmt % (" "*depth, field, val)
 
-	def default_ast(self, node, field=""):
+	def default_ast(self, node, *args, **kwargs):
 		val = "%s()" % node.__class__.__name__
 
-		print >>self.io, self.format(self.depth, field, val)
+		print >>self.io, self.format(self.depth, kwargs.get("field", ""), val)
 
-	def default_non_ast(self, obj, field=""):		
-		print >>self.io, self.format(self.depth, field, repr(obj) )
+	def default_non_ast(self, obj, *args, **kwargs):		
+		print >>self.io, self.format(self.depth, kwargs.get("field", ""), repr(obj) )
 
 
 def parse(src):
@@ -44,12 +45,3 @@ def print_astree(astree):
 def dump(astree):
 	return ast.dump(astree)
 
-
-#import compiler
-#def parse(src):
-#	return compiler.parse(src)
-
-#import pyc_ply_parser
-
-#def parse(src):
-#	return pyc_ply_parser.parse(src)

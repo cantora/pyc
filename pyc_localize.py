@@ -1,9 +1,11 @@
 from pyc_astvisitor import ASTTxformer
 from pyc_astvisitor import ASTVisitor
+from pyc_astvisitor import ASTSearcher
 import pyc_vis
 from pyc_log import *
 import pyc_gen_name
 from pyc_validator import assert_valid
+import pyc_constants
 
 import ast
 import copy
@@ -30,8 +32,10 @@ class Localizer(ASTTxformer):
 		)
 
 	def visit_Name(self, node, mappy, scope):
-		name_id = node.id if node.id in set(['True', 'False']) \
-							else mappy[node.id]
+		if node.id in pyc_constants.reserved_vars | pyc_constants.internal_names:
+			name_id = node.id
+		else:
+			name_id = mappy[node.id]
 		
 		return ast.Name(
 			id = name_id,
@@ -98,14 +102,16 @@ class LocalFinder(pyc_vis.Visitor):
 	def visit_Assign(self, node):
 		return self.iterate_and_visit(node.targets)
 
-	def visit_Name(self, node):
-		return set([node.id])
-
 	def visit_Subscript(self, node):
 		return pyc_vis.visit(self, node.value)
 
+	def visit_Name(self, node):
+		self.log(self.depth_fmt("  local => %s" % node.id))
+		return set([node.id])
+
 	def visit_FunctionDef(self, node):
 		if self.root != node:
+			self.log(self.depth_fmt("  local => %s" % node.name))
 			return set([node.name])
 		else:
 			return (
@@ -113,21 +119,27 @@ class LocalFinder(pyc_vis.Visitor):
 					| self.iterate_and_visit(node.body)
 			)
 
+	def visit_Bloc(self, node):
+		if self.root != node:
+			return set([])
+		else:
+			return self.visit_FunctionDef(node)
+
 	def visit_Lambda(self, node):
 		if self.root != node:
 			return set([])
 		else:
 			return (
-				self.iterate_and_visit(node.args.args)
+				self.iterate_and_visit(self, node.args.args)
 					| pyc_vis.visit(self, node.body)
 			)
 
 def locals(node):
 	lf = LocalFinder(node)
-	#lf.log = lambda s: log("LocalFinder: %s" % s)
+	lf.log = lambda s: log("LocalFinder: %s" % s)
 	return pyc_vis.walk(lf, node)
 
 def txform(as_tree):
 	v = Localizer()
-	#v.log = lambda s: log("Localizer  : %s" % s)
+	v.log = lambda s: log("Localizer  : %s" % s)
 	return pyc_vis.walk(v, as_tree)

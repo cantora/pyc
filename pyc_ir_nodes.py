@@ -18,6 +18,12 @@ class IRNode(ast.AST):
 			if f in kwargs:
 				setattr(self, f, kwargs[f])
 
+class NameWrap(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['name'])
+		self.init_kwargs(**kwargs)
+	
 
 class Bloc(IRNode):
 	def __init__(self, **kwargs):

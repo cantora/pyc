@@ -177,7 +177,7 @@ class AstToIRTxformer(ASTTxformer):
 		
 		args = [pyc_vis.visit(self, n) for n in node.args]
 
-		return pyc_vis.dispatch_to_prefix(
+		return pyc_vis.dispatch_to_prefix_value(
 			self,
 			'visit_Call_',
 			lambda func_id, node, args: make_call(func_id, args),
@@ -186,8 +186,8 @@ class AstToIRTxformer(ASTTxformer):
 			args
 		)
 	
-	def visit_Call_input(dummy, node, args):
-		return InjectFromInt(make_call('input', args) )
+	def visit_Call_input(self, node, args):
+		return InjectFromInt(arg=make_call('input', args) )
 
 	def visit_Dict(self, node):
 		d_name = self.gen_name()
@@ -394,7 +394,6 @@ class AstToIRTxformer(ASTTxformer):
 
 def generate(as_tree):
 	ir = astree_to_ir(as_tree)
-	#set False and True for the program environment
 
 	return ir
 	
@@ -413,6 +412,8 @@ def dump(tree):
 	return ast.dump(tree)
 
 
+"""
+not implemented yet
 class PrintPyVisitor(ASTVisitor):
 	
 	def __init__(self, io):
@@ -433,3 +434,4 @@ def to_py(ir_node):
 	pyc_vis.walk(v, ir_node)
 	return v.io.getvalue()
 	
+"""
