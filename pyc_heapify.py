@@ -49,14 +49,7 @@ class Heapifier(ASTTxformer):
 	
 	@staticmethod
 	def heapify_name(node, new_name):
-		return pyc_ir.astree_to_ir(ast.Subscript(
-			value = ast.Name(
-				id = new_name,
-				ctx = ast.Load()
-			),
-			slice = ast.Index(value=ast.Num(n=0)),
-			ctx = node.ctx.__class__()
-		))
+		return pyc_ir.astree_to_ir(make_subn(new_name, node.ctx.__class__, 0))
 
 	@staticmethod
 	def heapify_switch(node, heap_vars):
@@ -71,13 +64,13 @@ class Heapifier(ASTTxformer):
 			id = node.id,
 			ctx = node.ctx.__class__()
 		)
-
+	
 	def visit_Name(self, node, heap_vars, locals):
 		if node.id in pyc_constants.internal_names \
 				or node.id[0:2] == "ir":
 			return Heapifier.copy_name(node)
 		elif node.id in heap_vars or node.id not in locals:
-			heap_vars[node.id] = ("heap_%s" % node.id)
+			heap_vars[node.id] = heap_name(node.id)
 			self.log(self.depth_fmt("heap: %s" % node.id))
 			return Heapifier.heapify_name(node, heap_vars[node.id])
 		else:
@@ -144,6 +137,9 @@ class Heapifier(ASTTxformer):
 			expr.name = expr.name.lamb()
 			log("  ->%s" % ast.dump(expr.name))
 
+
+def heap_name(name):
+	return ("heap_%s" % name)
 
 def txform(as_tree):
 	v = Heapifier()
