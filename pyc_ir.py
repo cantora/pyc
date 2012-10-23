@@ -180,7 +180,7 @@ class AstToIRTxformer(ASTTxformer):
 		return pyc_vis.dispatch_to_prefix_value(
 			self,
 			'visit_Call_',
-			lambda func_id, node, args: make_call(func_id, args),
+			lambda node, args: make_call(node.func.id, args),
 			node.func.id,
 			node,
 			args

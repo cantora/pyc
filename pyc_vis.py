@@ -13,6 +13,7 @@ class Visitor:
 			
 
 def dispatch_to_prefix(instance, prefix, default, node, *args, **kwargs):
+
 	return dispatch_to_prefix_value(
 		instance, 
 		prefix, 
@@ -24,12 +25,12 @@ def dispatch_to_prefix(instance, prefix, default, node, *args, **kwargs):
 
 def dispatch_to_prefix_value(instance, prefix, default, value, *args, **kwargs):
 	if isinstance(default, str):
-		default_lam = lambda n, *a, **kwa : getattr(instance, default)(n, *a, **kwa)
+		default_lam = lambda *a, **kwa : getattr(instance, default)(*a, **kwa)
 	elif hasattr(default, '__call__'):
-		default_lam = lambda n, *a, **kwa : default(n, *a, **kwa)
+		default_lam = lambda *a, **kwa : default(*a, **kwa)
 	else:
 		raise Exception("unexpected default argument type: %r" % default)
-
+	
 	meth = getattr(
 		instance, 
 		prefix + value,
