@@ -24,6 +24,23 @@ class NameWrap(IRNode):
 		self._fields = tuple(['name'])
 		self.init_kwargs(**kwargs)
 	
+class CreateClosure(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['name', 'free_vars'])
+		self.init_kwargs(**kwargs)
+
+class ClosureCall(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['var', 'args'])
+		self.init_kwargs(**kwargs)
+
+class ClosureFVS(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['var'])
+		self.init_kwargs(**kwargs)
 
 class Bloc(IRNode):
 	def __init__(self, **kwargs):
@@ -31,6 +48,11 @@ class Bloc(IRNode):
 		self._fields = ('args', 'body', 'klass')
 		self.init_kwargs(**kwargs)
 
+class BlocDef(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = ('name', 'body')
+		self.init_kwargs(**kwargs)
 	
 class InjectFrom(IRNode):
 	
@@ -159,6 +181,16 @@ def var_set(name_id):
 	return ast.Name(
 		id = name_id,
 		ctx = ast.Store()
+	)
+
+def make_subn(name_id, node_ctx, index):
+	return ast.Subscript(
+		value = ast.Name(
+			id = name_id,
+			ctx = ast.Load()
+		),
+		slice = ast.Index(value=ast.Num(n=index)),
+		ctx = node_ctx()
 	)
 
 def var_ref(name_id):
