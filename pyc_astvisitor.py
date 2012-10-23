@@ -64,18 +64,26 @@ class ASTTxformer(pyc_vis.Visitor):
 	def __init__(self):
 		pyc_vis.Visitor.__init__(self)
 
+	def default_accumulator(self):
+		return None
+
+	def default_accumulate(self, current, output):
+		return (output, None)
+
 	def default(self, node, *args, **kwargs):
+		result = self.default_accumulator()
 
 		#print "%s" % node.__class__.__name__
 		new_node = node.__class__()
 		for field, old_value in ast.iter_fields(node):
 			#print "%s => %s" % (field, old_value.__class__.__name__)
-			old_value = getattr(node, field, None)
+			#old_value = getattr(node, field, None)
 			if isinstance(old_value, list):
 				new_values = []
 				for value in old_value:
 					if isinstance(value, ast.AST):
 						value = pyc_vis.visit(self, value, *args, **kwargs)
+						(value, result) = self.default_accumulate(result, value)
 						if value is None:
 							continue
 						elif not isinstance(value, ast.AST):
@@ -85,6 +93,7 @@ class ASTTxformer(pyc_vis.Visitor):
 				setattr(new_node, field, new_values)
 			elif isinstance(old_value, ast.AST):
 				new_child = pyc_vis.visit(self, old_value, *args, **kwargs)
+				(new_child, result) = self.default_accumulate(result, new_child)
 				if not new_child is None:
 					setattr(new_node, field, new_child)
 
@@ -102,7 +111,11 @@ class ASTTxformer(pyc_vis.Visitor):
 					) 
 				)
 
-		return new_node
+		if result is None:
+			return new_node
+		else:
+			return (new_node, result)
+
 
 def names(node):
 
