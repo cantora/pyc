@@ -105,6 +105,9 @@ class LocalFinder(pyc_vis.Visitor):
 	def visit_Subscript(self, node):
 		return pyc_vis.visit(self, node.value)
 
+	def visit_NameWrap(self, node):
+		return pyc_vis.visit(self, node.value)
+
 	def visit_Name(self, node):
 		self.log(self.depth_fmt("  local => %s" % node.id))
 		return set([node.id])
