@@ -21,7 +21,7 @@ class IRNode(ast.AST):
 class NameWrap(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self._fields = tuple(['name'])
+		self._fields = tuple(['value'])
 		self.init_kwargs(**kwargs)
 	
 class CreateClosure(IRNode):
@@ -181,6 +181,12 @@ def var_set(name_id):
 	return ast.Name(
 		id = name_id,
 		ctx = ast.Store()
+	)
+
+def copy_name(node):
+	return ast.Name(
+		id = node.id,
+		ctx = node.ctx.__class__()
 	)
 
 def make_subn(name_id, node_ctx, index):

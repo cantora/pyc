@@ -56,26 +56,19 @@ class Heapifier(ASTTxformer):
 		if node.id in heap_vars:
 			return Heapifier.heapify_name(node, heap_vars[node.id])
 		else:
-			return Heapifier.copy_name(node)	
+			return copy_name(node)	
 
-	@staticmethod
-	def copy_name(node):
-		return ast.Name(
-			id = node.id,
-			ctx = node.ctx.__class__()
-		)
-	
 	def visit_Name(self, node, heap_vars, locals):
 		if node.id in pyc_constants.internal_names \
 				or node.id[0:2] == "ir":
-			return Heapifier.copy_name(node)
+			return copy_name(node)
 		elif node.id in heap_vars or node.id not in locals:
 			heap_vars[node.id] = heap_name(node.id)
 			self.log(self.depth_fmt("heap: %s" % node.id))
 			return Heapifier.heapify_name(node, heap_vars[node.id])
 		else:
 			self.log(self.depth_fmt("defer: %s" % node.id))
-			exp = NameWrap(name=Lamb(
+			exp = NameWrap(value=Lamb(
 				lamb = lambda : Heapifier.heapify_switch(node, heap_vars)
 			))
 			self.lamb_nodes.append(exp)
@@ -134,8 +127,8 @@ class Heapifier(ASTTxformer):
 	def patch_lamb_nodes(self):
 		log("patch lamb nodes:")
 		for expr in self.lamb_nodes:
-			expr.name = expr.name.lamb()
-			log("  ->%s" % ast.dump(expr.name))
+			expr.value = expr.value.lamb()
+			log("  ->%s" % ast.dump(expr.value))
 
 
 def heap_name(name):
