@@ -1,4 +1,5 @@
 import pyc_vis
+from pyc_log import log
 import ast
 import copy
 
@@ -6,36 +7,64 @@ class ASTVisitor(pyc_vis.Visitor):
 
 	def __init__(self):
 		pyc_vis.Visitor.__init__(self)
-	
-	def default(self, node, *args):
+		self.pass_fields = False
+
+	def default_accumulator(self):
+		return set([])
+
+	def default_accumulate(self, current, output):
+		if output is None:
+			return current
+
+		return current | output
+
+	def default(self, node, *args, **kwargs):
+		result = self.default_accumulator()
 
 		if isinstance(node, ast.AST):
-			self.default_ast(node, *args)
-			for (field, value) in ast.iter_fields(node):
-				#print "%s => %s" % (field, value.__class__.__name__)
+			result = self.default_accumulate(result, self.default_ast(node, *args, **kwargs))
+
+			for (fld, value) in ast.iter_fields(node):
+				#print "%s => %s" % (fld, value.__class__.__name__)
+			
 				if isinstance(value, list):
 					for i in range(0, len(value) ):
-						pyc_vis.visit(self, value[i], field + ("[%d]" % i) )
+						if self.pass_fields:
+							kwargs["field"] = fld + ("[%d]" % i)
+
+						result = self.default_accumulate(
+							result,
+							pyc_vis.visit(self, value[i], *args, **kwargs)
+						)
 				else:
-					pyc_vis.visit(self, value, field)
+					if self.pass_fields:
+						kwargs["field"] = fld
+
+					result = self.default_accumulate(
+						result,
+						pyc_vis.visit(self, value, *args, **kwargs)
+					)
 
 		else:
 			#print "non ast:"
-			self.default_non_ast(node, *args)
+			result = self.default_non_ast(node, *args, **kwargs)
+
+		return result
+
 
 class ASTSearcher(ASTVisitor):
 	
-	def default_ast(self, node, *args):
-		pass
+	def default_ast(self, node, *args, **kwargs):
+		return set([])
 
-	def default_non_ast(self, node, *args):
-		pass
+	def default_non_ast(self, node, *args, **kwargs):
+		return set([])
 
 class ASTTxformer(pyc_vis.Visitor):
 	def __init__(self):
 		pyc_vis.Visitor.__init__(self)
 
-	def default(self, node, *args):
+	def default(self, node, *args, **kwargs):
 
 		#print "%s" % node.__class__.__name__
 		new_node = node.__class__()
@@ -46,7 +75,7 @@ class ASTTxformer(pyc_vis.Visitor):
 				new_values = []
 				for value in old_value:
 					if isinstance(value, ast.AST):
-						value = pyc_vis.visit(self, value, *args)
+						value = pyc_vis.visit(self, value, *args, **kwargs)
 						if value is None:
 							continue
 						elif not isinstance(value, ast.AST):
@@ -55,7 +84,7 @@ class ASTTxformer(pyc_vis.Visitor):
 					new_values.append(value)
 				setattr(new_node, field, new_values)
 			elif isinstance(old_value, ast.AST):
-				new_child = pyc_vis.visit(self, old_value, *args)
+				new_child = pyc_vis.visit(self, old_value, *args, **kwargs)
 				if not new_child is None:
 					setattr(new_node, field, new_child)
 
@@ -76,14 +105,13 @@ class ASTTxformer(pyc_vis.Visitor):
 		return new_node
 
 def names(node):
-	names = set([])
 
 	class NameFinder(ASTSearcher):
 
-		def visit_Name(self, node, *args):
-			names.add(node.id)
+		def visit_Name(self, node, *args, **kwargs):
+			return set([node.id])
 
 	v = NameFinder()
-	pyc_vis.walk(v, node)
-	return names
+	#v.log = lambda s: log("NameFinder  : %s" % s)
+	return pyc_vis.walk(v, node)
 
