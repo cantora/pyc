@@ -148,7 +148,6 @@ def run(options):
 	t0 = time.time()
 	asm_list = pyc_asm_list.from_sir_mod(sir_mod)
 
-	asm_list = reduce(lambda a,b: a + b, asm_list, [])
 	asm_list_str = lambda : "\n".join([repr(n) for n in asm_list])
 	if options.phase == 'asm-node-list':
 		print asm_list_str()

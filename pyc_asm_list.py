@@ -345,6 +345,13 @@ class SIRtoASM(pyc_vis.Visitor):
 			orelse = els_insns
 		)]
 
+	def visit_Return(self, node, var_tbl):
+		return [
+			Mov(self.se_to_operand(node.value, var_tbl), Register("eax")),
+			Leave(),
+			Ret()
+		]
+
 	def visit_BlocDef(self, node):
 		vt = {
 			Var("False"): True,
@@ -356,10 +363,14 @@ class SIRtoASM(pyc_vis.Visitor):
 			params.append(n.id)
 			vt[Var(n.id)] = True
 
+		insns = []
+		for sir in node.body:
+			insns.extend(pyc_vis.visit(self, sir, vt) )
+
 		return CodeBloc(
 			node.name,
 			params,
-			[pyc_vis.visit(self, sir, vt) for sir in node.body]
+			insns
 		)
 
 def sir_to_asm(sir_node):

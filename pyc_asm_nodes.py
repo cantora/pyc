@@ -22,6 +22,20 @@ class CodeBloc:
 		self.params = params
 		self.insns = insns
 
+	def __repr__(self):
+		return "\n".join(self.inspect())
+
+	def inspect(self):
+		lines = []
+		lines.append("%s(%r):" % (self.name, self.params) )
+		for n in self.insns:
+			r_lines = repr(n).split("\n")
+			for l in r_lines:
+				lines.append("  %s" % l)
+		lines.append("end")
+
+		return lines
+
 class Operand:
 	def __init__(self, asm_node):
 		self.asm_node = asm_node
@@ -451,6 +465,20 @@ class Label(Inst):
 	def __deepcopy__(self, memo):
 		return self.beget(Label, memo, self.s)
 
+class Leave(Inst):
+	def __str__(self):
+		return "leave"
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__)
+
+class Ret(Inst):
+	def __str__(self):
+		return "ret"
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__)
+		
 #END INSTRUCTIONS
 
 class Immed(AsmNode):
