@@ -42,7 +42,7 @@ class SirToPyVisitor(ASTVisitor):
 
 	def default_ast(self, node, *args, **kwargs):
 		if node.__class__ not in set([ast.Module]):
-			print "not handled: %r" % ast.dump(node)
+			raise Exception("not handled: %r" % ast.dump(node))
 		return ""
 
 	def default(self, node, *args, **kwargs):
@@ -56,6 +56,14 @@ class SirToPyVisitor(ASTVisitor):
 
 	def visit_arg_irnode(self, node, **kwargs):
 		return "%s(%s)" % (node.__class__.__name__, pyc_vis.visit(self, node.arg) )
+
+	def visit_Call(self, node, **kwargs):
+		return "%s(%s)" % (
+			node.func.id,
+			self.format_args(
+				[pyc_vis.visit(self, arg) for arg in node.args]
+			)
+		)
 
 	def visit_Return(self, node, **kwargs):
 		print >>self.io, "%s%s" % (

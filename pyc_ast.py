@@ -211,7 +211,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return (var_ref(result_name), sir_list)
 
-	def visit_Call(self, node):
+	def visit_call_node(self, node):
 		if not getattr(node, 'kwargs', None) is None \
 				or not getattr(node, 'starargs', None) is None \
 				or not getattr(node, 'keywords', None) is None:
@@ -229,13 +229,16 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		result_name = self.gen_name()
 		sir_list.append(make_assign(
 			var_set(result_name),
-			ast.Call(
+			node.__class__(
 				func = node.func, 
 				args = fn_args
 			)
 		))
 
 		return (var_ref(result_name), sir_list)
+
+	def visit_Call(self, node):
+		return self.visit_call_node(node)
 
 	def visit_NameWrap(self, node):
 		return pyc_vis.visit(self, node.value)

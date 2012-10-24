@@ -16,6 +16,11 @@ class AsmNode:
 	def __hash__(self):
 		return str(self).__hash__()
 
+class CodeBloc:
+	def __init__(self, name, params, insns):
+		self.name = name
+		self.params = params
+		self.insns = insns
 
 class Operand:
 	def __init__(self, asm_node):
@@ -249,6 +254,14 @@ class Call(Inst):
 	def __deepcopy__(self, memo):
 		return self.beget(Call, memo, self.name)
 
+class IndirectCall(Call):
+	def __init__(self, name):
+		if not isinstance(name, Var):
+			raise Exception("name must be a Var")
+		Call.__init__(self, name)
+
+	def __str__(self):
+		return self.inst_join(["call", "*%s" % str(self.name)])
 
 class Cmp(Inst):
 	def __init__(self, left, right):

@@ -18,6 +18,12 @@ class IRNode(ast.AST):
 			if f in kwargs:
 				setattr(self, f, kwargs[f])
 
+class UserCall(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['func', 'args', 'starargs', 'kwargs'])
+		self.init_kwargs(**kwargs)
+	
 class NameWrap(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
@@ -207,6 +213,14 @@ def var_ref(name_id):
 
 def make_call(func_id, args):
 	return ast.Call(
+		func = var_ref(func_id),
+		args = args,
+		kwargs = None,
+		starargs = None
+	)
+
+def make_usercall(func_id, args):
+	return UserCall(
 		func = var_ref(func_id),
 		args = args,
 		kwargs = None,

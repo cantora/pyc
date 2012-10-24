@@ -135,7 +135,6 @@ def run(options):
 	log("sir list: ")
 	log(lambda : pyc_ast.sir_list_to_str(sir_mod.body) )
 	
-	
 	if options.IR:
 		#with output_file(options, "python") as f:
 		#	for stmt in sir_mod.body:

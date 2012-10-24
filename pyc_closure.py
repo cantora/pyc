@@ -115,7 +115,7 @@ class Converter(ASTTxformer):
 			d
 		)
 
-	def visit_Call(self, node):
+	def visit_UserCall(self, node):
 		
 		(func_node, d) = pyc_vis.visit(self, node.func)
 		arg_nodes = []

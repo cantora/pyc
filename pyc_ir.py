@@ -143,9 +143,9 @@ class AstToIRTxformer(ASTTxformer):
 				return self.int_bool(r, l)
 
 			def big_big(self, l, r):
-				return ast.Call(
-					func = var_ref('equal'),
-					args = [ ProjectToBig(arg=l), ProjectToBig(arg=r) ]
+				return make_call(
+					'equal',
+					[ ProjectToBig(arg=l), ProjectToBig(arg=r) ]
 				)
 
 		l_name = self.gen_name()
@@ -180,7 +180,7 @@ class AstToIRTxformer(ASTTxformer):
 		return pyc_vis.dispatch_to_prefix_value(
 			self,
 			'visit_Call_',
-			lambda node, args: make_call(node.func.id, args),
+			lambda node, args: make_usercall(node.func.id, args),
 			node.func.id,
 			node,
 			args
@@ -304,9 +304,9 @@ class AstToIRTxformer(ASTTxformer):
 
 			def big_big(self, l, r):
 				return InjectFromBig(
-					arg = ast.Call(
-						func = var_ref("add"), 
-						args = [ProjectToBig(arg=l), ProjectToBig(arg=r)]
+					arg = make_call(
+						"add", 
+						[ProjectToBig(arg=l), ProjectToBig(arg=r)]
 					)
 				)
 

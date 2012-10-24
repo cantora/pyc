@@ -8,15 +8,10 @@ import ast
 
 def from_sir_mod(sir_mod):
 	asm_list = []
-	vt = {
-		Var("False"): True,
-		Var("True"): True
-	}
-
 	log("convert simple statements to list of asm nodes")
 
 	return [
-		sir_to_asm(sir, vt) for sir in sir_mod.body
+		sir_to_asm(sir) for sir in sir_mod.body
 	]
 
 class SIRtoASM(pyc_vis.Visitor):
@@ -65,6 +60,34 @@ class SIRtoASM(pyc_vis.Visitor):
 	def set_var_default(self, node, var, var_tbl):
 		raise Exception("set_var_default: unexpected expr: %s" % ast.dump(node))
 
+	def set_var_to_CreateClosure(self, node, var, var_tbl):
+		return self.set_var_to_fn_call(
+			'create_closure', 
+			[Label(node.name), node.free_vars],
+			var,
+			var_tbl
+		)
+
+	def set_var_to_ClosureFVS(self, node, var, var_tbl):
+		return self.set_var_to_fn_call(
+			'get_free_vars', 
+			[node.var],
+			var,
+			var_tbl
+		)
+
+	def set_var_to_ClosureCall(self, node, var, var_tbl):
+		insns = self.fn_call(
+			'get_fun_ptr', 
+			[node.var],
+			var_tbl
+		)
+		insns.extend(self.fn_call_push_args(node.args, var_tbl))
+		insns.append(IndirectCall(Register("eax")))
+		insns.append(Mov(Register("eax"), var))
+		
+		return insns
+
 	def set_var_to_Subscript(self, node, var, var_tbl):
 		return self.set_var_to_Call(
 			ast.Call(
@@ -91,6 +114,16 @@ class SIRtoASM(pyc_vis.Visitor):
 
 		raise Exception("unexpected binop: %r", node)
 
+	def set_var_to_fn_call(self, name, fn_args, var, var_tbl):
+		return self.set_var_to_Call(
+			ast.Call(
+				func = var_ref(name),
+				args = fn_args
+			),
+			var,
+			var_tbl
+		)
+				
 	def set_var_to_Call(self, node, var, var_tbl):
 		return self.fn_call(node.func.id, node.args, var_tbl) + [
 			Mov(Register("eax"), var)
@@ -251,6 +284,8 @@ class SIRtoASM(pyc_vis.Visitor):
 			return Immed(GlobalString(expr.s))
 		elif isinstance(expr, ast.Index):
 			return self.se_to_operand(expr.value, var_tbl)
+		elif isinstance(expr, Label):
+			return expr
 	
 		raise Exception("expected name or constant, got %s" % expr.__class__.__name__)
 	
@@ -270,12 +305,16 @@ class SIRtoASM(pyc_vis.Visitor):
 		return self.cmp(Immed(DecInt(0)), op, var)
 
 
-	def fn_call(self, name, args, var_tbl):
+	def fn_call_push_args(self, args, var_tbl):
 		insns = []
-		
 		for i in args:
 			insns.insert(0, Push(self.se_to_operand(i, var_tbl) ) )
 	
+		return insns
+		
+	def fn_call(self, name, args, var_tbl):
+		insns = self.fn_call_push_args(args, var_tbl)
+		
 		insns.append( Call(name) )
 		
 		#arglen = len(args)
@@ -306,20 +345,41 @@ class SIRtoASM(pyc_vis.Visitor):
 			orelse = els_insns
 		)]
 
-			
-def sir_to_asm(sir_node, var_tbl):
-	result = pyc_vis.walk(SIRtoASM(), sir_node, var_tbl)
-	if len(result) < 1:
+	def visit_BlocDef(self, node):
+		vt = {
+			Var("False"): True,
+			Var("True"): True
+		}
+
+		params = []
+		for n in node.params:
+			params.append(n.id)
+			vt[Var(n.id)] = True
+
+		return CodeBloc(
+			node.name,
+			params,
+			[pyc_vis.visit(self, sir, vt) for sir in node.body]
+		)
+
+def sir_to_asm(sir_node):
+	v = SIRtoASM()
+	v.log = lambda s: log("SIRtoASM  : %s" % s)	
+	result = pyc_vis.walk(v, sir_node)
+
+	return result
+
+"""
+#origin stuff, come back to this later
+	if len(result.insns) < 1:
 		raise Exception("expected non empty result")
 
-	for ins in result:
+	for ins in result.insns:
 		if not isinstance(ins, Inst):
 			raise Exception("expected instruction node: %s" % repr(ins))
 
 		ins.origin = sir_node
-
-	return result
-
+"""
 	
 
 
