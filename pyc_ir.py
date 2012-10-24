@@ -122,7 +122,7 @@ class AstToIRTxformer(ASTTxformer):
 		class IsPolySwitch(PolySwitch):
 
 			def no_match(self, name_typ_list):
-				return false_node()
+				return ast.Num(0)
 
 			def int_int(self, l, r):
 				return simple_compare(ProjectToInt(arg=l), ProjectToInt(arg=r))
@@ -394,7 +394,6 @@ class AstToIRTxformer(ASTTxformer):
 
 def generate(as_tree):
 	ir = astree_to_ir(as_tree)
-
 	return ir
 	
 def astree_to_ir(astree):
