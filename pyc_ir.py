@@ -92,12 +92,12 @@ class AstToIRTxformer(ASTTxformer):
 
 		#end IsPolySwitch
 
-		op_name = var_ref(self.gen_name())
+		op_name = self.gen_name()
 
 		return Let(
-			name = op_name,
+			name = var_set(op_name),
 			rhs = pyc_vis.visit(self, node.operand),
-			body = polyswitch(USubPolySwitch(), op_name)
+			body = polyswitch(USubPolySwitch(), var_ref(op_name))
 		)		
 
 
@@ -148,19 +148,19 @@ class AstToIRTxformer(ASTTxformer):
 					args = [ ProjectToBig(arg=l), ProjectToBig(arg=r) ]
 				)
 
-		l_name = var_ref(self.gen_name())
-		comp_name = var_ref(self.gen_name() )
+		l_name = self.gen_name()
+		comp_name = self.gen_name() 
 
 		ps = IsPolySwitch() if isinstance(node.ops[0], ast.Is) else CmpPolySwitch()
 
 		result = let_env(
-			InjectFromBool(arg=polyswitch(ps, l_name, comp_name)),
+			InjectFromBool(arg=polyswitch(ps, var_ref(l_name), var_ref(comp_name))),
 			(
-				l_name,
+				var_set(l_name),
 				pyc_vis.visit(self, node.left)
 			),
 			(
-				comp_name, 
+				var_set(comp_name), 
 				pyc_vis.visit(self, node.comparators[0])
 			)
 		)
@@ -206,7 +206,7 @@ class AstToIRTxformer(ASTTxformer):
 
 		
 		return Let( 
-			name = var_ref(d_name),
+			name = var_set(d_name),
 			rhs = InjectFromBig(
 				arg = DictRef()
 			),
@@ -234,7 +234,7 @@ class AstToIRTxformer(ASTTxformer):
 
 		
 		return Let( 
-			name = var_ref(list_name),
+			name = var_set(list_name),
 			rhs = InjectFromBig(
 				arg = ListRef(
 					size = InjectFromInt(arg = ast.Num(n=len(node.elts) ) )
@@ -244,8 +244,8 @@ class AstToIRTxformer(ASTTxformer):
 		)
 
 	def visit_BinOp(self, node):
-		l_name = var_ref(self.gen_name())
-		r_name = var_ref(self.gen_name())
+		l_name = self.gen_name()
+		r_name = self.gen_name()
 		
 		def unknown_op(node, *args):
 			raise Exception("unsupported BinOp: %s" % ast.dump(node))
@@ -313,13 +313,13 @@ class AstToIRTxformer(ASTTxformer):
 		#AddPolyswitch
 
 		return let_env(
-			polyswitch(AddPolySwitch(), l_name, r_name),
+			polyswitch(AddPolySwitch(), var_ref(l_name), var_ref(r_name)),
 			(
-				l_name,
+				var_set(l_name),
 				pyc_vis.visit(self, node.left)
 			),
 			(
-				r_name,
+				var_set(r_name),
 				pyc_vis.visit(self, node.right)
 			)
 		)
@@ -327,7 +327,7 @@ class AstToIRTxformer(ASTTxformer):
 	def visit_BoolOp(self, node):
 		def unknown_op(node, *args):
 			raise Exception("unsupported BoolOp: %s" % ast.dump(node))
-		l_name = var_ref(self.gen_name())
+		l_name = self.gen_name()
 
 		return pyc_vis.dispatch_to_prefix(
 			self,
@@ -343,15 +343,15 @@ class AstToIRTxformer(ASTTxformer):
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
 		return Let(
-			name = l_name,
+			name = var_set(l_name),
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(arg=l_name),
+					lhs = IsTrue(arg=var_ref(l_name)),
 					rhs = ast.Num(1)
 				),
 				body = pyc_vis.visit(self, node.values[1]),
-				orelse = l_name
+				orelse = var_ref(l_name)
 			)
 		)
 					
@@ -361,21 +361,21 @@ class AstToIRTxformer(ASTTxformer):
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
 		return Let(
-			name = l_name,
+			name = var_set(l_name),
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(arg=l_name),
+					lhs = IsTrue(arg=var_ref(l_name)),
 					rhs = ast.Num(1)
 				),
-				body = l_name,
+				body = var_ref(l_name),
 				orelse = pyc_vis.visit(self, node.values[1])
 			)
 		)		
 
 	def visit_FunctionDef(self, node):
 		return make_assign(
-			pyc_vis.visit(self, var_ref(node.name)),
+			pyc_vis.visit(self, var_set(node.name)),
 			Bloc(
 				args = pyc_vis.visit(self, node.args),
 				body = [pyc_vis.visit(self, n) for n in node.body],

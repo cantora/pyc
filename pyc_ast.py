@@ -7,31 +7,6 @@ import ast
 
 import copy
 
-"""
-def to_str_fmt_func(node, user, depth):
-	val = node.__class__.__name__
-	if len(node.getChildNodes()) == 0:
-		val = repr(node)
-
-	user.append( "%s%s" % (' '*depth, val) )
-
-
-def str(as_tree):
-	lines = []
-
-	traverse(as_tree, to_str_fmt_func, lines)
-	return "\n".join(lines)
-
-def traverse(node, func, user):
-	_traverse(node, func, user)
-
-def _traverse(node, func, user, depth=0):
-	func(node, user, depth)
-	for n in node.getChildNodes():
-		_traverse(n, func, user, depth+1)
-
-"""
-
 def sir_list_to_str(sir_list):
 	return "\n".join(_sir_list_to_str(sir_list))
 
@@ -44,6 +19,10 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.append("%selse(%s)" % (" "*depth, ast.dump(sir.test)) )
 			lines.extend(_sir_list_to_str(sir.orelse, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, ast.dump(sir.test)) )
+		elif isinstance(sir, BlocDef):
+			lines.append("%sBlocDef(%s)" % (" "*depth, sir.name) )
+			lines.extend(_sir_list_to_str(sir.body, depth+1) )
+			lines.append("%send(%s)" % (" "*depth, sir.name) )
 		else:
 			lines.append("%s%s" % (" "*depth, pyc_ir.dump(sir) ) )
 			
@@ -59,12 +38,71 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return pyc_gen_name.new("gen_")
 	
 	def visit_Module(self, node):
+		return ast.Module(
+			body = [pyc_vis.visit(self, n) for n in node.body]
+		)
+
+	def visit_BlocDef(self, node):
 		sir_body = []
 		for n in node.body:
 			(name, sir_list) = pyc_vis.visit(self, n)
 			sir_body += sir_list
 
-		return ast.Module(body = sir_body)
+		return BlocDef(
+			name = node.name,
+			body = sir_body
+		)
+
+	def visit_Return(self, node):
+		return self.flatten_single_arg_node(node, "value")
+		
+	def visit_CreateClosure(self, node):
+		result_name = self.gen_name()
+		fvs = []
+		for fv in node.free_vars:
+			(fv, ls) = pyc_vis.visit(self, fv)
+			if len(ls) > 0:
+				raise Exception("expected pure names in free vars list")
+			fvs.append(fv)
+
+		sir_list = [make_assign(
+			var_set(result_name),
+			CreateClosure(
+				name = node.name,
+				free_vars = fvs
+			)
+		)]
+		return (var_ref(result_name), sir_list)
+
+	def visit_ClosureCall(self, node):
+		arg_names = []
+		sir_list = []
+		for arg in node.args:
+			(arg_name, arg_list) = pyc_vis.visit(self, arg)
+			sir_list += arg_list
+			arg_names.append(arg_name)
+
+		result_name = self.gen_name()
+		sir_list.append(make_assign(
+			var_set(result_name),
+			ClosureCall(
+				var = var_ref(node.var.id),
+				args = arg_names
+			)
+		))
+
+		return (var_ref(result_name), sir_list)
+		
+	def visit_ClosureFVS(self, node):
+		result_name = self.gen_name()
+
+		return (
+			var_ref(result_name),
+			[make_assign(
+				var_set(result_name),
+				ClosureCall(var = var_ref(node.var.id))
+			)]
+		)
 
 	def visit_ListRef(self, node):
 		(size_name, size_sir_list) = pyc_vis.visit(self, node.size)
@@ -73,8 +111,8 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return (
 			var_ref(result_name), 
 			size_sir_list + [make_assign(
-				var_ref(result_name),
-				ListRef(size_name)
+				var_set(result_name),
+				ListRef(size=size_name)
 			)]
 		)
 
@@ -84,7 +122,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return (
 			var_ref(result_name),
 			[make_assign(
-				var_ref(result_name),
+				var_set(result_name),
 				DictRef()
 			)]
 		)
@@ -99,10 +137,15 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return (node.pyobj_name, init_sir_list)
 
 	def visit_Assign(self, node):	
-		(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
+		if isinstance(node.targets[0], ast.Name):
+			target = node.targets[0]
+			target_sir_list = []
+		else:
+			(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
+
 		(name, name_sir_list) = pyc_vis.visit(self, node.value)
 		
-		sir_list = name_sir_list + target_sir_list # + name_sir_list
+		sir_list = name_sir_list + target_sir_list
 		sir_list.append(make_assign(
 			target,			
 			name
@@ -124,7 +167,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		if isinstance(node.ctx, ast.Load):
 			result_name = self.gen_name()
 			sir_list.append(make_assign(
-				var_ref(result_name),
+				var_set(result_name),
 				new_sub		
 			))
 			return (var_ref(result_name), sir_list)
@@ -143,7 +186,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		result_name = self.gen_name()
 		l_sir_list += r_sir_list
 		l_sir_list.append(make_assign(
-			var_ref(result_name),
+			var_set(result_name),
 			ast.BinOp( 
 				left = l_name, 
 				op = node.op.__class__(),
@@ -157,7 +200,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		(name, sir_list) = pyc_vis.visit(self, node.operand)
 		result_name = self.gen_name()
 		sir_list.append(make_assign(
-			var_ref(result_name),
+			var_set(result_name),
 			ast.UnaryOp(
 				op = node.op.__class__(),
 				operand = name
@@ -183,7 +226,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		
 		result_name = self.gen_name()
 		sir_list.append(make_assign(
-			var_ref(result_name),
+			var_set(result_name),
 			ast.Call(
 				func = node.func, 
 				args = fn_args
@@ -192,6 +235,9 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return (var_ref(result_name), sir_list)
 
+	def visit_NameWrap(self, node):
+		return pyc_vis.visit(self, node.value)
+		
 	def visit_Name(self, node):
 		return (var_ref(node.id), [] )
 
@@ -223,14 +269,19 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 
 	def flatten_single_arg_ir_fn(self, node):
-		(name, sir_list) = pyc_vis.visit(self, node.arg)
+		return self.flatten_single_arg_node(node, "arg")
+	
+	def flatten_single_arg_node(self, node, attr):
+		(name, sir_list) = pyc_vis.visit(self, getattr(node, attr))
 		result_name = self.gen_name()
+		result_node = node.__class__()
+		setattr(result_node, attr, name)
 		return (
 			var_ref(result_name), 
 			sir_list + [
 				make_assign(
-					var_ref(result_name),
-					node.__class__(arg = name)
+					var_set(result_name),
+					result_node
 				)
 			] 
 		)
@@ -261,7 +312,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		return self.flatten_single_arg_ir_fn(node)
 
 	def visit_Error(self, node):
-		return (Error(node.msg), [])
+		return (Error(msg=node.msg), [])
 
 	def visit_Let(self, node):
 		(rhs_name, rhs_sir_list) = pyc_vis.visit(self, node.rhs)
@@ -270,7 +321,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 			body_name,
 			rhs_sir_list + [
 				make_assign(
-					var_ref(node.name.id),
+					var_set(node.name.id),
 					rhs_name
 				)					
 			] + body_sir_list
@@ -289,13 +340,13 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 					test = test_name,
 					body = body_sir_list + [
 						make_assign(
-							var_ref(result_name),
+							var_set(result_name),
 							body_name
 						)
 					],
 					orelse = els_sir_list + [
 						make_assign(
-							var_ref(result_name),
+							var_set(result_name),
 							els_name
 						)
 					]
@@ -317,7 +368,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 			var_ref(result_name),
 			l_sir_list + r_sir_list + [
 				make_assign(
-					var_ref(result_name),
+					var_set(result_name),
 					simple_compare(l_name, r_name)
 				)
 			]
@@ -330,13 +381,15 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		result_name = self.gen_name()
 		return (
 			var_ref(result_name), 
-			[make_assign(var_ref(result_name), Tag(var_ref(node.arg.id))) ]
+			[make_assign(var_set(result_name), Tag(arg=var_ref(node.arg.id))) ]
 		)
 
 #convert an abstract syntax tree into a list of
 #simple IR statements
 def simple_ir(ir_tree):
-	return pyc_vis.walk(IRTreeSimplifier(), ir_tree)
+	v = IRTreeSimplifier()
+	v.log = lambda s: log("Simplifier : %s" % s)
+	return pyc_vis.walk(v, ir_tree)
 
 
 

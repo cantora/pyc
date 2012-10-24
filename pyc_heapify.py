@@ -34,8 +34,8 @@ class Heapifier(ASTTxformer):
 		self.log("locals: %r" % locs)
 
 		bool_inits = [
-			make_assign(var_ref('False'), InjectFromBool(arg=ast.Num(n=0)) ),
-			make_assign(var_ref('True'), InjectFromBool(arg=ast.Num(n=1)) )
+			make_assign(var_set('False'), InjectFromBool(arg=ast.Num(n=0)) ),
+			make_assign(var_set('True'), InjectFromBool(arg=ast.Num(n=1)) )
 		]
 
 		result = [pyc_vis.visit(self, n, heap_vars, locs) for n in node.body]
@@ -79,7 +79,7 @@ class Heapifier(ASTTxformer):
 	@staticmethod
 	def init_heap_var(hv, value):
 		return make_assign(
-			var_ref(hv),
+			var_set(hv),
 			pyc_ir.astree_to_ir(
 				ast.List(
 					elts = [value],

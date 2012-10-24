@@ -11,6 +11,7 @@ import pyc_ir
 import pyc_localize
 import pyc_heapify
 import pyc_closure
+import pyc_sir_to_py
 
 import compiler
 from pyc_log import *
@@ -119,20 +120,22 @@ def run(options):
 		#print pyc_parser.dump(heapified_ir_tree)
 		exit(0)
 
-	converted_tree = pyc_closure.convert(heapified_ir_tree)
-	if True or options.phase == 'closure':
-		pyc_ir.print_irtree(converted_tree)
+	converted_ir_tree = pyc_closure.convert(heapified_ir_tree)
+	if options.phase == 'closure':
+		pyc_ir.print_irtree(converted_ir_tree)
 		exit(0)
 		
 	t0 = time.time()
-	sir_mod = pyc_ast.simple_ir(heapified_ir_tree)
+	sir_mod = pyc_ast.simple_ir(converted_ir_tree)
 	if options.phase == 'sir-list':
 		print pyc_ast.sir_list_to_str(sir_mod.body)
+		pyc_sir_to_py.generate(sir_mod, sys.stdout)
 		exit(0)
 
 	log("sir list: ")
 	log(lambda : pyc_ast.sir_list_to_str(sir_mod.body) )
-
+	
+	
 	if options.IR:
 		#with output_file(options, "python") as f:
 		#	for stmt in sir_mod.body:

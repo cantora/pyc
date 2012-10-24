@@ -126,7 +126,7 @@ class Converter(ASTTxformer):
 		lname = pyc_gen_name.new("closurecall")
 		return (
 			Let(
-				name = var_ref(lname),
+				name = var_set(lname),
 				rhs = func_node,
 				body = ClosureCall(
 					var = var_ref(lname),
