@@ -58,11 +58,7 @@ class Converter(ASTTxformer):
 		return (
 			BlocDef(
 				name = "main",
-				params = ast.arguments(
-					args = [],
-					kwarg = None,
-					vararg = None
-				),
+				params = [],
 				body = main_body
 			),
 			d
@@ -76,7 +72,7 @@ class Converter(ASTTxformer):
 			BlocDef(
 				name = bname,
 				body = node.body,
-				params = node.args
+				params = [var_ref("fvs")] + node.args.args
 			)
 		)
 
@@ -84,13 +80,12 @@ class Converter(ASTTxformer):
 		locals = pyc_localize.locals(node)
 		self.log(self.depth_fmt("locals: %r" % locals))
 
-		#!!dont think we need any of this because converted params should
-		#!!show up as locals because they are initialized
-		#just generate the names that would be used IF the param were on heap
-		#cause we only are subtracting out of the free vars set
-		#params = set([pyc_heapify.heap_name(x) for x in pyc_astvisitor.names(node.args)])
-		#self.log(self.depth_fmt("params as heap vars: %r" % params))
-		d["free_vars"] = (d["free_vars"] | d["bloc_vars"]) - locals
+		#note: the params which were heapified will have their normal
+		#name in this params set, and their heapified versions are initialized
+		#as a local to the value of the non-heap param
+		params = set(pyc_astvisitor.names(node.args)) | set(["fvs"])
+		self.log(self.depth_fmt("params: %r" % params))
+		d["free_vars"] = (d["free_vars"] | d["bloc_vars"]) - locals - params
 		self.log(self.depth_fmt("free vars: %r" % d["free_vars"]))
 
 		def_node.fvs = list(d["free_vars"])
@@ -102,6 +97,7 @@ class Converter(ASTTxformer):
 					make_subn("fvs", ast.Load, i)	
 				)
 			))
+
 		def_node.body = fvs_inits + def_node.body
 		d["defs"].append(def_node)
 		d["bloc_vars"] = set([])
@@ -109,7 +105,12 @@ class Converter(ASTTxformer):
 		return (
 			InjectFromBig(arg=CreateClosure(
 				name = bname,
-				free_vars = [var_ref(x) for x in def_node.fvs]
+				free_vars = pyc_ir.astree_to_ir(
+					ast.List(
+						elts = [var_ref(x) for x in def_node.fvs],
+						ctx = ast.Load()
+					)
+				)
 			)),
 			d
 		)

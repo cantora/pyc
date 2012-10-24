@@ -51,7 +51,7 @@ class Bloc(IRNode):
 class BlocDef(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self._fields = ('name', 'body')
+		self._fields = ('name', 'params', 'body')
 		self.init_kwargs(**kwargs)
 	
 class InjectFrom(IRNode):

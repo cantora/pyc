@@ -20,7 +20,11 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.extend(_sir_list_to_str(sir.orelse, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, ast.dump(sir.test)) )
 		elif isinstance(sir, BlocDef):
-			lines.append("%sBlocDef(%s)" % (" "*depth, sir.name) )
+			lines.append("%sBlocDef(%s)(%s)" % (
+				" "*depth, 
+				sir.name, 
+				", ".join([n.id for n in sir.params])
+			))
 			lines.extend(_sir_list_to_str(sir.body, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, sir.name) )
 		else:
@@ -50,29 +54,27 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return BlocDef(
 			name = node.name,
-			body = sir_body
+			body = sir_body,
+			params = [pyc_vis.visit(self, n)[0] for n in node.params]
 		)
 
 	def visit_Return(self, node):
-		return self.flatten_single_arg_node(node, "value")
+		(name, sir_list) = pyc_vis.visit(self, node.value)
+		sir_list.append(ast.Return(value = name))
+		return (None, sir_list)
 		
 	def visit_CreateClosure(self, node):
 		result_name = self.gen_name()
-		fvs = []
-		for fv in node.free_vars:
-			(fv, ls) = pyc_vis.visit(self, fv)
-			if len(ls) > 0:
-				raise Exception("expected pure names in free vars list")
-			fvs.append(fv)
+		(fvs_name, fvs_sir_list) = pyc_vis.visit(self, node.free_vars)
 
-		sir_list = [make_assign(
+		fvs_sir_list.append(make_assign(
 			var_set(result_name),
 			CreateClosure(
 				name = node.name,
-				free_vars = fvs
+				free_vars = fvs_name
 			)
-		)]
-		return (var_ref(result_name), sir_list)
+		))
+		return (var_ref(result_name), fvs_sir_list)
 
 	def visit_ClosureCall(self, node):
 		arg_names = []
@@ -100,7 +102,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 			var_ref(result_name),
 			[make_assign(
 				var_set(result_name),
-				ClosureCall(var = var_ref(node.var.id))
+				ClosureFVS(var = var_ref(node.var.id))
 			)]
 		)
 
