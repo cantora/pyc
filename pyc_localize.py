@@ -133,7 +133,7 @@ class LocalFinder(pyc_vis.Visitor):
 			return set([])
 		else:
 			return (
-				self.iterate_and_visit(self, node.args.args)
+				self.iterate_and_visit(node.args.args)
 					| pyc_vis.visit(self, node.body)
 			)
 

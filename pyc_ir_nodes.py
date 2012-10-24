@@ -219,13 +219,6 @@ def make_call(func_id, args):
 		starargs = None
 	)
 
-def make_usercall(func_id, args):
-	return UserCall(
-		func = var_ref(func_id),
-		args = args,
-		kwargs = None,
-		starargs = None
-	)
 
 def make_assign(target, value):
 	return ast.Assign(

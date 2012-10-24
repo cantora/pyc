@@ -326,13 +326,13 @@ class Call(Inst):
 		return common_repr(self.__class__.__name__, self.name)
 
 	def __deepcopy__(self, memo):
-		return self.beget(Call, memo, self.name)
+		return self.beget(self.__class__, memo, self.name)
 
 class IndirectCall(Call):
 	def __init__(self, name):
-		if not isinstance(name, Var):
-			raise Exception("name must be a Var")
 		Call.__init__(self, name)
+		if not isinstance(self.name, Var):
+			raise Exception("name must be a Var")
 
 	def __str__(self):
 		return self.inst_join(["call", "*%s" % str(self.name)])

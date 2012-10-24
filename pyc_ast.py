@@ -20,6 +20,7 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.extend(_sir_list_to_str(sir.orelse, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, ast.dump(sir.test)) )
 		elif isinstance(sir, BlocDef):
+			print repr(ast.dump(sir))
 			lines.append("%sBlocDef(%s)(%s)" % (
 				" "*depth, 
 				sir.name, 

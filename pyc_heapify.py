@@ -110,12 +110,13 @@ class Heapifier(ASTTxformer):
 			pyc_vis.visit(self, n, heap_vars, locals) for n in node.body
 		]
 
-		#pass all params for locals because none of the fn arg references should be "heapified"
+		#pass all params for locals and empty heap_vars 
+		#because none of the fn arg references should be "heapified"
 		#because we copy those into new heapified vars before the function body.
 		#due to above pyc_vis call, all references to these parameters will
 		#have been converted to the new heapified version we will initialize
 		#after we patch the lambda nodes
-		result_args = pyc_vis.visit(self, node.args, heap_vars, prms )
+		result_args = pyc_vis.visit(self, node.args, {}, prms )
 
 		inits = Heapifier.init_local_heap_vars(locals, prms, heap_vars)
 	
