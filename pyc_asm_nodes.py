@@ -2,6 +2,24 @@ from pyc_log import *
 import pyc_gen_name
 import copy
 
+def asm_prefix():
+	return [
+		"pushl   %ebx",
+		"pushl   %esi",
+		"pushl   %edi",
+		"pushl   %ebp",
+		"movl    %esp, %ebp"
+	]
+
+def asm_suffix():
+	return [
+		"leave",
+		"popl   %edi",
+		"popl   %esi",
+		"popl   %ebx",
+		"ret"
+	]
+	
 
 class AsmNode:
 	def __init__(self):
@@ -17,9 +35,8 @@ class AsmNode:
 		return str(self).__hash__()
 
 class CodeBloc:
-	def __init__(self, name, params, insns):
+	def __init__(self, name, insns):
 		self.name = name
-		self.params = params
 		self.insns = insns
 
 	def __repr__(self):
@@ -27,7 +44,7 @@ class CodeBloc:
 
 	def inspect(self):
 		lines = []
-		lines.append("%s(%r):" % (self.name, self.params) )
+		lines.append("%s:" % (self.name) )
 		for n in self.insns:
 			r_lines = repr(n).split("\n")
 			for l in r_lines:
@@ -35,6 +52,49 @@ class CodeBloc:
 		lines.append("end")
 
 		return lines
+
+	def end_label(self):
+		return "%s_end" % self.name
+
+class FlatCodeBloc(CodeBloc):
+	def __init__(self, name, insns, symtbl):
+		self.name = name
+		self.insns = insns
+		self.symtbl = symtbl
+
+	def to_str(self, io, lamb = lambda s: s):
+
+		for ins in self.insns:
+			if not isinstance(ins, Inst):
+				raise Exception("expected instruction node")
+	
+			if isinstance(ins, Return):
+				patched = ins.convert(self.end_label())
+			else:
+				patched = ins.patch_vars(lambda node: self.symtbl.location(node) ) 
+			
+			if patched.is_noop():
+				continue
+			
+			s = str(patched)
+			print >>io, lamb(s)
+
+		print >>io, lamb(str(Mov(Immed(0), Register("eax")) )) #if not return stmt, return 0
+		print >>io, lamb(str(Label(self.end_label())))
+	
+	def to_asm(self, io, lamb = lambda s: s):
+		for insn in asm_prefix():
+			print >>io, lamb(insn)
+
+		stacksize = self.symtbl.stack()
+		align = 16
+		if stacksize > 0:
+			print >>io, lamb("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))))
+		
+		self.to_str(io, lamb)
+
+		for insn in asm_suffix():
+			print >>io, lamb(insn)
 
 class Operand:
 	def __init__(self, asm_node):
@@ -378,6 +438,18 @@ class Je(Jmp):
 	def __str__(self):
 		return self.inst_join(["je", self.label])
 	
+class Return(Inst):
+	def __init__(self):
+		Inst.__init__(self)
+
+	def __str__(self):
+		return "Return"
+
+	def __repr__(self):
+		return common_repr(self.__class__.__name__)
+
+	def convert(self, label):
+		return self.beget(Jmp, {}, label)
 
 class AsmIf(Inst):
 	def __init__(self, test, body, orelse):
@@ -593,7 +665,14 @@ class EBPIndirect(Indirect):
 	def __str__(self):
 		return self._to_s(-(self.offset+4) )
 		
-		
+class Param(Indirect):
+	def __init__(self, n):
+		Indirect.__init__(
+			self, 
+			Register("ebp"), 
+			4*4 + 4 + (n*4) #saved ebp, ebx, esi, edi, ret addr
+		)
+	
 class DecInt(AsmNode):
 	def __init__(self, val):
 		AsmNode.__init__(self)

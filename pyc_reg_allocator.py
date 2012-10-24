@@ -14,18 +14,17 @@ for i in range(0, len(Register.registers) ):
 def reg_to_index(reg):
 	global reg_index_map
 	return reg_index_map[reg]
-	
-def index_to_loc(index):
 
+def index_to_loc(index):
 	if index < 0:
 		raise Exception("invalid index %d" % index)
 	elif index < len(Register.registers):
 		return Register(Register.registers[index])
 	else:
 		return EBPIndirect( (index - len(Register.registers))*4 )
-		
 
 class SymTable:
+	
 	def __init__(self):
 		self.mem_map = {}
 		self.swaps = set([])
@@ -34,6 +33,9 @@ class SymTable:
 		#themselves
 		for i in range(0, len(Register.registers)):
 			self.map(Register(Register.registers[i]), i)
+
+	def location(self, x):
+		return index_to_loc(self[x])
 
 	def boot_reg_dwellers(self):
 		for var in self.mem_map.keys():

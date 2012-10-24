@@ -146,84 +146,55 @@ def run(options):
 	#print "flatten time: %d" % (time.time() - t0) 
 	
 	t0 = time.time()
-	asm_list = pyc_asm_list.from_sir_mod(sir_mod)
+	bloc_list = pyc_asm_list.from_sir_mod(sir_mod)
 
-	asm_list_str = lambda : "\n".join([repr(n) for n in asm_list])
+	bloc_list_str = lambda : "\n".join([repr(n) for n in bloc_list])
 	if options.phase == 'asm-node-list':
-		print asm_list_str()
+		print bloc_list_str()
 		exit(0)
 
-	log(asm_list_str)	
+	log(bloc_list_str)	
 	#print "instruction selection time: %d" % (time.time() - t0)
 
-	t0 = time.time()
-	(adjusted_asm_list, symtbl) = pyc_reg_allocator.allocate(asm_list)
-	#print "allocation time: %d" % (time.time() - t0)
+	flat_bloc_list = []
+	for bloc in bloc_list:
+		t0 = time.time()
+		(adjusted_insns, symtbl) = pyc_reg_allocator.allocate(bloc.insns)
+		#print "allocation time: %d" % (time.time() - t0)
+	
+		asm_ir = pyc_asm_nodes.AsmIf.patch(adjusted_insns)
 
-	t0 = time.time()
-	asm_ir_list = pyc_asm_nodes.AsmIf.patch(adjusted_asm_list)
+		log(lambda : "final bloc: %r" % bloc )
+		flat_bloc_list.append(pyc_asm_nodes.FlatCodeBloc(
+			name = bloc.name,
+			insns = asm_ir,
+			symtbl = symtbl
+		))
 
-	insns = []
-	insns.extend(asm_prefix())
-
-	stacksize = symtbl.stack()
-	align = 16
-	if stacksize > 0:
-		insns.append("subl\t$%s, %%esp" % (stacksize + (align - (stacksize % align))) )
-
-	insns.extend(format_insn_nodes(asm_ir_list, sir_mod, symtbl) )
-	insns.extend(asm_suffix())
-
-	output(options, insns)
+	output(options, flat_bloc_list)
 	#print "output time: %d" % (time.time() - t0)
 
-def format_insn_nodes(ins_nodes, sir_mod, symtbl):
-	result = []
-	previous = None
-	
-	for ins in ins_nodes:
-		if not isinstance(ins, pyc_asm_nodes.Inst):
-			raise Exception("expected instruction node")
-
-		patched = pyc_reg_allocator.patch_insn(ins, symtbl)
-		
-		if patched.is_noop():
-			continue
-		
-		s = str(patched)
-		#if previous is None or previous.origin != ins.origin:
-		#	origin_s = repr(None) if ins.origin is None else pyc_ir.dump(ins.origin)
-		#	s = "%-20s #%s" % (s, origin_s)
-	
-		previous = ins
-		result.append(s)
-
-	return result
 
 def asm_headers():
 	headers = []
 	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
 	headers.extend([
 		".text",
-		".globl  main",
-		".type   main, @function",
-		"main:"
 	])
 
 	return headers
 
-
-def asm_prefix():
+def asm_trailers():
 	return [
-		"pushl   %ebp",
-		"movl    %esp, %ebp"
-	]
-
-def asm_suffix():
-	return [
-		"movl    $0, %eax",
-		"leave",
-		"ret"
+		".globl  start",
+		".type   start, @function",
+		"start:",
+		"\tpushl   %ebp",
+		"\tmovl    %esp, %ebp",
+		"\tcall    main",
+		"\tmovl    $0, %eax",
+		"\tleave",
+		"\tret"
 	]
 
 def output_is_to_stdout(options):
@@ -247,17 +218,23 @@ def with_output_file(options, type, bloc):
 	ofile.flush()
 	if ofile != sys.stdout:
 		ofile.close()
-
 	
 	
-def output(options, insns):
+def output(options, flat_bloc_list):
 	with output_file(options, "asm") as f:
 		for hdr in asm_headers():
 			print >>f, (hdr)
-		for ins in insns:
-			print >>f, ("\t" + ins)
-			
-	
+
+		print >>f
+		for bloc in flat_bloc_list:
+			print >>f
+			print >>f, ".globl  %s" % bloc.name
+			print >>f, "%s:" % bloc.name
+			bloc.to_asm(f, lambda s: ("\t" + s))
+		
+		print >>f
+		for trlr in asm_trailers():
+			print >>f, trlr
 
 if __name__ == "__main__":
 	opt_p = opt_parser()

@@ -63,7 +63,7 @@ class SIRtoASM(pyc_vis.Visitor):
 	def set_var_to_CreateClosure(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
 			'create_closure', 
-			[Label(node.name), node.free_vars],
+			[Immed(node.name), node.free_vars],
 			var,
 			var_tbl
 		)
@@ -284,7 +284,7 @@ class SIRtoASM(pyc_vis.Visitor):
 			return Immed(GlobalString(expr.s))
 		elif isinstance(expr, ast.Index):
 			return self.se_to_operand(expr.value, var_tbl)
-		elif isinstance(expr, Label):
+		elif isinstance(expr, Immed):
 			return expr
 	
 		raise Exception("expected name or constant, got %s" % expr.__class__.__name__)
@@ -348,8 +348,7 @@ class SIRtoASM(pyc_vis.Visitor):
 	def visit_Return(self, node, var_tbl):
 		return [
 			Mov(self.se_to_operand(node.value, var_tbl), Register("eax")),
-			Leave(),
-			Ret()
+			Return() #instruction node; gets replaced later with a jmp
 		]
 
 	def visit_BlocDef(self, node):
@@ -358,18 +357,17 @@ class SIRtoASM(pyc_vis.Visitor):
 			Var("True"): True
 		}
 
-		params = []
-		for n in node.params:
-			params.append(n.id)
-			vt[Var(n.id)] = True
-
 		insns = []
+		for i in range(0, len(node.params)):
+			n = node.params[i]
+			vt[Var(n.id)] = True
+			insns.append(Mov(Param(i), Var(n.id)))
+
 		for sir in node.body:
 			insns.extend(pyc_vis.visit(self, sir, vt) )
 
 		return CodeBloc(
 			node.name,
-			params,
 			insns
 		)
 
