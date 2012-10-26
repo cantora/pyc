@@ -103,7 +103,8 @@ class LocalFinder(pyc_vis.Visitor):
 		return self.iterate_and_visit(node.targets)
 
 	def visit_Subscript(self, node):
-		return pyc_vis.visit(self, node.value)
+		#return pyc_vis.visit(self, node.value)
+		return set([])
 
 	def visit_NameWrap(self, node):
 		return pyc_vis.visit(self, node.value)
