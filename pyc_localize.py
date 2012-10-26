@@ -32,7 +32,7 @@ class Localizer(ASTTxformer):
 		)
 
 	def visit_Name(self, node, mappy, scope):
-		if node.id in pyc_constants.reserved_vars | pyc_constants.internal_names:
+		if node.id in pyc_constants.predefined_vars:
 			name_id = node.id
 		else:
 			name_id = mappy[node.id]

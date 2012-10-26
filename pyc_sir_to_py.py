@@ -13,7 +13,8 @@ class SirToPyVisitor(ASTVisitor):
 		ProjectToBool,
 		ProjectToBig,
 		CastBoolToInt,
-		CastIntToBool
+		CastIntToBool,
+		IsTrue
 	]
 
 	simple_nodes = {
@@ -59,7 +60,7 @@ class SirToPyVisitor(ASTVisitor):
 
 	def visit_Call(self, node, **kwargs):
 		return "%s(%s)" % (
-			node.func.id,
+			pyc_vis.visit(self, node.func),
 			self.format_args(
 				[pyc_vis.visit(self, arg) for arg in node.args]
 			)
@@ -118,6 +119,15 @@ class SirToPyVisitor(ASTVisitor):
 			pyc_vis.visit(self, node.op),
 			pyc_vis.visit(self, node.right)
 		)
+
+	def visit_UnaryOp(self, node):
+		return "%s(%s)" % (
+			pyc_vis.visit(self, node.op),
+			pyc_vis.visit(self, node.operand)
+		)
+
+	def visit_Not(self, node):
+		return "not"
 
 	def visit_Add(self, node):
 		return "+"

@@ -1,7 +1,8 @@
 
-reserved_vars = set([
+predefined_vars = set([
 	'True', 
-	'False'
+	'False',
+	'input'
 ])
 
 internal_names = set([
