@@ -132,10 +132,7 @@ class LocalFinder(pyc_vis.Visitor):
 		if self.root != node:
 			return set([])
 		else:
-			return (
-				self.iterate_and_visit(node.args.args)
-					| pyc_vis.visit(self, node.body)
-			)
+			return self.iterate_and_visit(node.args.args)
 
 def locals(node):
 	lf = LocalFinder(node)
