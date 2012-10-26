@@ -26,6 +26,6 @@ BAD TESTS:
 	Midway_test_66.py		like 911... printing hash is different from standard python
 	synth_p1_8.py			invalid syntax
 	Z23_true_false.py		multiple compares in one bool op
-		
+	int0x80_subscriptfunc.py attempts to subscript dict with lambda, which runtime.c doesnt support	
 	
 	
