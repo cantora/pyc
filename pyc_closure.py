@@ -94,7 +94,8 @@ class Converter(ASTTxformer):
 			fvs_inits.append(pyc_ir.astree_to_ir(
 				make_assign(
 					var_set(def_node.fvs[i]),
-					make_subn("fvs", ast.Load, i)	
+					#is it ok to use a canonical name for fvs?
+					make_subn("fvs", ast.Load, i) 
 				)
 			))
 

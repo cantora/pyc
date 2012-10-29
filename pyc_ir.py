@@ -90,7 +90,7 @@ class AstToIRTxformer(ASTTxformer):
 					arg = self.make_usub(ProjectToBool(arg=op) ) 
 				)
 
-		#end IsPolySwitch
+		#end USubPolySwitch
 
 		op_name = self.gen_name()
 
