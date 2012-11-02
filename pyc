@@ -129,19 +129,22 @@ def run(options):
 	sir_mod = pyc_ast.simple_ir(converted_ir_tree)
 	if options.phase == 'sir-list':
 		print pyc_ast.sir_list_to_str(sir_mod.body)
-		pyc_sir_to_py.generate(sir_mod, sys.stdout)
 		exit(0)
 
 	log("sir list: ")
 	log(lambda : pyc_ast.sir_list_to_str(sir_mod.body) )
 	
 	if options.IR:
-		#with output_file(options, "python") as f:
-		#	for stmt in sir_mod.body:
-		#		print >>f, pyc_ir.to_py(stmt)
-		raise Exception("not implemented")
+		with output_file(options, "python") as f:
+			print >>f, "import sys"
+			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
+			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
+			print >>f, "from pyc_runtime import *"
+			pyc_sir_to_py.generate(sir_mod, f)	
+			print >>f, ""
+			print >>f, "#" + "*"*40 + "#"
+			print >>f, "exit(main())"
 		exit(0)
-
 	
 	#print "flatten time: %d" % (time.time() - t0) 
 	
@@ -204,7 +207,7 @@ def output_file(options, type):
 	if output_is_to_stdout(options):
 		return sys.stdout
 	else:
-		ext = "py" if type == "python" else "s"
+		ext = "py-ir" if type == "python" else "s"
 		output_fname = "%s.%s" % (os.path.splitext(options.file.name)[0], ext)
 		ofile = open(output_fname, 'w')
 		return ofile

@@ -5,6 +5,7 @@ hw?subs/
 output
 code
 *.s
+*.py-ir
 *.expected
 *.out
 *.zip

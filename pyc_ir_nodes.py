@@ -147,6 +147,17 @@ class Tag(IRNode):
 	bool = ast.Num(n=1)
 	big = ast.Num(n=3)
 
+	@staticmethod
+	def type_to_tag(type):
+		if type == 'int':
+			return 0
+		elif type == 'bool':
+			return 1
+		elif type == 'big':
+			return 3
+		else:
+			raise Exception("unknown type: %s" % type)
+
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
 		self._fields = tuple(['arg'])

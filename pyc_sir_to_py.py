@@ -19,6 +19,7 @@ class SirToPyVisitor(ASTVisitor):
 
 	simple_nodes = {
 		ListRef: ["size"],
+		DictRef: [],
 		ClosureFVS: ["var"],
 		Error: ["msg"],
 		ast.Return: ["value"],
@@ -67,9 +68,9 @@ class SirToPyVisitor(ASTVisitor):
 		)
 
 	def visit_Return(self, node, **kwargs):
-		print >>self.io, "%s%s" % (
+		print >>self.io, "%sreturn %s" % (
 			self.tab_str(**kwargs),
-			self.visit_irnode(node)
+			pyc_vis.visit(self, node.value)
 		)
 
 	def visit_irnode(self, node):
@@ -193,6 +194,9 @@ class SirToPyVisitor(ASTVisitor):
 	def visit_Name(self, node, **kwargs):
 		return node.id
 		
+	def visit_USub(self, node, **kwargs):
+		return "-"
+
 	def default_non_ast(self, obj, *args, **kwargs):		
 		return str(obj)
 		

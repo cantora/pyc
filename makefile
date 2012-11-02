@@ -70,6 +70,36 @@ p2tests:
 		fi; \
 	done
 
+.PHONY: p0-irtests
+p0-irtests:
+	@for i in $(P0TESTS); do \
+		VERBOSE=0 ./test-ir.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p1-irtests
+p1-irtests:
+	@for i in $(P1TESTS); do \
+		VERBOSE=0 ./test-ir.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p2-irtests
+p2-irtests:
+	@for i in $(P2TESTS); do \
+		VERBOSE=0 ./test-ir.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
 .PHONY: clean
 clean:
 	rm -fv hw.zip
