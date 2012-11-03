@@ -104,6 +104,16 @@ class SirToPyVisitor(ASTVisitor):
 
 		return ""
 
+	def visit_While(self, node, **kwargs):
+		print >>self.io, "%swhile (%s):" % (self.tab_str(**kwargs), pyc_vis.visit(self, node.test))
+	
+		kwargs["if_depth"] += 1
+		for n in node.body:
+			pyc_vis.visit(self, n, **kwargs)
+		kwargs["if_depth"] -= 1
+
+		return ""
+
 	def visit_Eq(self, node, **kwargs):
 		return "=="
 

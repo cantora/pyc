@@ -15,6 +15,9 @@ class InvalidSyntax(Exception):
 class InvalidP1(InvalidSyntax):
 	pass
 
+class InvalidP3(InvalidSyntax):
+	pass
+
 #bad assumption ^_^
 class BadAss(Exception):
 	pass
@@ -108,6 +111,21 @@ class AstToIRTxformer(ASTTxformer):
 			orelse = pyc_vis.visit(self, node.orelse)
 		)
 
+	def visit_If(self, node):
+		return ast.If(
+			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
+			body = [pyc_vis.visit(self, x) for x in node.body],
+			orelse = [pyc_vis.visit(self, x) for x in node.orelse]
+		)
+
+	def visit_While(self, node):
+		if len(node.orelse) > 0:
+			raise InvalidP3("while orelse not supported: %s" % dump(node) )
+
+		return ast.While(
+			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
+			body = [pyc_vis.visit(self, x) for x in node.body]			
+		)
 
 	def visit_Compare(self, node):
 		if len(node.ops) != 1:

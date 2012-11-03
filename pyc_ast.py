@@ -3,6 +3,7 @@ import pyc_gen_name
 import pyc_vis
 import pyc_ir
 from pyc_ir_nodes import *
+from pyc_astvisitor import ASTTxformer
 import ast
 
 import copy
@@ -355,6 +356,48 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 							var_set(result_name),
 							els_name
 						)
+					]
+				)
+			]
+		)
+
+	def visit_If(self, node):
+		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		body_sir_list = []
+		for x in node.body:
+			(dummy1, sl) = pyc_vis.visit(self, x)
+			body_sir_list += sl
+
+		els_sir_list = []
+		for x in node.orelse:
+			(dummy2, sl) = pyc_vis.visit(self, x)
+			els_sir_list += sl
+
+		return (
+			None,
+			test_sir_list + [
+				ast.If(
+					test = test_name,
+					body = body_sir_list,
+					orelse = els_sir_list
+				)
+			]
+		)		
+
+	def visit_While(self, node):
+		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		body_sir_list = []
+		for x in node.body:
+			(dummy, sl) = pyc_vis.visit(self, x)
+			body_sir_list += sl
+
+		return (
+			None,
+			test_sir_list + [
+				ast.While(
+					test = test_name,
+					body = body_sir_list + [
+						pyc_vis.visit(ASTTxformer(), x) for x in test_sir_list
 					]
 				)
 			]
