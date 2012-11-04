@@ -528,17 +528,19 @@ class AsmIf(AsmFlow):
 		return result
 		
 
-class AsmWhile(Inst):
-	def __init__(self, test, body):
-		Inst.__init__(self)
-		self.read_operand('test', test)
-		self.body = body
+class AsmDoWhile(AsmFlow):
+	def __init__(self, test, tbody, wbody):
+		AsmFLow.__init__(self, test)
+		self.tbody = tbody
+		self.wbody = wbody
 
 	def inspect(self, depth=0):
 		lines = []
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
-		lines.extend(inspect_asm_branch(self.body, depth+1))
-		lines.append("%s%s(%r)" % (" "*depth, reversed(self.__class__.__name__), self.test) )
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_start", self.test) )
+		lines.extend(inspect_asm_branch(self.tbody, depth+1))
+		lines.append("%s%s(%r)" % (" "*(depth+1), self.__class__.__name__ + "_test", self.test) )
+		lines.extend(inspect_asm_branch(self.wbody, depth+1))
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_end", self.test) )
 
 		return lines
 
@@ -546,13 +548,16 @@ class AsmWhile(Inst):
 		result = []
 		start_label = Jmp.label_str("while_start")
 		end_label = Jmp.label_str("while_end")
+
+		result.append(self.beget(Label, {}, start_label) )
+		result.extend(AsmFlow.patch(self.tbody, depth+1))
+
 		result.extend([
-			self.beget(Label, {}, start_label),
 			self.beget_test_compare(),
 			self.beget(Je, {}, end_label)
 		])
 
-		result.extend(AsmFlow.patch(self.body, depth+1) )
+		result.extend(AsmFlow.patch(self.wbody, depth+1) )
 
 		result.extend([
 			self.beget(Jmp, {}, start_label),

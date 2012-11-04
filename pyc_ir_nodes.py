@@ -59,7 +59,13 @@ class BlocDef(IRNode):
 		IRNode.__init__(self)
 		self._fields = ('name', 'params', 'body')
 		self.init_kwargs(**kwargs)
-	
+
+class DoWhile(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = ('test', 'tbody', 'wbody')
+		self.init_kwargs(**kwargs)
+		
 class InjectFrom(IRNode):
 	
 	def __init__(self, **kwargs):

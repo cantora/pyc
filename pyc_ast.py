@@ -393,12 +393,11 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return (
 			None,
-			test_sir_list + [
-				ast.While(
+			[
+				DoWhile(
 					test = test_name,
-					body = body_sir_list + [
-						pyc_vis.visit(ASTTxformer(), x) for x in test_sir_list
-					]
+					tbody = test_sir_list,
+					wbody = body_sir_list
 				)
 			]
 		)
