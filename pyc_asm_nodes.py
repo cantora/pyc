@@ -451,10 +451,10 @@ class Return(Inst):
 	def convert(self, label):
 		return self.beget(Jmp, {}, label)
 
-def inspect_asm_branch(self, list, depth=0):
+def inspect_asm_branch(list, depth=0):
 	lines = []
 	for ins in list:
-		if ins.__class__ in set([AsmIf, AsmWhile]):
+		if isinstance(ins, AsmFlow):
 			lines.extend(ins.inspect(depth) )
 		else:
 			lines.append("%s%s" % (" "*depth, repr(ins)) )
@@ -530,7 +530,7 @@ class AsmIf(AsmFlow):
 
 class AsmDoWhile(AsmFlow):
 	def __init__(self, test, tbody, wbody):
-		AsmFLow.__init__(self, test)
+		AsmFlow.__init__(self, test)
 		self.tbody = tbody
 		self.wbody = wbody
 
