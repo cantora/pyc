@@ -503,7 +503,7 @@ class AsmIf(AsmFlow):
 		lines.extend(inspect_asm_branch(self.body, depth+1))
 		lines.append("%selse(%r)" % (" "*depth, self.test ) ) 
 		lines.extend(inspect_asm_branch(self.orelse, depth+1))
-		lines.append("%s%s(%r)" % (" "*depth, reversed(self.__class__.__name__), self.test) )
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_end", self.test) )
 
 		return lines
 
