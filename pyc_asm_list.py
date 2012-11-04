@@ -345,6 +345,17 @@ class SIRtoASM(pyc_vis.Visitor):
 			orelse = els_insns
 		)]
 
+	def visit_While(self, node, var_tbl):
+		testop = self.se_to_operand(node.test, var_tbl)
+		body_insns = []
+		for node in node.body:
+			body_insns.extend(pyc_vis.visit(self, node, var_tbl) )
+
+		return [AsmWhile(
+			test = testop,
+			body = body_insns
+		)]
+
 	def visit_Return(self, node, var_tbl):
 		return [
 			Mov(self.se_to_operand(node.value, var_tbl), Register("eax")),

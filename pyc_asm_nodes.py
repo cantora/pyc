@@ -451,44 +451,61 @@ class Return(Inst):
 	def convert(self, label):
 		return self.beget(Jmp, {}, label)
 
-class AsmIf(Inst):
-	def __init__(self, test, body, orelse):
+def inspect_asm_branch(self, list, depth=0):
+	lines = []
+	for ins in list:
+		if ins.__class__ in set([AsmIf, AsmWhile]):
+			lines.extend(ins.inspect(depth) )
+		else:
+			lines.append("%s%s" % (" "*depth, repr(ins)) )
+
+	return lines
+
+class AsmFlow(Inst):
+	def __init__(self, test):
 		Inst.__init__(self)
 		self.read_operand('test', test)
-		self.body = body
-		self.orelse = orelse
 
 	def __repr__(self):
 		return "\n".join(self.inspect())
 
-	def inspect(self, depth=0):
-		lines = []
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
-		lines.extend(self.inspect_branch(self.body, depth+1))
-		lines.append("%selse(%r)" % (" "*depth, self.test ) ) 
-		lines.extend(self.inspect_branch(self.orelse, depth+1))
-		lines.append("%send(%r)" % (" "*depth, self.test) )
-
-		return lines
-
-	def inspect_branch(self, list, depth=0):
-		lines = []
-		for ins in list:
-			if isinstance(ins, AsmIf):
-				lines.extend(ins.inspect(depth) )
-			else:
-				lines.append("%s%s" % (" "*depth, repr(ins)) )
-
-		return lines
-
 	def patch_vars(self, fn_to_mem_loc):
-		raise Exception("cannot patch vars in AsmIf node!")
+		raise Exception("cannot patch vars in %r node!" % self.__class__)
 
 	def __deepcopy__(self, memo):
-		raise Exception("cannot deepcopy AsmIf")
+		raise Exception("cannot deepcopy %r" % self.__class__)
 	
 	def beget_test_compare(self):
 		return self.beget(Cmp, {}, Immed(DecInt(0)), self.test)
+
+	@staticmethod
+	def patch(asm_list, depth=0):
+		result = []
+		
+		log("patch AsmFlow nodes (%d instructions)" % len(asm_list) )
+		for ins in asm_list:
+			if isinstance(ins, AsmFlow):
+				result.extend(ins.convert(depth))
+			else:
+				result.append(ins)
+
+		return result
+
+class AsmIf(AsmFlow):
+	def __init__(self, test, body, orelse):
+		AsmFlow.__init__(self, test)
+		self.body = body
+		self.orelse = orelse
+
+	def inspect(self, depth=0):
+		lines = []
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
+		lines.extend(inspect_asm_branch(self.body, depth+1))
+		lines.append("%selse(%r)" % (" "*depth, self.test ) ) 
+		lines.extend(inspect_asm_branch(self.orelse, depth+1))
+		lines.append("%s%s(%r)" % (" "*depth, reversed(self.__class__.__name__), self.test) )
+
+		return lines
 
 	def convert(self, depth=0):
 		result = []
@@ -499,30 +516,51 @@ class AsmIf(Inst):
 			self.beget(Je, {}, else_label)
 		])
 
-		result.extend(AsmIf.patch(self.body, depth+1) )
+		result.extend(AsmFlow.patch(self.body, depth+1) )
 
 		result.extend([
 			self.beget(Jmp, {}, end_label),
 			self.beget(Label, {}, else_label)
 		])
-		result.extend(AsmIf.patch(self.orelse, depth+1) )
+		result.extend(AsmFlow.patch(self.orelse, depth+1) )
 		result.append(self.beget(Label, {}, end_label) )
 
 		return result
 		
-	@staticmethod
-	def patch(asm_list, depth=0):
+
+class AsmWhile(Inst):
+	def __init__(self, test, body):
+		Inst.__init__(self)
+		self.read_operand('test', test)
+		self.body = body
+
+	def inspect(self, depth=0):
+		lines = []
+		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
+		lines.extend(inspect_asm_branch(self.body, depth+1))
+		lines.append("%s%s(%r)" % (" "*depth, reversed(self.__class__.__name__), self.test) )
+
+		return lines
+
+	def convert(self, depth=0):
 		result = []
-		
-		log("patch AsmIf nodes (%d instructions)" % len(asm_list) )
-		for ins in asm_list:
-			if isinstance(ins, AsmIf):
-				result.extend(ins.convert(depth))
-			else:
-				result.append(ins)
+		start_label = Jmp.label_str("while_start")
+		end_label = Jmp.label_str("while_end")
+		result.extend([
+			self.beget(Label, {}, start_label),
+			self.beget_test_compare(),
+			self.beget(Je, {}, end_label)
+		])
+
+		result.extend(AsmFlow.patch(self.body, depth+1) )
+
+		result.extend([
+			self.beget(Jmp, {}, start_label),
+			self.beget(Label, {}, end_label)
+		])
 
 		return result
-
+		
 class Label(Inst):
 	def __init__(self, s):
 		Inst.__init__(self)
