@@ -104,7 +104,20 @@ class Allocator:
 
 			self.stack_constraints[intf_node].add(index)
 
+	def dump_vars_to_stack(self, nodes, graph):
+		reg_amt = len(Register.registers)
+		i = reg_amt
 
+		for n in nodes:
+			if isinstance(n, Register):
+				continue
+
+			self.symtbl.map(n, i)
+			self.propagate_stack_constraints(graph, n, i)
+			i += 1
+
+		return i + 1 - reg_amt
+			
 	def allocate_stack(self, node, graph):
 		if node.needs_reg:
 			raise Exception("%s needs a reg!" % repr(node))
@@ -178,7 +191,7 @@ class Allocator:
 		reg_nodes = [Register(x) for x in Register.registers]
 		todo = set(graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
 
-		#registers are implicitly allocated to themselves 
+		#registers are allocated to themselves 
 		for rnode in reg_nodes:			
 			self.propagate_reg_constraints(reg_constraints, graph, todo, rnode, self.symtbl[rnode])
 		
@@ -271,7 +284,11 @@ def patch_insn(ins, symtbl):
 	result = ins.patch_vars(lambda node: index_to_loc(symtbl[node]) )
 	return result
 
-def allocate(asm_list):
+#the default allocator algorithm is the 'sudoku' algorithm
+#described in the notes. pass no_sudoku as True to use dumb
+#allocation that just puts everything on the stack.
+#note: sudoku algorithm is still used for spill variables
+def allocate(asm_list, no_sudoku=False):
 	more_alloc_needed = 1
 	adjusted_asm_list = asm_list
 	allocator = Allocator()
@@ -280,6 +297,10 @@ def allocate(asm_list):
 		log("analyze asm nodes and assign memory locations")
 		t0 = time.time()
 		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
+		if no_sudoku:
+			allocator.dump_vars_to_stack(graph.keys(), graph)
+			no_sudoku = False	
+
 		t_graph = time.time()
 		#print "  graph time: %d" % (t_graph - t0) 
 

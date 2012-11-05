@@ -7,7 +7,7 @@ TIME="/usr/bin/time -f '%e'"
 COMP_T=/tmp/pyc_test_compile_time
 RUN_T=/tmp/pyc_test_run_time
 
-$TIME ./pyc ${FILE}.py 2>$COMP_T
+$TIME ./pyc $2 ${FILE}.py 2>$COMP_T
 if [ ! "$VERBOSE" = "0" ]; then
   cat ${FILE}.s 
 fi
