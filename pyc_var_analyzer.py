@@ -122,7 +122,7 @@ def to_live_list(asm_list, live = set([]), depth=0):
 				live = live | prev_live #union back in the condition live set
 				live = live | set( get_vars(ins.reads()) )
 				log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
-				if live == prev_live && i > 0:
+				if live == prev_live and i > 0:
 					break
 				prev_live = set([]) | live
 
