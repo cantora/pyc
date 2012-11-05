@@ -51,6 +51,14 @@ def to_intf_graph(live_list):
 				log("%sAsmIf.body" % (" "*depth) )
 				graph = _to_intf_graph(ins.body, graph, depth+1)
 				log("%sAsmIf(%s)" % (" "*depth, repr(ins.test) ) )
+				#dont care about test b.c. its just a read
+			elif isinstance(ins, AsmDoWhile):
+				log("%sins: AsmDoWhile-tbody" % (" "*depth))
+				graph = _to_intf_graph(ins.tbody, graph, depth+1)
+				log("%sins: AsmDoWhile-wbody" % (" "*depth))
+				graph = _to_intf_graph(ins.wbody, graph, depth+1)
+				log("%sins: AsmDoWhile(%s)" % (" "*depth, repr(ins.test)))
+				#dont care about test b.c. its just a read
 			else:
 				writes = get_vars(ins.writes())
 				if len(writes) < 1:
@@ -91,21 +99,42 @@ def to_live_list(asm_list, live = set([]), depth=0):
 
 	log("%sprocess asm_list into live_list: %s" % (" "*depth, repr(live)) )
 	for ins in reversed(asm_list):
+		reads = set([])
+		writes = set([])
+
 		if isinstance(ins, AsmIf):
 			log("%sins: AsmIf-end" % (" "*depth) )
 			els_live_list = to_live_list(ins.orelse, live, depth+1)
+
 			log("%sins: AsmIf-else" % (" "*depth) )
 			body_live_list = to_live_list(ins.body, live, depth+1)
 			ins = ins.shallow_beget(ins.__class__, ins.test, body_live_list, els_live_list)
+
 			live = body_live_list[-1][1] | els_live_list[-1][1]
 			log("%sins: AsmIf" % (" "*depth) )
+			reads = set( get_vars(ins.reads()) )
+		elif isinstance(ins, AsmDoWhile):
+			i = 0
+			while True:
+				log("%sins: AsmDoWhile(%d)-test" % (" "*depth, i))
+				last_live = set([]) | live
+				live = live | set( get_vars(ins.reads()) )  
+				log("%sins: AsmDoWhile(%d)-tbody" % (" "*depth, i))
+				tbody_live_list = to_live_list(ins.tbody, live, depth+1)
+				live = tbody_live_list[-1][1]
+				log("%sins: AsmDoWhile(%d)-wbody" % (" "*depth, i))
+				wbody_live_list = to_live_list(ins.wbody, live, depth+1)
+				live = wbody_live_list[-1][1] 
+				if live == last_live:
+					break
+			
+			ins = ins.shallow_beget(ins.__class__, ins.test, tbody_live_list, wbody_live_list)
 		else:
 			log("%sins: %s" % (" "*depth, ins) )
+			reads = set( get_vars(ins.reads()) )
+			writes = set( get_vars(ins.writes()) )
 
-		live = (
-			live - set( get_vars(ins.writes()) ) ) \
-				| set( get_vars(ins.reads()) 
-		)
+		live = (live - writes) | reads
 		result.append((ins, set(live)) )
 		log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
 

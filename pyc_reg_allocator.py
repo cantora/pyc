@@ -225,7 +225,18 @@ def adjust(asm_list, symtbl, depth=0):
 				has_alts = True
 			else:
 				result.append(ins)
-
+		elif isinstance(ins, AsmDoWhile):
+			log("%sAsmDoWhile-tbody" % (" "*depth) )
+			(tbody_has_alts, adjusted_tbody) = adjust(ins.tbody, symtbl, depth+1)
+			log("%sAsmDoWhile-wbody" % (" "*depth) )
+			(wbody_has_alts, adjusted_wbody) = adjust(ins.wbody, symtbl, depth+1)
+			log("%sAsmDoWhile-end" % (" "*depth) )
+			if tbody_has_alts or wbody_has_alts:
+				new_ins = ins.shallow_beget(ins.__class__, ins.test, adjusted_tbody, adjusted_wbody)
+				result.append(new_ins)
+				has_alts = True
+			else:
+				result.append(ins)
 		else:	
 			log(lambda : "%sset locs in %s" % (" "*depth, repr(ins)) )
 			new_ins = patch_insn(ins, symtbl)
