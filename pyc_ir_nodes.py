@@ -271,20 +271,20 @@ def let_env(body, *name_node_pairs):
 def tag_switch(name, int_node, bool_node, big_node):
 	return ast.IfExp(
 		test = simple_compare(
-			lhs = Tag(arg=name),
-			rhs = Tag.int
+			lhs = Tag.int,
+			rhs = Tag(arg=name)
 		),
 		body = int_node,
 		orelse = ast.IfExp(
 			test = simple_compare(
-				lhs = Tag(arg=name),
-				rhs = Tag.bool
+				lhs = Tag.bool,
+				rhs = Tag(arg=name)
 			),
 			body = bool_node,
 			orelse = ast.IfExp(
 				test = simple_compare(
-					lhs = Tag(arg=name),
-					rhs = Tag.big
+					lhs = Tag.big,
+					rhs = Tag(arg=name)
 				),
 				body = big_node,
 				orelse = make_error("unknown tag type")

@@ -158,7 +158,7 @@ class AstToIRTxformer(ASTTxformer):
 				return simple_compare(ProjectToInt(arg=l), ProjectToBool(arg=r))
 
 			def bool_int(self, l, r):
-				return self.int_bool(r, l)
+				return simple_compare(ProjectToBool(arg=l), ProjectToInt(arg=r))
 
 			def big_big(self, l, r):
 				return make_call(
@@ -364,8 +364,8 @@ class AstToIRTxformer(ASTTxformer):
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(arg=var_ref(l_name)),
-					rhs = ast.Num(1)
+					lhs = ast.Num(1),
+					rhs = IsTrue(arg=var_ref(l_name))
 				),
 				body = pyc_vis.visit(self, node.values[1]),
 				orelse = var_ref(l_name)
@@ -382,8 +382,8 @@ class AstToIRTxformer(ASTTxformer):
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = ast.IfExp(
 				test = simple_compare(
-					lhs = IsTrue(arg=var_ref(l_name)),
-					rhs = ast.Num(1)
+					lhs = ast.Num(1),
+					rhs = IsTrue(arg=var_ref(l_name))
 				),
 				body = var_ref(l_name),
 				orelse = pyc_vis.visit(self, node.values[1])
