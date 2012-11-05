@@ -5,8 +5,8 @@ import time
 def live_list_to_str_lines(live_list):
 	lines = []
 	for x in reversed(live_list):
-		if isinstance(x[0], AsmIf):
-			lines.append("(AsmIf(%s), %s)" % (x[0].test, repr(x[1]) ) )
+		if isinstance(x[0], AsmFlow):
+			lines.append("(%s(%s), %s)" % (x[0].__class__.__name__, x[0].test, repr(x[1]) ) )
 		else:
 			lines.append(repr(x))
 
@@ -115,18 +115,25 @@ def to_live_list(asm_list, live = set([]), depth=0):
 			reads = set( get_vars(ins.reads()) )
 		elif isinstance(ins, AsmDoWhile):
 			i = 0
+			prev_live = set([])
+
 			while True:
 				log("%sins: AsmDoWhile(%d)-test" % (" "*depth, i))
-				last_live = set([]) | live
-				live = live | set( get_vars(ins.reads()) )  
+				live = live | prev_live #union back in the condition live set
+				live = live | set( get_vars(ins.reads()) )
+				log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
+				if live == prev_live && i > 0:
+					break
+				prev_live = set([]) | live
+
 				log("%sins: AsmDoWhile(%d)-tbody" % (" "*depth, i))
 				tbody_live_list = to_live_list(ins.tbody, live, depth+1)
 				live = tbody_live_list[-1][1]
+				
 				log("%sins: AsmDoWhile(%d)-wbody" % (" "*depth, i))
 				wbody_live_list = to_live_list(ins.wbody, live, depth+1)
 				live = wbody_live_list[-1][1] 
-				if live == last_live:
-					break
+				i += 1
 			
 			ins = ins.shallow_beget(ins.__class__, ins.test, tbody_live_list, wbody_live_list)
 		else:
