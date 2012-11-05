@@ -135,6 +135,13 @@ class LocalFinder(pyc_vis.Visitor):
 		else:
 			return self.iterate_and_visit(node.args.args)
 
+	def visit_If(self, node):
+		return self.iterate_and_visit(node.body) \
+				| self.iterate_and_visit(node.orelse)
+
+	def visit_While(self, node):
+		return self.iterate_and_visit(node.body)
+
 def locals(node):
 	lf = LocalFinder(node)
 	lf.log = lambda s: log("LocalFinder: %s" % s)
