@@ -499,11 +499,11 @@ class AsmIf(AsmFlow):
 
 	def inspect(self, depth=0):
 		lines = []
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__, self.test) )
+		lines.append("%s%s(%s)" % (" "*depth, self.__class__.__name__, (self.test)) )
 		lines.extend(inspect_asm_branch(self.body, depth+1))
-		lines.append("%selse(%r)" % (" "*depth, self.test ) ) 
+		lines.append("%selse(%s)" % (" "*depth, (self.test) ) ) 
 		lines.extend(inspect_asm_branch(self.orelse, depth+1))
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_end", self.test) )
+		lines.append("%s%s(%s)" % (" "*depth, self.__class__.__name__ + "_end", (self.test)) )
 
 		return lines
 
@@ -536,11 +536,11 @@ class AsmDoWhile(AsmFlow):
 
 	def inspect(self, depth=0):
 		lines = []
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_start", self.test) )
+		lines.append("%s%s(%s)" % (" "*depth, self.__class__.__name__ + "_start", self.test) )
 		lines.extend(inspect_asm_branch(self.tbody, depth+1))
-		lines.append("%s%s(%r)" % (" "*(depth+1), self.__class__.__name__ + "_test", self.test) )
+		lines.append("%s%s(%s)" % (" "*(depth+1), self.__class__.__name__ + "_test", self.test) )
 		lines.extend(inspect_asm_branch(self.wbody, depth+1))
-		lines.append("%s%s(%r)" % (" "*depth, self.__class__.__name__ + "_end", self.test) )
+		lines.append("%s%s(%s)" % (" "*depth, self.__class__.__name__ + "_end", self.test) )
 
 		return lines
 
