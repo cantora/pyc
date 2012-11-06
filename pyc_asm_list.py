@@ -28,6 +28,8 @@ class SIRtoASM(pyc_vis.Visitor):
 	
 		if isinstance(assign.targets[0], ast.Subscript):
 			return self.set_subscript(assign, var_tbl)
+		elif isinstance(assign.targets[0], ast.Attribute):
+			return self.set_attribute(assign, var_tbl)
 		else:
 			var = Var(assign.targets[0].id)
 				
@@ -47,6 +49,17 @@ class SIRtoASM(pyc_vis.Visitor):
 			var_tbl
 		)
 		
+	def set_attribute(self, node, var_tbl):
+		return self.fn_call(
+			"set_attr",
+			[
+				node.targets[0].value,
+				ast.Str(node.targets[0].attr),
+				node.value
+			],
+			var_tbl
+		)
+
 	def set_var(self, var, expr, var_tbl):
 		return pyc_vis.dispatch_to_prefix(
 			self, 
@@ -64,6 +77,14 @@ class SIRtoASM(pyc_vis.Visitor):
 		return self.set_var_to_fn_call(
 			'create_closure', 
 			[Immed(node.name), node.free_vars],
+			var,
+			var_tbl
+		)
+
+	def set_var_to_ClassRef(self, node, var, var_tbl):
+		return self.set_var_to_fn_call(
+			'create_class', 
+			[node.bases],
 			var,
 			var_tbl
 		)
@@ -95,6 +116,19 @@ class SIRtoASM(pyc_vis.Visitor):
 				args = [	
 					node.value,
 					node.slice
+				]
+			),
+			var,
+			var_tbl
+		)
+
+	def set_var_to_Attribute(self, node, var, var_tbl):
+		return self.set_var_to_Call(
+			ast.Call(
+				func = var_ref("get_attr"),
+				args = [	
+					node.value,
+					ast.Str(node.attr)
 				]
 			),
 			var,
