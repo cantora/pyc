@@ -105,18 +105,22 @@ def to_live_list(asm_list, live = set([]), depth=0):
 		if isinstance(ins, AsmIf):
 			body_live_list = []
 			els_live_list = []
+			body_live = set([])
+			els_live = set([])
+
 			log("%sins: AsmIf-end" % (" "*depth) )
 			if len(ins.orelse) > 0:
 				els_live_list = to_live_list(ins.orelse, live, depth+1)
-				live = live | els_live_list[-1][1]
-
+				els_live = els_live_list[-1][1]
+			
 			log("%sins: AsmIf-else" % (" "*depth) )
-			if len(ins.body):
+			if len(ins.body) > 0:
 				body_live_list = to_live_list(ins.body, live, depth+1)
-				live = live | body_live_list[-1][1]
-				
-			ins = ins.shallow_beget(ins.__class__, ins.test, body_live_list, els_live_list)
+				body_live = body_live_list[-1][1]
 
+			ins = ins.shallow_beget(ins.__class__, ins.test, body_live_list, els_live_list)
+			
+			live = body_live | els_live
 			log("%sins: AsmIf" % (" "*depth) )
 			reads = set( get_vars(ins.reads()) )
 		elif isinstance(ins, AsmDoWhile):
