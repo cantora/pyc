@@ -178,6 +178,12 @@ class Let(IRNode):
 class BigRef(IRNode):
 	pass
 
+class ClassRef(BigRef):
+	def __init__(self, **kwargs):
+		BigRef.__init__(self)
+		self._fields = tuple(['bases'])
+		self.init_kwargs(**kwargs)
+
 class ListRef(BigRef):
 	def __init__(self, **kwargs):
 		BigRef.__init__(self)

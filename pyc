@@ -12,6 +12,7 @@ import pyc_localize
 import pyc_heapify
 import pyc_closure
 import pyc_sir_to_py
+import pyc_declassify
 
 import compiler
 from pyc_log import *
@@ -20,7 +21,8 @@ import time
 import resource
 
 g_phases = [
-	"parse", 
+	"parse",
+	"declassify", 
 	"localize", 
 	"explicate", 
 	"heapify", 
@@ -109,7 +111,12 @@ def run(options):
 	log( lambda : pyc_parser.tree_to_str(as_tree1))
 	#print "parse time: %d" % (time.time() - t0)
 
-	as_tree2 = pyc_localize.txform(as_tree1)
+	as_tree_sans_class = pyc_declassify.txform(as_tree1)
+	if options.phase == 'declassify':
+		pyc_parser.print_astree(as_tree_sans_class)
+		exit(0)
+
+	as_tree2 = pyc_localize.txform(as_tree_sans_class)
 	if options.phase == 'localize':
 		pyc_parser.print_astree(as_tree2)
 		exit(0)

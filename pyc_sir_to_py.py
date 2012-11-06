@@ -19,6 +19,7 @@ class SirToPyVisitor(ASTVisitor):
 
 	simple_nodes = {
 		ListRef: ["size"],
+		ClassRef: ["bases"],
 		DictRef: [],
 		ClosureFVS: ["var"],
 		Error: ["msg"],
@@ -96,11 +97,14 @@ class SirToPyVisitor(ASTVisitor):
 			pyc_vis.visit(self, n, **kwargs)
 		kwargs["if_depth"] -= 1
 
-		print >>self.io, "%selse:" % self.tab_str(**kwargs)
-		kwargs["if_depth"] += 1
-		for n in node.orelse:
-			pyc_vis.visit(self, n, **kwargs)
-		kwargs["if_depth"] -= 1
+		if len(node.orelse) > 0:
+			print >>self.io, "%selse:" % self.tab_str(**kwargs)
+			kwargs["if_depth"] += 1
+			for n in node.orelse:
+				pyc_vis.visit(self, n, **kwargs)
+			kwargs["if_depth"] -= 1
+
+		print >>self.io, ""
 
 		return ""
 
@@ -179,6 +183,9 @@ class SirToPyVisitor(ASTVisitor):
 	def visit_Subscript(self, node):
 		return "%s[%s]" % (pyc_vis.visit(self, node.value), pyc_vis.visit(self, node.slice))
 
+	def visit_Attribute(self, node):
+		return "%s.%s" % (pyc_vis.visit(self, node.value), node.attr)
+
 	def visit_Index(self, node):
 		return pyc_vis.visit(self, node.value)
 
@@ -214,7 +221,7 @@ class SirToPyVisitor(ASTVisitor):
 
 	def default_non_ast(self, obj, *args, **kwargs):		
 		return str(obj)
-		
+
 
 def generate(sir_mod, io):
 	v = SirToPyVisitor(io)

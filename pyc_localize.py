@@ -142,6 +142,9 @@ class LocalFinder(pyc_vis.Visitor):
 	def visit_While(self, node):
 		return self.iterate_and_visit(node.body)
 
+	def visit_BigInit(self, node):
+		return self.iterate_and_visit(node.body)
+
 def locals(node):
 	lf = LocalFinder(node)
 	lf.log = lambda s: log("LocalFinder: %s" % s)

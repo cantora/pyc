@@ -1,4 +1,9 @@
 
+#bad assumption ^_^
+class BadAss(Exception):
+	pass
+
+
 predefined_vars = set([
 	'True', 
 	'False',

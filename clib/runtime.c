@@ -817,17 +817,17 @@ big_pyobj* create_class(pyobj bases)
   big_pyobj* basesp = project_big(bases);
   switch (basesp->tag) {
   case LIST: {
-      int i;
-      ret->u.cl.nparents = basesp->u.l.len;
-      ret->u.cl.parents = (class*)malloc(sizeof(class) * ret->u.cl.nparents);
-      for (i = 0; i != ret->u.cl.nparents; ++i) {
+    int i;
+    ret->u.cl.nparents = basesp->u.l.len;
+    ret->u.cl.parents = (class*)malloc(sizeof(class) * ret->u.cl.nparents);
+    for (i = 0; i != ret->u.cl.nparents; ++i) {
 	  pyobj* parent = &basesp->u.l.data[i];
-	  if (tag(*parent) == BIG_TAG && project_big(*parent)->tag == CLASS)
-	      ret->u.cl.parents[i] = project_big(*parent)->u.cl;
-          else
-              exit(-1);
-      }
-      break;
+      if (tag(*parent) == BIG_TAG && project_big(*parent)->tag == CLASS)
+        ret->u.cl.parents[i] = project_big(*parent)->u.cl;
+      else
+        exit(-1);
+    }
+    break;
   }
   default:
     exit(-1);

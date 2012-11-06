@@ -4,6 +4,7 @@ import pyc_vis
 import pyc_ir
 from pyc_ir_nodes import *
 from pyc_astvisitor import ASTTxformer
+from pyc_constants import BadAss
 import ast
 
 import copy
@@ -131,6 +132,18 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 			)]
 		)
 
+	def visit_ClassRef(self, node):
+		result_name = self.gen_name()
+
+		(name, sir_list) = pyc_vis.visit(self, node.bases)
+		return (
+			var_ref(result_name),
+			sir_list + [make_assign(
+				var_set(result_name),
+				ClassRef(bases = name)
+			)]
+		)
+
 	def visit_BigInit(self, node):
 		init_sir_list = []
 
@@ -179,7 +192,29 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		#we are storing, so we need Subscript as left hand value
 		return (new_sub, sir_list)
 		
+	def visit_Attribute(self, node):
+		(ob_name, sir_list) = pyc_vis.visit(self, node.value)
+
+		new_attr = ast.Attribute(
+			value = ob_name,
+			attr = node.attr,
+			ctx = node.ctx.__class__()
+		)
+
+		if isinstance(node.ctx, ast.Load):
+			result_name = self.gen_name()
+			sir_list.append(make_assign(
+				var_set(result_name),
+				new_attr
+			))
+			return (var_ref(result_name), sir_list)
 		
+		if not isinstance(node.ctx, ast.Store):
+			raise BadAss("exptected ctx to be Store")
+
+		#we are storing, so we need Attribute as left hand value
+		return (new_attr, sir_list)
+
 	def visit_IsTrue(self, node):
 		return self.flatten_single_arg_ir_fn(node)
 

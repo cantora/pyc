@@ -1,4 +1,5 @@
 import pyc_ir_nodes
+import pyc_gen_name
 
 def assert_klass(klass, *args):
 	for obj in args:
@@ -30,7 +31,7 @@ def assert_big(*args):
 
 	return True
 
-class PyObj:
+class PyObj(object):
 	def __init__(self, value, type):
 		self.value = value
 		self.type = type
@@ -46,7 +47,7 @@ class PyObj:
 		return self.value.__getitem__(key.value)
 
 	def __repr__(self):
-		return "%s%s" % (self.__class__, repr((self.type, self.value)))
+		return "%s%s" % (self.__class__.__name__, repr((self.type, self.value)))
 
 	def tag(self):
 		return pyc_ir_nodes.Tag.type_to_tag(self.type)
@@ -65,7 +66,7 @@ class PyObj:
 	def __cmp__(self, other):
 		return self.value.__cmp__(other.value)
 
-class BigObj:
+class BigObj(object):
 
 	def __init__(self, val):
 		self.value = val
@@ -75,6 +76,9 @@ class BigObj:
 
 	def __getattr__(self, name):
 		return getattr(self.value, name)
+
+	def __repr__(self):
+		return "%s(%s)" % (self.__class__.__name__, repr(self.value))
 
 class Closure(BigObj):
 	def __init__(self, fn, fvs):
@@ -122,11 +126,24 @@ def InjectFromInt(val):
 	return PyObj(val, 'int')
 
 def ListRef(pobj_size):
+	assert_pyobj(pobj_size)
 	return BigObj([set_trap() for i in range(0, pobj_size.value)])
 	
 def DictRef():
 	return BigObj({})
 
+def ClassRef(bases):
+	assert_pyobj(bases)
+	assert_big(bases.value)
+
+	parents = [x.value.value for x in bases.value.value] + [object]
+	name = pyc_gen_name.new("pyrun_class")
+	return BigObj(type(
+		name,
+		tuple(parents),
+		{}
+	))
+	
 def InjectFromBig(val):
 	assert_big(val)
 	return PyObj(val, 'big')

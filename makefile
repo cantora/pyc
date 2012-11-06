@@ -7,7 +7,8 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
 
 P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py)
 P2TESTS	= $(wildcard ./p2tests/grader_tests/*.py)
-P3TESTS	= $(foreach fn, while0 while1 while2 ifstmt0 ifstmt1, ./p3tests/gradertests/$(fn).py )
+P3TESTS	= $(foreach fn, while0 while1 while2 ifstmt0 ifstmt1 class0 class1 class4 class5 class6 class7 class8, ./p3tests/gradertests/$(fn).py ) \
+			$(foreach fn, scopeclass scopeclass2 scopeclass3, ./p3tests/mytests/$(fn).py )
 
 .PHONY: pkg
 pkg: hw.zip

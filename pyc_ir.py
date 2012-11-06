@@ -5,6 +5,7 @@ import pyc_parser
 from pyc_log import *
 from pyc_ir_nodes import *
 import pyc_gen_name
+from pyc_constants import BadAss
 
 import StringIO
 import ast
@@ -18,10 +19,6 @@ class InvalidP1(InvalidSyntax):
 class InvalidP3(InvalidSyntax):
 	pass
 
-#bad assumption ^_^
-class BadAss(Exception):
-	pass
-
 class AstToIRTxformer(ASTTxformer):
 		
 	def __init__(self):
@@ -30,8 +27,8 @@ class AstToIRTxformer(ASTTxformer):
 	def visit_Assign(self, node):
 		if len(node.targets) != 1:
 			raise InvalidP1("assign expected to have only one target: %r" % node)
-		elif not isinstance(node.targets[0], ast.Name) and not isinstance(node.targets[0], ast.Subscript):
-			raise BadAss("assumbed all targets were names: %r" % node)
+		elif node.targets[0].__class__ not in set([ast.Name, ast.Subscript, ast.Attribute]):
+			raise BadAss("assumed all targets were names, subs or attrs: %r" % ast.dump(node))
 		elif not isinstance(node.targets[0].ctx, ast.Store):
 			raise BadAss("why isnt the target context store?: %r" % node)
 		
@@ -258,6 +255,13 @@ class AstToIRTxformer(ASTTxformer):
 				)
 			),
 			body = BigInit(pyobj_name = var_ref(list_name), body = elements)
+		)
+
+	def visit_ClassRef(self, node):
+		return InjectFromBig(
+			arg = ClassRef(
+				bases = pyc_vis.visit(self, node.bases)
+			)
 		)
 
 	def visit_BinOp(self, node):
