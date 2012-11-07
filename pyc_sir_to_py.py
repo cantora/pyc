@@ -14,7 +14,13 @@ class SirToPyVisitor(ASTVisitor):
 		ProjectToBig,
 		CastBoolToInt,
 		CastIntToBool,
-		IsTrue
+		IsTrue,
+		IsClass,
+		IsBoundMethod,
+		IsUnboundMethod,
+		GetFunction,
+		GetReceiver,
+		CreateObject
 	]
 
 	simple_nodes = {
@@ -24,7 +30,8 @@ class SirToPyVisitor(ASTVisitor):
 		ClosureFVS: ["var"],
 		Error: ["msg"],
 		ast.Return: ["value"],
-		Tag: ["arg"]
+		Tag: ["arg"],
+		HasAttr: ["obj", "attr"]
 	}
 
 	def __init__(self, io):
