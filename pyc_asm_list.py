@@ -71,28 +71,55 @@ class SIRtoASM(pyc_vis.Visitor):
 		)
 		
 	def set_var_default(self, node, var, var_tbl):
+		if node.__class__ in set(SIRtoASM.ir_to_fn.keys()):
+			return self.set_var_to_ir_fn(node, var, var_tbl)
+				
 		raise Exception("set_var_default: unexpected expr: %s" % ast.dump(node))
+
+	ir_to_fn = {
+		ClassRef:		('create_class', 'bases'),
+		ClosureFVS:		('get_free_vars', 'var'),
+		DictRef:		('create_dict',),
+		ListRef:		('create_list', 'size'),
+		InjectFromInt:	('inject_int', 'arg'),
+		InjectFromBool:	('inject_bool', 'arg'),
+		InjectFromBig:	('inject_big', 'arg'),
+		ProjectToInt:	('project_int', 'arg'),
+		ProjectToBool:	('project_bool', 'arg'),
+		ProjectToBig:	('project_big', 'arg'),
+		Tag:			('tag', 'arg'),
+		IsTrue:			('is_true', 'arg'),
+		IsClass:		('is_class', 'arg'),
+		IsBoundMethod:	('is_bound_method', 'arg'),
+		IsUnboundMethod:('is_unbound_method', 'arg'),
+		GetFunction:	('get_function', 'arg'),
+		GetReceiver:	('get_receiver', 'arg'),
+		CreateObject:	('create_object', 'arg')
+	}
+
+	def set_var_to_ir_fn(self, node, var, var_tbl):
+		fn = SIRtoASM.ir_to_fn[node.__class__][0]
+		args = SIRtoASM.ir_to_fn[node.__class__][1:]
+
+		return self.set_var_to_fn_call(
+			fn,
+			[getattr(node, x) for x in args],
+			var,
+			var_tbl
+		)
+
+	def set_var_to_HasAttr(self, node, var, var_tbl):
+		return self.set_var_to_fn_call(
+			'has_attr',
+			[node.obj, ast.Str(node.attr)],
+			var,
+			var_tbl
+		)
 
 	def set_var_to_CreateClosure(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
 			'create_closure', 
 			[Immed(node.name), node.free_vars],
-			var,
-			var_tbl
-		)
-
-	def set_var_to_ClassRef(self, node, var, var_tbl):
-		return self.set_var_to_fn_call(
-			'create_class', 
-			[node.bases],
-			var,
-			var_tbl
-		)
-
-	def set_var_to_ClosureFVS(self, node, var, var_tbl):
-		return self.set_var_to_fn_call(
-			'get_free_vars', 
-			[node.var],
 			var,
 			var_tbl
 		)
@@ -110,27 +137,17 @@ class SIRtoASM(pyc_vis.Visitor):
 		return insns
 
 	def set_var_to_Subscript(self, node, var, var_tbl):
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref("get_subscript"),
-				args = [	
-					node.value,
-					node.slice
-				]
-			),
+		return self.set_var_to_fn_call(
+			"get_subscript",
+			[node.value, node.slice],
 			var,
 			var_tbl
 		)
 
 	def set_var_to_Attribute(self, node, var, var_tbl):
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref("get_attr"),
-				args = [	
-					node.value,
-					ast.Str(node.attr)
-				]
-			),
+		return self.set_var_to_fn_call(
+			"get_attr",
+			[node.value, ast.Str(node.attr)],
 			var,
 			var_tbl
 		)
@@ -149,19 +166,12 @@ class SIRtoASM(pyc_vis.Visitor):
 		raise Exception("unexpected binop: %r", node)
 
 	def set_var_to_fn_call(self, name, fn_args, var, var_tbl):
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref(name),
-				args = fn_args
-			),
-			var,
-			var_tbl
-		)
-				
-	def set_var_to_Call(self, node, var, var_tbl):
-		return self.fn_call(node.func.id, node.args, var_tbl) + [
+		return self.fn_call(name, fn_args, var_tbl) + [
 			Mov(Register("eax"), var)
 		]
+				
+	def set_var_to_Call(self, node, var, var_tbl):
+		return self.set_var_to_fn_call(node.func.id, node.args, var, var_tbl)
 	
 	def set_var_to_UnaryOp(self, node, var, var_tbl):
 		def unknown_unaryop(op, node, var, var_tbl):
@@ -175,42 +185,6 @@ class SIRtoASM(pyc_vis.Visitor):
 			node,
 			var,
 			var_tbl
-		)
-
-
-	def set_var_to_InjectFromInt(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'inject_int', var, var_tbl)
-
-	def set_var_to_InjectFromBool(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'inject_bool', var, var_tbl)
-
-	def set_var_to_InjectFromBig(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'inject_big', var, var_tbl)
-
-	def set_var_to_ProjectToInt(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'project_int', var, var_tbl)
-
-	def set_var_to_ProjectToBool(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'project_bool', var, var_tbl)
-
-	def set_var_to_ProjectToBig(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'project_big', var, var_tbl)
-
-	def set_var_to_Tag(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'tag', var, var_tbl)
-
-	def set_var_to_IsTrue(self, node, var, var_tbl):
-		return self.set_var_to_single_arg_ir_fn(node, 'is_true', var, var_tbl)
-
-	def set_var_to_single_arg_ir_fn(self, node, fn, var, var_tbl):
-
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref(fn),
-				args = [node.arg]
-			),
-			var,
-			var_tbl			
 		)
 
 	def set_var_to_Compare(self, node, var, var_tbl):
@@ -235,26 +209,6 @@ class SIRtoASM(pyc_vis.Visitor):
 			Interrupt(Immed(HexInt(0x80))),
 			Mov(Immed(DecInt(0)), var)
 		]
-
-	def set_var_to_DictRef(self, node, var, var_tbl):
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref("create_dict"),
-				args = []
-			),
-			var,
-			var_tbl
-		)
-
-	def set_var_to_ListRef(self, node, var, var_tbl):
-		return self.set_var_to_Call(
-			ast.Call(
-				func = var_ref("create_list"),
-				args = [node.size]
-			),
-			var,
-			var_tbl
-		)
 
 	#def set_var_to_BoolOp(self, node, var, var_tbl):
 	#	def unknown_boolop(op, node, var, var_tbl):

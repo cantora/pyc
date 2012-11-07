@@ -196,7 +196,7 @@ class CreateObject(IRNode):
 class HasAttr(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
-		self._fields = tuple(['obj, attr'])
+		self._fields = tuple(['obj', 'attr'])
 		self.init_kwargs(**kwargs)
 
 class GetFunction(IRNode):
