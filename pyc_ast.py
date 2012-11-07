@@ -66,19 +66,6 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		sir_list.append(ast.Return(value = name))
 		return (None, sir_list)
 		
-	def visit_CreateClosure(self, node):
-		result_name = self.gen_name()
-		(fvs_name, fvs_sir_list) = pyc_vis.visit(self, node.free_vars)
-
-		fvs_sir_list.append(make_assign(
-			var_set(result_name),
-			CreateClosure(
-				name = node.name,
-				free_vars = fvs_name
-			)
-		))
-		return (var_ref(result_name), fvs_sir_list)
-
 	def visit_ClosureCall(self, node):
 		arg_names = []
 		sir_list = []
