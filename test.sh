@@ -1,17 +1,22 @@
 #!/bin/bash
 
-set -e
 FILE=$(dirname $1)/$(basename $1 .py )
 
 TIME="/usr/bin/time -f '%e'"
 COMP_T=/tmp/pyc_test_compile_time
 RUN_T=/tmp/pyc_test_run_time
 
+if [ ! -f ${FILE}.py ]; then
+  echo "no such test: $FILE"
+  exit 1
+fi
+
 $TIME ./pyc $2 ${FILE}.py 2>$COMP_T
 if [ ! "$VERBOSE" = "0" ]; then
   cat ${FILE}.s 
 fi
 
+set -e
 make -s -C ./clib
 
 gcc -m32 -o output ${FILE}.s ./clib/*.o -lm
