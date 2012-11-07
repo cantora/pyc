@@ -242,7 +242,7 @@ class AstToIRTxformer(ASTTxformer):
 					),
 					orelse = UserCall(
 						func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
-						args = [GetReceiver(arg=var_ref(fn_name))] \
+						args = [InjectFromBig(arg=GetReceiver(arg=var_ref(fn_name)))] \
 									+ [var_ref(name) for name in arg_names],
 						kwargs = None,
 						starargs = None
