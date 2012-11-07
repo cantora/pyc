@@ -196,12 +196,85 @@ class AstToIRTxformer(ASTTxformer):
 				and node.func.id in set(['input']):
 			return InjectFromInt(arg=make_call('input', args) )
 		else:
-			return UserCall(
-				func = pyc_vis.visit(self, node.func),
-				args = args,
-				kwargs = None,
-				starargs = None
-			)
+			return self.make_user_call(node)
+
+	#yes, this is ugly T_T
+	#this could be made much cleaner if runtime.c were rewritten in a 
+	#smarter way
+	def make_user_call(self, node):
+		fn_name = self.gen_name()
+		obj_name = self.gen_name()
+		arg_names = []
+		arg_nodes = []
+
+		for n in node.args:
+			arg_names.append(self.gen_name())
+			arg_nodes.append(pyc_vis.visit(self, n))
+		
+		return let_env(
+			ast.IfExp(
+				test = simple_compare(
+					ast.Num(0),
+					IsClass(arg=var_ref(fn_name))
+				),
+				body = ast.IfExp(
+					test = simple_compare(
+						ast.Num(0),
+						IsBoundMethod(arg=var_ref(fn_name))
+					),
+					body = ast.IfExp(
+						test = simple_compare(
+							ast.Num(0),
+							IsUnboundMethod(arg=var_ref(fn_name))
+						),
+						body = UserCall(
+							func = var_ref(fn_name),
+							args = [var_ref(name) for name in arg_names],
+							kwargs = None,
+							starargs = None
+						),
+						orelse = UserCall(
+							func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
+							args = [var_ref(name) for name in arg_names],
+							kwargs = None,
+							starargs = None
+						)
+					)
+				),
+				orelse = Let(
+					name = var_set(obj_name),
+					rhs = InjectFromBig(arg=CreateObject(arg=var_ref(fn_name))),
+					body = ast.IfExp(
+						test = simple_compare(
+							ast.Num(0),
+							HasAttr(obj=var_ref(fn_name), attr='__init__')
+						),
+						body = var_ref(obj_name),
+						orelse = BigInit(
+							pyobj_name = var_ref(obj_name),
+							body = [
+								UserCall(
+									func = InjectFromBig(arg=GetFunction(
+										arg = ast.Attribute(
+											value = var_ref(fn_name),
+											attr = '__init__',
+											ctx = ast.Load()
+										)
+									)),
+									args = [
+										var_ref(name) for name in [obj_name] + arg_names
+									],
+									kwargs = None,
+									starargs = None
+								) #call __init__
+							] #BigInit body
+						) #hasattr('__init__') true
+					) #if hasattr('__init__')
+				) #let o = CreateObject(fn_name)
+			),
+			( fn_name, pyc_vis.visit(self, node.func) ),
+			*zip(arg_names, arg_nodes)
+		)
 
 	def visit_Dict(self, node):
 		d_name = self.gen_name()

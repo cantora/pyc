@@ -169,6 +169,42 @@ class Tag(IRNode):
 		self._fields = tuple(['arg'])
 		self.init_kwargs(**kwargs)
 
+class IsClass(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
+class IsBoundMethod(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
+class IsUnboundMethod(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
+class CreateObject(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
+class HasAttr(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['obj, attr'])
+		self.init_kwargs(**kwargs)
+
+class GetFunction(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
 class Let(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)
