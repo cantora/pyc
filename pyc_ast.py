@@ -22,7 +22,7 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.extend(_sir_list_to_str(sir.orelse, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, ast.dump(sir.test)) )
 		elif isinstance(sir, BlocDef):
-			print repr(ast.dump(sir))
+			#print repr(ast.dump(sir))
 			lines.append("%sBlocDef(%s)(%s)" % (
 				" "*depth, 
 				sir.name, 
@@ -98,51 +98,6 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 		return (var_ref(result_name), sir_list)
 		
-	def visit_ClosureFVS(self, node):
-		result_name = self.gen_name()
-
-		return (
-			var_ref(result_name),
-			[make_assign(
-				var_set(result_name),
-				ClosureFVS(var = var_ref(node.var.id))
-			)]
-		)
-
-	def visit_ListRef(self, node):
-		(size_name, size_sir_list) = pyc_vis.visit(self, node.size)
-		result_name = self.gen_name()
-		
-		return (
-			var_ref(result_name), 
-			size_sir_list + [make_assign(
-				var_set(result_name),
-				ListRef(size=size_name)
-			)]
-		)
-
-	def visit_DictRef(self, node):
-		result_name = self.gen_name()
-		
-		return (
-			var_ref(result_name),
-			[make_assign(
-				var_set(result_name),
-				DictRef()
-			)]
-		)
-
-	def visit_ClassRef(self, node):
-		result_name = self.gen_name()
-
-		(name, sir_list) = pyc_vis.visit(self, node.bases)
-		return (
-			var_ref(result_name),
-			sir_list + [make_assign(
-				var_set(result_name),
-				ClassRef(bases = name)
-			)]
-		)
 
 	def visit_BigInit(self, node):
 		init_sir_list = []
@@ -215,8 +170,36 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		#we are storing, so we need Attribute as left hand value
 		return (new_attr, sir_list)
 
-	def visit_IsTrue(self, node):
-		return self.flatten_single_arg_ir_fn(node)
+	def default(self, node):
+		if isinstance(node, IRNode):
+			return self.flatten_irnode(node)
+
+		return pyc_vis.Visitor.default(self, node)
+
+	def flatten_irnode(self, node):
+		result_name = self.gen_name()
+		result_node = node.__class__()
+		result_sir_list = []
+
+		for (fld, value) in ast.iter_fields(node):
+			if isinstance(value, ast.AST):
+				(name, sir_list) = pyc_vis.visit(self, value)
+				setattr(result_node, fld, name)
+				result_sir_list += sir_list
+			elif value.__class__ in set([int, str]):
+				setattr(result_node, fld, value)
+			else:
+				raise Exception("unexpected field type: %r. %s" % (value, ast.dump(node)))
+
+		return (
+			var_ref(result_name),
+			result_sir_list + [
+				make_assign(
+					var_set(result_name),
+					result_node
+				)
+			] 
+		)
 
 	def visit_BinOp(self, node):
 		(l_name, l_sir_list) = pyc_vis.visit(self, node.left)
@@ -309,49 +292,6 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		(dummy, sir_list) = pyc_vis.visit(self, node.value)
 		return (None, sir_list)
 
-
-	def flatten_single_arg_ir_fn(self, node):
-		return self.flatten_single_arg_node(node, "arg")
-	
-	def flatten_single_arg_node(self, node, attr):
-		(name, sir_list) = pyc_vis.visit(self, getattr(node, attr))
-		result_name = self.gen_name()
-		result_node = node.__class__()
-		setattr(result_node, attr, name)
-		return (
-			var_ref(result_name), 
-			sir_list + [
-				make_assign(
-					var_set(result_name),
-					result_node
-				)
-			] 
-		)
-
-	def visit_InjectFromInt(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-	def visit_InjectFromBool(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-	def visit_InjectFromBig(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-
-	def visit_ProjectToInt(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-	def visit_ProjectToBool(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-	def visit_ProjectToBig(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-
-	def visit_CastBoolToInt(self, node):
-		return self.flatten_single_arg_ir_fn(node)
-	
-	def visit_CastIntToBool(self, node):
-		return self.flatten_single_arg_ir_fn(node)
 
 	def visit_Error(self, node):
 		return (Error(msg=node.msg), [])

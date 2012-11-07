@@ -205,6 +205,12 @@ class GetFunction(IRNode):
 		self._fields = tuple(['arg'])
 		self.init_kwargs(**kwargs)
 
+class GetReceiver(IRNode):
+	def __init__(self, **kwargs):
+		IRNode.__init__(self)
+		self._fields = tuple(['arg'])
+		self.init_kwargs(**kwargs)
+
 class Let(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(self)

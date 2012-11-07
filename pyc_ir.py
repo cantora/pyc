@@ -239,6 +239,13 @@ class AstToIRTxformer(ASTTxformer):
 							kwargs = None,
 							starargs = None
 						)
+					),
+					orelse = UserCall(
+						func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
+						args = [GetReceiver(arg=var_ref(fn_name))] \
+									+ [var_ref(name) for name in arg_names],
+						kwargs = None,
+						starargs = None
 					)
 				),
 				orelse = Let(
@@ -272,8 +279,11 @@ class AstToIRTxformer(ASTTxformer):
 					) #if hasattr('__init__')
 				) #let o = CreateObject(fn_name)
 			),
-			( fn_name, pyc_vis.visit(self, node.func) ),
-			*zip(arg_names, arg_nodes)
+			( var_set(fn_name), pyc_vis.visit(self, node.func) ),
+			*zip(
+				[var_set(x) for x in arg_names], 
+				arg_nodes
+			)
 		)
 
 	def visit_Dict(self, node):
