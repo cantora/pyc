@@ -87,13 +87,10 @@ class Allocator:
 		self.symtbl = SymTable()
 		self.stack_constraints = {}
 
-	def propagate_reg_constraints(self, reg_constraints, graph, todo, node, index):
+	def propagate_reg_constraints(self, reg_constraints, graph, node, index):
 		for n in graph[node]:
-			if n not in todo:
-				continue
-
 			if n not in reg_constraints:
-				reg_constraints[n] = set([])
+				continue
 
 			reg_constraints[n].add(index)
 
@@ -133,31 +130,29 @@ class Allocator:
 		return i
 		
 
-	def allocate_reg(self, node, reg_constraints, graph, todo):
+	def allocate_reg(self, node, reg_constraints, graph):
 		regamt = len(Register.registers)
 
+		if node not in reg_constraints:
+			raise Exception("node not in reg constraints!")
+
 		i = 0
-		if node in reg_constraints:
-			for i in range(0, regamt):
-				if i not in reg_constraints[node]:
-					break
+		for i in range(0, regamt):
+			if i not in reg_constraints[node]:
+				break
 
 		if i >= regamt:
 			raise Exception("no reg available!")
 
 		self.symtbl.map(node, i)
-		self.propagate_reg_constraints(reg_constraints, graph, todo, node, i)
+		self.propagate_reg_constraints(reg_constraints, graph, node, i)
 		
 		return i
 
 
-	def next(self, todo, reg_constraints):
+	def next(self, reg_constraints):
 		if len(reg_constraints) < 1:
-			for node in todo:
-				if node.needs_reg == True:
-					return (node, False)
-	
-			return (node, False)
+			raise Exception("reg_constraints is empty!")
 		
 		regamt = len(Register.registers)
 		to_sort = []
@@ -191,36 +186,27 @@ class Allocator:
 		
 		reg_nodes = [Register(x) for x in Register.registers]
 		todo = set(graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
-		#for n in todo:
-		#	reg_constraints[n] = set([])		
+		for n in todo:
+			reg_constraints[n] = set([])		
 
 		#registers are allocated to themselves 
 		for rnode in reg_nodes:			
-			self.propagate_reg_constraints(reg_constraints, graph, todo, rnode, self.symtbl[rnode])
+			self.propagate_reg_constraints(reg_constraints, graph, rnode, self.symtbl[rnode])
 
 		t0 = time.time()
 
-		while len(todo) > 0:
-			#log("todo: %s" % repr(self.todo))
+		while len(reg_constraints) > 0:
 			#log("constraints: %s" % repr(self.reg_constraints) )
 			
-			(node, saturated) = self.next(todo, reg_constraints)
+			(node, saturated) = self.next(reg_constraints)
 			log("allocate reg for %s" % repr(node) )
 			index = \
 				self.allocate_stack(node, graph) if saturated \
-				else self.allocate_reg(node, reg_constraints, graph, todo)
+				else self.allocate_reg(node, reg_constraints, graph)
 
 			log("  allocated %d" % index)
-			todo.remove(node)
+			del reg_constraints[node]
 	
-			try:
-				del reg_constraints[node]
-			except KeyError:
-				pass
-
-		if len(reg_constraints) > 0:
-			raise Exception("why are constraints non empty?")
-
 		return self.symtbl
 
 def adjust(asm_list, symtbl, depth=0):
