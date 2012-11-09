@@ -1,11 +1,12 @@
 from pyc_var_analyzer import IntfGraph
 from pyc_log import *
 from pyc_asm_nodes import *
-
 import pyc_var_analyzer 
+
 import random
 import copy
 import time
+import Queue
 
 reg_index_map = {}
 for i in range(0, len(Register.registers) ):
@@ -87,8 +88,8 @@ class Allocator:
 		self.stack_constraints = {}
 
 	def propagate_reg_constraints(self, reg_constraints, graph, todo, node, index):
-		for n in todo:
-			if n not in graph[node]:
+		for n in graph[node]:
+			if n not in todo:
 				continue
 
 			if n not in reg_constraints:
@@ -190,11 +191,13 @@ class Allocator:
 		
 		reg_nodes = [Register(x) for x in Register.registers]
 		todo = set(graph.keys()) - set(self.symtbl.mem_map.keys()) - set(reg_nodes)
+		#for n in todo:
+		#	reg_constraints[n] = set([])		
 
 		#registers are allocated to themselves 
 		for rnode in reg_nodes:			
 			self.propagate_reg_constraints(reg_constraints, graph, todo, rnode, self.symtbl[rnode])
-		
+
 		t0 = time.time()
 
 		while len(todo) > 0:
@@ -302,18 +305,18 @@ def allocate(asm_list, no_sudoku=False):
 			no_sudoku = False	
 
 		t_graph = time.time()
-		#print "  graph time: %d" % (t_graph - t0) 
+		print "  graph time: %d" % (t_graph - t0) 
 
 		t0 = time.time()
 		allocator.allocate(graph)
 		t_alloc = time.time()
-		#print "  alloc time: %d" % (t_alloc - t0) 
+		print "  alloc time: %d" % (t_alloc - t0) 
 
 		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
 		
 		t0 = time.time()
 		(more_alloc_needed, adjusted_asm_list) = adjust(adjusted_asm_list, allocator.symtbl) 
-		#print "  adjust time: %d" % (time.time() - t0)
+		print "  adjust time: %d" % (time.time() - t0)
 		log( lambda : "adjusted asm list more_alloc? = %d)" % more_alloc_needed) #:\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
 
 	return (adjusted_asm_list, allocator.symtbl)
