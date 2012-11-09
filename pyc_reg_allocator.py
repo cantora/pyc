@@ -291,18 +291,18 @@ def allocate(asm_list, no_sudoku=False):
 			no_sudoku = False	
 
 		t_graph = time.time()
-		print "  graph time: %d" % (t_graph - t0) 
+		#print "  graph time: %d" % (t_graph - t0) 
 
 		t0 = time.time()
 		allocator.allocate(graph)
 		t_alloc = time.time()
-		print "  alloc time: %d" % (t_alloc - t0) 
+		#print "  alloc time: %d" % (t_alloc - t0) 
 
 		log( lambda : "mem allocation offsets:\n\t%s" % str(allocator.symtbl) )
 		
 		t0 = time.time()
 		(more_alloc_needed, adjusted_asm_list) = adjust(adjusted_asm_list, allocator.symtbl) 
-		print "  adjust time: %d" % (time.time() - t0)
+		#print "  adjust time: %d" % (time.time() - t0)
 		log( lambda : "adjusted asm list more_alloc? = %d)" % more_alloc_needed) #:\n\t%s" % (more_alloc_needed, "\n\t".join([("%s" % repr(x) ) for x in adjusted_asm_list])) )
 
 	return (adjusted_asm_list, allocator.symtbl)
