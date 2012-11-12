@@ -235,20 +235,20 @@ class AstToIRTxformer(ASTTxformer):
 							ast.Num(0),
 							IsUnboundMethod(arg=var_ref(fn_name))
 						),
-						body = UserCall(
+						body = UserCall( 					#just a normal function call
 							func = var_ref(fn_name),
 							args = [var_ref(name) for name in arg_names],
 							kwargs = None,
 							starargs = None
 						),
-						orelse = UserCall(
+						orelse = UserCall(					#unbound method call: get function and call
 							func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
 							args = [var_ref(name) for name in arg_names],
 							kwargs = None,
 							starargs = None
 						)
 					),
-					orelse = UserCall(
+					orelse = UserCall(						#bound method call: get function, receiver and call
 						func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
 						args = [InjectFromBig(arg=GetReceiver(arg=var_ref(fn_name)))] \
 									+ [var_ref(name) for name in arg_names],
@@ -256,7 +256,7 @@ class AstToIRTxformer(ASTTxformer):
 						starargs = None
 					)
 				),
-				orelse = Let(
+				orelse = Let(								#object creation: create and call __init__ if exists
 					name = var_set(obj_name),
 					rhs = InjectFromBig(arg=CreateObject(arg=var_ref(fn_name))),
 					body = ast.IfExp(
@@ -264,8 +264,8 @@ class AstToIRTxformer(ASTTxformer):
 							ast.Num(0),
 							HasAttr(obj=var_ref(fn_name), attr='__init__')
 						),
-						body = var_ref(obj_name),
-						orelse = BigInit(
+						body = var_ref(obj_name),			#no __init__, return object
+						orelse = BigInit(					#call __init__, return object
 							pyobj_name = var_ref(obj_name),
 							body = [
 								UserCall(
@@ -276,7 +276,7 @@ class AstToIRTxformer(ASTTxformer):
 											ctx = ast.Load()
 										)
 									)),
-									args = [
+									args = [				#(object, arg1, ..., argn)
 										var_ref(name) for name in [obj_name] + arg_names
 									],
 									kwargs = None,
