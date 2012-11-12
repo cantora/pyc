@@ -42,6 +42,14 @@ class AstToIRTxformer(ASTTxformer):
 			arg = ast.Num(n=node.n)
 		)
 
+	def visit_HasAttr(self, node):
+		return InjectFromBool(
+			arg = HasAttr(
+				obj = pyc_vis.visit(self, node.obj),
+				attr = node.attr
+			)
+		)
+
 	def visit_Print(self, node):
 		if len(node.values) != 1:
 			raise InvalidP1("print expected to have only one arg")

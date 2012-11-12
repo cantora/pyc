@@ -138,13 +138,26 @@ class BodyTxformer(ASTTxformer):
 			pyc_vis.visit(self, node.value)
 		)
 
+	def attr_access(self, name):
+		return ast.Attribute(
+			value = var_ref(self.refname),
+			attr = name,
+			ctx = ast.Load()
+		)
+
 	def visit_Name(self, node):
 		if node.id in self.attrs:
-			return ast.Attribute(
-				value = var_ref(self.refname),
-				attr = node.id,
-				ctx = ast.Load()
-			)
+			if node.id in self.scope:
+				return ast.IfExp(
+					test = HasAttr(
+						obj=var_ref(self.refname),
+						attr=node.id
+					),
+					body = self.attr_access(node.id),
+					orelse = copy_name(node)
+				)
+			else:
+				return self.attr_access(node.id)
 
 		return copy_name(node)
 
