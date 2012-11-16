@@ -58,6 +58,12 @@ def opt_parser():
 		help='output intermediate representation python program instead of x86'
 	)
 	parser.add_argument(
+		'-d', 
+		'--dot', 
+		action='store_true', 
+		help='output dot visualization script of the generated AST instead of x86'
+	)
+	parser.add_argument(
 		'--alloc', 
 		help=('choose register allocator algorithm (default: %s). algos: %s' % (g_allocs[0], ", ".join(g_allocs)) ) 
 	)
@@ -132,6 +138,12 @@ def run(options):
 			print >>f, "exit(main())"
 		exit(0)
 	
+	if options.dot:
+		with output_file(options, "dot") as f:
+			pyc_lineage.graph(sir_mod, f)
+
+		exit(0)
+		
 	bloc_list = pyc_asm_list.from_sir_mod(sir_mod)
 
 	bloc_list_str = lambda : "\n".join([repr(n) for n in bloc_list])
@@ -189,7 +201,13 @@ def output_file(options, type):
 	if output_is_to_stdout(options):
 		return sys.stdout
 	else:
-		ext = "py-ir" if type == "python" else "s"
+		if type == "python" :
+			ext = "py-ir" 
+		elif type == 'dot':
+			ext = 'dot'
+		else:
+			ext = "s"
+
 		output_fname = "%s.%s" % (os.path.splitext(options.file.name)[0], ext)
 		ofile = open(output_fname, 'w')
 		return ofile
