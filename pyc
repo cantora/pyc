@@ -161,6 +161,9 @@ def asm_headers():
 	headers = []
 	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
 	headers.extend([
+		".section asdf",
+		"blahblah:",
+		"\t.ascii \"oijeoijfoijf\"",
 		".text",
 	])
 
