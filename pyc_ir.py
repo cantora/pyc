@@ -504,13 +504,12 @@ class AstToIRTxformer(ASTTxformer):
 			klass = ast.Lambda
 		)
 
-def txform(as_tree):
-	ir = astree_to_ir(as_tree)
-	return ir
-	
-def astree_to_ir(astree):
+def txform(astree, **kwargs):
 	v = AstToIRTxformer()
 	#v.log = log
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
 	return pyc_vis.walk(v, astree)
 	
 

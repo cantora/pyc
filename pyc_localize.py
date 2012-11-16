@@ -150,7 +150,10 @@ def locals(node):
 	lf.log = lambda s: log("LocalFinder: %s" % s)
 	return pyc_vis.walk(lf, node)
 
-def txform(as_tree):
+def txform(as_tree, **kwargs):
 	v = Localizer()
 	v.log = lambda s: log("Localizer  : %s" % s)
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
 	return pyc_vis.walk(v, as_tree)

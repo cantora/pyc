@@ -91,12 +91,13 @@ class Converter(ASTTxformer):
 		def_node.fvs = list(d["free_vars"])
 		fvs_inits = []
 		for i in range(0, len(def_node.fvs)):
-			fvs_inits.append(pyc_ir.astree_to_ir(
+			fvs_inits.append(pyc_ir.txform(
 				make_assign(
 					var_set(def_node.fvs[i]),
 					#is it ok to use a canonical name for fvs?
 					make_subn("fvs", ast.Load, i) 
-				)
+				),
+				tracer = self.tracer
 			))
 
 		def_node.body = fvs_inits + def_node.body
@@ -106,11 +107,12 @@ class Converter(ASTTxformer):
 		return (
 			InjectFromBig(arg=CreateClosure(
 				name = bname,
-				free_vars = pyc_ir.astree_to_ir(
+				free_vars = pyc_ir.txform(
 					ast.List(
 						elts = [var_ref(x) for x in def_node.fvs],
 						ctx = ast.Load()
-					)
+					),
+					tracer=self.tracer
 				)
 			)),
 			d
@@ -138,9 +140,12 @@ class Converter(ASTTxformer):
 			d
 		)
 
-def txform(as_tree):
+def txform(as_tree, **kwargs):
 	v = Converter()
 	v.log = lambda s: log("Converter : %s" % s)
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
 	(conv_tree, d) = pyc_vis.walk(v, as_tree)
 	
 	return ast.Module(

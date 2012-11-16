@@ -91,7 +91,7 @@ class BodyTxformer(ASTTxformer):
 		else:
 			tmpname = pyc_gen_name.new(self.refname + "_classattr")
 			return BigInit(
-				pyobj_name = tmpname,
+				pyobj_name = var_ref(tmpname),
 				body = [
 					vis_cd(self.parent, cd, tmpname, self.scope),
 					self.sattr(cd.name, var_ref(tmpname))
@@ -116,7 +116,7 @@ class BodyTxformer(ASTTxformer):
 	def visit_FunctionDef(self, node):
 		tmpname = pyc_gen_name.new(self.refname + "_defattr")
 		return BigInit(
-			pyobj_name = tmpname,
+			pyobj_name = var_ref(tmpname),
 			body = [
 				vis_fn(self.parent, node, tmpname, self.scope),
 				self.sattr(node.name, var_ref(tmpname))
@@ -162,7 +162,10 @@ class BodyTxformer(ASTTxformer):
 		return copy_name(node)
 
 		
-def txform(as_tree):
+def txform(as_tree, **kwargs):
 	v = Declassifier()
 	v.log = lambda s: log("Declassifier : %s" % s)
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
 	return pyc_vis.walk(v, as_tree)

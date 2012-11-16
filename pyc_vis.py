@@ -1,8 +1,17 @@
+
+class VisTracer:
+	def __init__(self):
+		self.visitors = set([])
+
+	def trace(self, result, instance, prefix, default, value, *args, **kwargs):
+		pass
+
 class Visitor:
 
 	def __init__(self):
 		self.depth = 0
 		self.log = lambda s: None
+		self.tracer = None
 
 	def default(self, node, *args, **kwargs):
 		raise Exception('no visit method for type %s in %s at depth %d' \
@@ -40,7 +49,11 @@ def dispatch_to_prefix_value(instance, prefix, default, value, *args, **kwargs):
 	if hasattr(instance.log, '__call__'):
 		instance.log(instance.depth_fmt("%s => %s" % (value, meth.__name__) ) )
 
-	return meth(*args, **kwargs)
+	result = meth(*args, **kwargs)
+	if instance.tracer is not None:
+		instance.tracer.trace(result, instance, prefix, default, value, *args, **kwargs)
+
+	return result
 
 def dispatch(instance, node, *args, **kwargs):
 	return dispatch_to_prefix(instance, 'visit_', 'default', node, *args, **kwargs)

@@ -45,8 +45,11 @@ class IRTreeSimplifier(ASTTxformer):
 		return pyc_gen_name.new("gen_")
 	
 	def visit_Module(self, node):
-		return ast.Module(
-			body = [pyc_vis.visit(self, n) for n in node.body]
+		return (
+			ast.Module(
+				body = [pyc_vis.visit(self, n)[0] for n in node.body]
+			),
+			[]
 		)
 
 	def visit_BlocDef(self, node):
@@ -55,10 +58,13 @@ class IRTreeSimplifier(ASTTxformer):
 			(name, sir_list) = pyc_vis.visit(self, n)
 			sir_body += sir_list
 
-		return BlocDef(
-			name = node.name,
-			body = sir_body,
-			params = [pyc_vis.visit(self, n)[0] for n in node.params]
+		return (
+			BlocDef(
+				name = node.name,
+				body = sir_body,
+				params = [pyc_vis.visit(self, n)[0] for n in node.params]
+			),
+			[]
 		)
 
 	def visit_Return(self, node):
@@ -93,7 +99,7 @@ class IRTreeSimplifier(ASTTxformer):
 			(name, sir_list) = pyc_vis.visit(self, n)
 			init_sir_list.extend( sir_list )
 
-		return (node.pyobj_name, init_sir_list)
+		return (pyc_vis.visit(self, node.pyobj_name)[0], init_sir_list)
 
 	def visit_Assign(self, node):	
 		if isinstance(node.targets[0], ast.Name):
@@ -161,7 +167,7 @@ class IRTreeSimplifier(ASTTxformer):
 		if isinstance(node, IRNode):
 			return self.flatten_irnode(node)
 
-		return pyc_vis.ASTTxformer.default(self, node)
+		return ASTTxformer.default(self, node)
 
 	def flatten_irnode(self, node):
 		result_name = self.gen_name()
@@ -396,8 +402,11 @@ class IRTreeSimplifier(ASTTxformer):
 
 #convert an abstract syntax tree into a list of
 #simple IR statements
-def txform(ir_tree):
+def txform(ir_tree, **kwargs):
 	v = IRTreeSimplifier()
 	v.log = lambda s: log("Simplifier : %s" % s)
-	return pyc_vis.walk(v, ir_tree)
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
+	return pyc_vis.walk(v, ir_tree)[0]
 

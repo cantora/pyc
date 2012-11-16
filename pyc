@@ -14,6 +14,7 @@ import pyc_heapify
 import pyc_closure
 import pyc_sir_to_py
 import pyc_declassify
+import pyc_lineage
 
 import compiler
 from pyc_log import *
@@ -100,6 +101,8 @@ def run(options):
 	resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 	sys.setrecursionlimit(10**6)
 
+	trace = pyc_lineage.Tracer()
+
 	iast = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
 		pyc_parser.print_astree(iast)
@@ -107,12 +110,12 @@ def run(options):
 
 	for (phase_name, phase_mod) in g_phases[1:-2]:
 		log("phase: %s" % phase_name)
-		iast = getattr(phase_mod, 'txform')(iast)
+		iast = getattr(phase_mod, 'txform')(iast, tracer=trace)
 		if options.phase == phase_name:
 			pyc_parser.print_astree(iast)
 			exit(0)
 		
-	sir_mod = pyc_sir.txform(iast)
+	sir_mod = pyc_sir.txform(iast, tracer=trace)
 	if options.phase == 'sir-list':
 		print pyc_sir.sir_list_to_str(sir_mod.body)
 		exit(0)

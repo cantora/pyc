@@ -39,7 +39,7 @@ class Heapifier(ASTTxformer):
 		]
 
 		result = [pyc_vis.visit(self, n, heap_vars, locs) for n in node.body]
-		inits = Heapifier.init_local_heap_vars(locs, env, heap_vars)
+		inits = self.init_local_heap_vars(locs, env, heap_vars)
 
 		self.log("heapify result: %r" % heap_vars)
 		self.patch_lamb_nodes()		
@@ -47,14 +47,12 @@ class Heapifier(ASTTxformer):
 			body = bool_inits + inits + result
 		)
 	
-	@staticmethod
-	def heapify_name(node, new_name):
-		return pyc_ir.astree_to_ir(make_subn(new_name, node.ctx.__class__, 0))
+	def heapify_name(self, node, new_name):
+		return pyc_ir.txform(make_subn(new_name, node.ctx.__class__, 0), tracer = self.tracer)
 
-	@staticmethod
-	def heapify_switch(node, heap_vars):
+	def heapify_switch(self, node, heap_vars):
 		if node.id in heap_vars:
-			return Heapifier.heapify_name(node, heap_vars[node.id])
+			return self.heapify_name(node, heap_vars[node.id])
 		else:
 			return copy_name(node)	
 
@@ -65,38 +63,37 @@ class Heapifier(ASTTxformer):
 		elif node.id in heap_vars or node.id not in locals:
 			heap_vars[node.id] = heap_name(node.id)
 			self.log(self.depth_fmt("heap: %s" % node.id))
-			return Heapifier.heapify_name(node, heap_vars[node.id])
+			return self.heapify_name(node, heap_vars[node.id])
 		else:
 			self.log(self.depth_fmt("defer: %s" % node.id))
 			exp = NameWrap(value=Lamb(
-				lamb = lambda : Heapifier.heapify_switch(node, heap_vars)
+				lamb = lambda : self.heapify_switch(node, heap_vars)
 			))
 			self.lamb_nodes.append(exp)
 			#we will edit this node later by invoking the lambda
 			return exp
 
 
-	@staticmethod
-	def init_heap_var(hv, value):
+	def init_heap_var(self, hv, value):
 		return make_assign(
 			var_set(hv),
-			pyc_ir.astree_to_ir(
+			pyc_ir.txform(
 				ast.List(
 					elts = [value],
 					ctx = ast.Load()
-				)
+				),
+				tracer = self.tracer
 			)
 		)
 
-	@staticmethod
-	def init_local_heap_vars(locals, params, heap_vars):
+	def init_local_heap_vars(self, locals, params, heap_vars):
 		inits = []
 		for name in locals:
 			if name not in heap_vars:
 				continue
 	
 			val = var_ref(name) if name in params else false_node()
-			inits.append(Heapifier.init_heap_var(heap_vars[name], val))
+			inits.append(self.init_heap_var(heap_vars[name], val))
 
 		return inits
 
@@ -118,7 +115,7 @@ class Heapifier(ASTTxformer):
 		#after we patch the lambda nodes
 		result_args = pyc_vis.visit(self, node.args, {}, prms )
 
-		inits = Heapifier.init_local_heap_vars(locals, prms, heap_vars)
+		inits = self.init_local_heap_vars(locals, prms, heap_vars)
 	
 		return Bloc(
 			args = result_args,
@@ -135,7 +132,10 @@ class Heapifier(ASTTxformer):
 def heap_name(name):
 	return ("heap_%s" % name)
 
-def txform(as_tree):
+def txform(as_tree, **kwargs):
 	v = Heapifier()
 	v.log = lambda s: log("Heapifier  : %s" % s)
+	if 'tracer' in kwargs:
+		v.tracer = kwargs['tracer']
+
 	return pyc_vis.walk(v, as_tree)
