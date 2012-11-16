@@ -210,27 +210,6 @@ class SIRtoASM(pyc_vis.Visitor):
 			Mov(Immed(DecInt(0)), var)
 		]
 
-	#def set_var_to_BoolOp(self, node, var, var_tbl):
-	#	def unknown_boolop(op, node, var, var_tbl):
-	#		raise Exception("unknown bool op: %s" % ast.dump(op))
-	#
-	#	return pyc_vis.dispatch_to_prefix(
-	#		self, 
-	#		'set_var_to_BoolOp_', 
-	#		unknown_boolop,
-	#		node.op, 
-	#		node,
-	#		var,
-	#		var_tbl
-	#	)
-	#
-	#def set_var_to_BoolOp_And(self, dummy, node, var, var_tbl):
-	#	return self.fn_call(	
-	#		"is_true", 
-	#		[node.values[0]],
-	#		var_tbl
-	#	) + [Mov(Register("eax"), 
-
 	def cmp(self, a, b, dest, log_not=False):
 		return [
 			Cmp(a, b),
@@ -382,20 +361,5 @@ def sir_to_asm(sir_node):
 	result = pyc_vis.walk(v, sir_node)
 
 	return result
-
-"""
-#origin stuff, come back to this later
-	if len(result.insns) < 1:
-		raise Exception("expected non empty result")
-
-	for ins in result.insns:
-		if not isinstance(ins, Inst):
-			raise Exception("expected instruction node: %s" % repr(ins))
-
-		ins.origin = sir_node
-"""
-	
-
-
 
 

@@ -87,7 +87,7 @@ class ASTTxformer(pyc_vis.Visitor):
 							continue
 						elif not isinstance(value, ast.AST):
 							if value.__class__ not in set([list, tuple]):
-								raise Exception("didnt expect returned value of %r" % value)
+								raise Exception("didnt expect returned value of (%s) %r" % (value.__class__.__name__, value) )
 
 							new_values.extend(value)
 							continue

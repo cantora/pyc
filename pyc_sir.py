@@ -401,6 +401,3 @@ def txform(ir_tree):
 	v.log = lambda s: log("Simplifier : %s" % s)
 	return pyc_vis.walk(v, ir_tree)
 
-
-
-
