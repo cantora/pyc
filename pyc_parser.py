@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import ast
 import StringIO
 import sys
@@ -27,7 +25,6 @@ class PrintASTVisitor(ASTVisitor):
 
 	def default_non_ast(self, obj, *args, **kwargs):		
 		print >>self.io, self.format(self.depth, kwargs.get("field", ""), repr(obj) )
-
 
 def parse(src):
 	return ast.parse(src)

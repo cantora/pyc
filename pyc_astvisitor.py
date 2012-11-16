@@ -77,7 +77,6 @@ class ASTTxformer(pyc_vis.Visitor):
 		new_node = node.__class__()
 		for field, old_value in ast.iter_fields(node):
 			#print "%s => %s" % (field, old_value.__class__.__name__)
-			#old_value = getattr(node, field, None)
 			if isinstance(old_value, list):
 				new_values = []
 				for value in old_value:
@@ -87,8 +86,12 @@ class ASTTxformer(pyc_vis.Visitor):
 						if value is None:
 							continue
 						elif not isinstance(value, ast.AST):
+							if value.__class__ not in set([list, tuple]):
+								raise Exception("didnt expect returned value of %r" % value)
+
 							new_values.extend(value)
 							continue
+
 					new_values.append(value)
 				setattr(new_node, field, new_values)
 			elif isinstance(old_value, ast.AST):

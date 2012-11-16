@@ -102,53 +102,42 @@ def run(options):
 	resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 	sys.setrecursionlimit(10**6)
 
-	t0 = time.time()
-	as_tree1 = pyc_parser.parse(options.src)
+	
+	iast = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
-		pyc_parser.print_astree(as_tree1)
+		pyc_parser.print_astree(iast)
 		exit(0)
 
-	log( lambda : pyc_parser.tree_to_str(as_tree1))
-	#print "parse time: %d" % (time.time() - t0)
-
-	as_tree_sans_class = pyc_declassify.txform(as_tree1)
+	iast = pyc_declassify.txform(iast)
 	if options.phase == 'declassify':
-		pyc_parser.print_astree(as_tree_sans_class)
+		pyc_parser.print_astree(iast)
 		exit(0)
 
-	as_tree2 = pyc_localize.txform(as_tree_sans_class)
+	iast = pyc_localize.txform(iast)
 	if options.phase == 'localize':
-		pyc_parser.print_astree(as_tree2)
+		pyc_parser.print_astree(iast)
 		exit(0)
 
-	t0 = time.time()
-	ir_tree = pyc_ir.generate(as_tree2)
+	iast = pyc_ir.txform(iast)
 	if options.phase == 'explicate':
-		pyc_ir.print_irtree(ir_tree)
+		pyc_parser.print_astree(iast)
 		exit(0)
 	
-	#print "explicate time: %d" % (time.time() - t0)	
-
-	heapified_ir_tree = pyc_heapify.txform(ir_tree)
+	iast = pyc_heapify.txform(iast)
 	if options.phase == 'heapify':
-		pyc_ir.print_irtree(heapified_ir_tree)
-		#print pyc_parser.dump(heapified_ir_tree)
+		pyc_parser.print_astree(iast)
 		exit(0)
 
-	converted_ir_tree = pyc_closure.convert(heapified_ir_tree)
+	iast = pyc_closure.txform(iast)
 	if options.phase == 'closure':
-		pyc_ir.print_irtree(converted_ir_tree)
+		pyc_parser.print_astree(iast)
 		exit(0)
 		
-	t0 = time.time()
-	sir_mod = pyc_ast.simple_ir(converted_ir_tree)
+	sir_mod = pyc_ast.simple_ir(iast)
 	if options.phase == 'sir-list':
 		print pyc_ast.sir_list_to_str(sir_mod.body)
 		exit(0)
 
-	log("sir list: ")
-	log(lambda : pyc_ast.sir_list_to_str(sir_mod.body) )
-	
 	if options.IR:
 		with output_file(options, "python") as f:
 			print >>f, "import sys"
@@ -161,9 +150,6 @@ def run(options):
 			print >>f, "exit(main())"
 		exit(0)
 	
-	#print "flatten time: %d" % (time.time() - t0) 
-	
-	t0 = time.time()
 	bloc_list = pyc_asm_list.from_sir_mod(sir_mod)
 
 	bloc_list_str = lambda : "\n".join([repr(n) for n in bloc_list])

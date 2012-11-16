@@ -138,7 +138,7 @@ class Converter(ASTTxformer):
 			d
 		)
 
-def convert(as_tree):
+def txform(as_tree):
 	v = Converter()
 	v.log = lambda s: log("Converter : %s" % s)
 	(conv_tree, d) = pyc_vis.walk(v, as_tree)

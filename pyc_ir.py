@@ -504,7 +504,7 @@ class AstToIRTxformer(ASTTxformer):
 			klass = ast.Lambda
 		)
 
-def generate(as_tree):
+def txform(as_tree):
 	ir = astree_to_ir(as_tree)
 	return ir
 	
@@ -513,36 +513,6 @@ def astree_to_ir(astree):
 	#v.log = log
 	return pyc_vis.walk(v, astree)
 	
-def print_irtree(tree):
-	return pyc_parser.print_astree(tree)
-
-def tree_to_str(tree):
-	return pyc_parser.tree_to_str(tree)
-
-def dump(tree):
-	return ast.dump(tree)
 
 
-"""
-not implemented yet
-class PrintPyVisitor(ASTVisitor):
-	
-	def __init__(self, io):
-		ASTVisitor.__init__(self)
-		self.io = io
 
-	def default_ast(self, node, field=""):
-		pass
-
-	def default_non_ast(self, obj, field=""):
-		pass
-
-
-def to_py(ir_node):
-	s = StringIO.StringIO()
-	v = PrintPyVisitor(s)	
-	v.log = log
-	pyc_vis.walk(v, ir_node)
-	return v.io.getvalue()
-	
-"""

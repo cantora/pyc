@@ -29,16 +29,8 @@ ply:
 	mv ply-3.4 ply
 	rm ply-3.4.tar.gz
 
-.PHONY: compile_test
-compile_test:
-	@for i in $(TESTS); do \
-		./pyc $$i; \
-		if [ $$? -ne 0 ]; then \
-			echo "FAILED: $$(basename $$i)"; \
-			break; \
-		fi; \
-		echo "[x] $$(basename $$i)"; \
-	done
+.PHONY: tests
+tests: p0tests p1tests p2tests p3tests
 
 .PHONY: p0tests
 p0tests:
