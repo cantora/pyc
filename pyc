@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import pyc_parser
 import pyc_ast
 import pyc_asm_list
 import pyc_var_analyzer
@@ -20,16 +21,16 @@ import os.path
 import time
 import resource
 
-g_phases = [
-	"parse",
-	"declassify", 
-	"localize", 
-	"explicate", 
-	"heapify", 
-	"closure",
-	"sir-list", 
-	"asm-node-list"
-]
+g_phases = (
+	("parse", 			pyc_parser),
+	("declassify", 		pyc_declassify), 
+	("localize", 		pyc_localize),
+	("explicate",		pyc_ir),
+	("heapify",			pyc_heapify),
+	("closure",			pyc_closure),
+	("sir-list",			pyc_ast),
+	("asm-node-list",	pyc_asm_list)
+)
 
 g_allocs = [
 	"sudoku",
@@ -47,7 +48,7 @@ def opt_parser():
 	parser.add_argument(
 		'-p', 
 		'--phase', 
-		help=('stop and print intermediate compiler result. phases: %s' % ", ".join(g_phases)) 
+		help=('stop and print intermediate compiler result. phases: %s' % ", ".join(zip(*g_phases)[0])) 
 	)
 	parser.add_argument(
 		'-i', 
@@ -90,48 +91,26 @@ def run(options):
 	if isinstance(options.src, basestring) != True:
 		raise Exception('invalid src variable. type: %s' % (options.src.__class__.__name__) )
 
-	if (not options.phase is None) and options.phase not in g_phases:
+	if (not options.phase is None) and options.phase not in zip(*g_phases)[0]:
 		raise Exception('invalid phase variable: %s' % options.phase)
 
 	log(options)
-	#import parser only now because we want to know if
-	#we are verbose or not first.
-	import pyc_parser
 
 	# Increase max stack size from 8MB to 512MB
 	resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 	sys.setrecursionlimit(10**6)
 
-	
 	iast = pyc_parser.parse(options.src)
 	if options.phase == 'parse':
 		pyc_parser.print_astree(iast)
 		exit(0)
 
-	iast = pyc_declassify.txform(iast)
-	if options.phase == 'declassify':
-		pyc_parser.print_astree(iast)
-		exit(0)
-
-	iast = pyc_localize.txform(iast)
-	if options.phase == 'localize':
-		pyc_parser.print_astree(iast)
-		exit(0)
-
-	iast = pyc_ir.txform(iast)
-	if options.phase == 'explicate':
-		pyc_parser.print_astree(iast)
-		exit(0)
-	
-	iast = pyc_heapify.txform(iast)
-	if options.phase == 'heapify':
-		pyc_parser.print_astree(iast)
-		exit(0)
-
-	iast = pyc_closure.txform(iast)
-	if options.phase == 'closure':
-		pyc_parser.print_astree(iast)
-		exit(0)
+	for (phase_name, phase_mod) in g_phases[1:-2]:
+		log("phase: %s" % phase_name)
+		iast = getattr(phase_mod, 'txform')(iast)
+		if options.phase == phase_name:
+			pyc_parser.print_astree(iast)
+			exit(0)
 		
 	sir_mod = pyc_ast.simple_ir(iast)
 	if options.phase == 'sir-list':
@@ -157,9 +136,6 @@ def run(options):
 		print bloc_list_str()
 		exit(0)
 
-	log(bloc_list_str)	
-	#print "instruction selection time: %d" % (time.time() - t0)
-
 	flat_bloc_list = []
 	for bloc in bloc_list:
 		t0 = time.time()
@@ -176,7 +152,6 @@ def run(options):
 		))
 
 	output(options, flat_bloc_list)
-	#print "output time: %d" % (time.time() - t0)
 
 
 def asm_headers():
