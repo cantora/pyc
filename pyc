@@ -3,7 +3,7 @@
 import argparse
 import sys
 import pyc_parser
-import pyc_ast
+import pyc_sir
 import pyc_asm_list
 import pyc_var_analyzer
 import pyc_reg_allocator
@@ -28,7 +28,7 @@ g_phases = (
 	("explicate",		pyc_ir),
 	("heapify",			pyc_heapify),
 	("closure",			pyc_closure),
-	("sir-list",			pyc_ast),
+	("sir-list",		pyc_sir),
 	("asm-node-list",	pyc_asm_list)
 )
 
@@ -112,9 +112,9 @@ def run(options):
 			pyc_parser.print_astree(iast)
 			exit(0)
 		
-	sir_mod = pyc_ast.simple_ir(iast)
+	sir_mod = pyc_sir.txform(iast)
 	if options.phase == 'sir-list':
-		print pyc_ast.sir_list_to_str(sir_mod.body)
+		print pyc_sir.sir_list_to_str(sir_mod.body)
 		exit(0)
 
 	if options.IR:

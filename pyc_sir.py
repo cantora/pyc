@@ -36,10 +36,10 @@ def _sir_list_to_str(sir_list, depth=0):
 
 	return lines
 
-class IRTreeSimplifier(pyc_vis.Visitor):
+class IRTreeSimplifier(ASTTxformer):
 	
 	def __init__(self):
-		pyc_vis.Visitor.__init__(self)
+		ASTTxformer.__init__(self)
 
 	def gen_name(self):
 		return pyc_gen_name.new("gen_")
@@ -161,7 +161,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 		if isinstance(node, IRNode):
 			return self.flatten_irnode(node)
 
-		return pyc_vis.Visitor.default(self, node)
+		return pyc_vis.ASTTxformer.default(self, node)
 
 	def flatten_irnode(self, node):
 		result_name = self.gen_name()
@@ -396,7 +396,7 @@ class IRTreeSimplifier(pyc_vis.Visitor):
 
 #convert an abstract syntax tree into a list of
 #simple IR statements
-def simple_ir(ir_tree):
+def txform(ir_tree):
 	v = IRTreeSimplifier()
 	v.log = lambda s: log("Simplifier : %s" % s)
 	return pyc_vis.walk(v, ir_tree)
