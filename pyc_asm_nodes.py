@@ -1,5 +1,7 @@
 from pyc_log import *
 import pyc_gen_name
+import pyc_parser
+
 import copy
 
 def asm_prefix():
@@ -77,6 +79,8 @@ class FlatCodeBloc(CodeBloc):
 				continue
 			
 			s = str(patched)
+			origin_str = "None" if ins.origin is None else pyc_parser.dump(ins.origin)
+			#s += "; " + origin_str
 			print >>io, lamb(s)
 
 		print >>io, lamb(str(Mov(Immed(0), Register("eax")) )) #if not return stmt, return 0
