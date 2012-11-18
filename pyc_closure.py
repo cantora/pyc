@@ -148,6 +148,11 @@ def txform(as_tree, **kwargs):
 
 	(conv_tree, d) = pyc_vis.walk(v, as_tree)
 	
-	return ast.Module(
+	result = ast.Module(
 		body = [conv_tree] + d["defs"]
 	)
+
+	result.parent = as_tree.parent
+	result.cpass = v.__class__.__name__
+
+	return result
