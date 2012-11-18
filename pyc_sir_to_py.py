@@ -37,9 +37,10 @@ class SirToPyVisitor(ASTVisitor):
 	def __init__(self, io):
 		ASTVisitor.__init__(self)
 		self.io = io
+		self.tab_depth = 0
 
 	def tab_str(self, **kwargs):
-		return "  "*(1 + kwargs["if_depth"])
+		return "  "*(1 + self.tab_depth)
 
 	def default_accumulator(self):
 		return ""
@@ -99,17 +100,17 @@ class SirToPyVisitor(ASTVisitor):
 	def visit_If(self, node, **kwargs):
 		print >>self.io, "%sif (%s):" % (self.tab_str(**kwargs), pyc_vis.visit(self, node.test))
 
-		kwargs["if_depth"] += 1
+		self.tab_depth += 1
 		for n in node.body:
 			pyc_vis.visit(self, n, **kwargs)
-		kwargs["if_depth"] -= 1
+		self.tab_depth -= 1
 
 		if len(node.orelse) > 0:
 			print >>self.io, "%selse:" % self.tab_str(**kwargs)
-			kwargs["if_depth"] += 1
+			self.tab_depth += 1
 			for n in node.orelse:
 				pyc_vis.visit(self, n, **kwargs)
-			kwargs["if_depth"] -= 1
+			self.tab_depth -= 1
 
 		print >>self.io, ""
 
@@ -121,12 +122,12 @@ class SirToPyVisitor(ASTVisitor):
 
 		print >>self.io, "%swhile (%s):" % (self.tab_str(**kwargs), pyc_vis.visit(self, node.test))
 	
-		kwargs["if_depth"] += 1
+		self.tab_depth += 1
 		for n in node.wbody:
 			pyc_vis.visit(self, n, **kwargs)
 		for n in node.tbody:
 			pyc_vis.visit(self, n, **kwargs)
-		kwargs["if_depth"] -= 1
+		self.tab_depth -= 1
 
 		return ""
 
@@ -200,7 +201,7 @@ class SirToPyVisitor(ASTVisitor):
 		return str(node.n)
 
 	def visit_Module(self, node):
-		return self.default(node, **{"if_depth": 0})
+		return self.default(node)
 
 	def visit_BlocDef(self, node, **kwargs):
 		print >>self.io, "\ndef %s(%s):" % (
