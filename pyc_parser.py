@@ -19,15 +19,28 @@ class PrintASTVisitor(ASTVisitor):
 		return fmt % (" "*depth, field, val)
 
 	def default_ast(self, node, *args, **kwargs):
-		val = "%s()" % node.__class__.__name__
+		val = "%s():%d" % (node.__class__.__name__, getattr(node, 'lineno', 0) )
 
 		print >>self.io, self.format(self.depth, kwargs.get("field", ""), val)
 
 	def default_non_ast(self, obj, *args, **kwargs):		
 		print >>self.io, self.format(self.depth, kwargs.get("field", ""), repr(obj) )
 
+def fix_source_lines(node):
+	def _fix(node, lineno):
+		if not hasattr(node, 'lineno'):
+			node.lineno = lineno
+	
+		for child in ast.iter_child_nodes(node):
+			_fix(child, node.lineno)
+
+	_fix(node, getattr(node, 'lineno', 0) )
+	return node
+
 def parse(src):
-	return ast.parse(src)
+	result = ast.parse(src)
+	fix_source_lines(result)
+	return result
 
 def tree_to_str(astree):
 	s = StringIO.StringIO()
