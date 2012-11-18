@@ -3,12 +3,34 @@ from pyc_log import *
 import pyc_vis
 
 import ast
+from pyc_astvisitor import ASTVisitor
 
+class Bequeather(ASTVisitor):
+	
+	def __init__(self, root, parent, cpass):
+		ASTVisitor.__init__(self)
+		self.root = root
+		self.parent = parent
+		self.cpass = cpass
+
+	def default_ast(self, node, *args, **kwargs):
+		node.parent = self.parent
+		node.cpass = self.cpass
+
+	def default_non_ast(self, node, *args, **kwargs):
+		return self.default_accumulator()
+
+	def default(self, node, *args, **kwargs):
+		if node != self.root and hasattr(node, 'parent'):
+			return self.default_accumulator()
+
+		return ASTVisitor.default(self, node, *args, **kwargs)
+		
 class Tracer(VisTracer):
 
 	def __init__(self):
 		VisTracer.__init__(self)
-		
+
 	def trace(self, result, instance, prefix, default, value, *args, **kwargs):
 		node = args[0]
 		if not isinstance(node, ast.AST):
@@ -23,8 +45,9 @@ class Tracer(VisTracer):
 			self.track(node, result, vis_klass)
 	
 	def track(self, node, result, cpass):
-		result.parent = node
-		result.cpass = cpass
+		v = Bequeather(result, node, cpass)
+		v.log = lambda s: log("Bequeather : %s" % s)
+		pyc_vis.walk(v, result)
 
 	def track_closure_vis(self, node, result, cpass):
 		child = result[0]
@@ -44,17 +67,18 @@ class Tracer(VisTracer):
 		for n in l:
 			self.track(node, n, cpass)
 
-from pyc_astvisitor import ASTSearcher
-
-class GraphVizVisitor(ASTSearcher):
+class GraphVizVisitor(ASTVisitor):
 	
 	def __init__(self, io):
-		ASTSearcher.__init__(self)
+		ASTVisitor.__init__(self)
 		self.io = io
+
+	def default_non_ast(self, node, *args, **kwargs):
+		return set([])
 
 	def default_ast(self, node, *args, **kwargs):
 		if not hasattr(node, 'parent'):
-			return #raise Exception("orphaned node: %r" % (node))
+			raise Exception("orphaned node: %r" % (node))
 
 		self.lineage_edges(node, node.parent)
 
