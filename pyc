@@ -58,10 +58,10 @@ def opt_parser():
 		help='output intermediate representation python program instead of x86'
 	)
 	parser.add_argument(
-		'-d', 
-		'--dot', 
+		'-g', 
+		'--graph', 
 		action='store_true', 
-		help='output dot visualization script of the generated AST instead of x86'
+		help='output graph visualization script of the generated AST instead of x86'
 	)
 	parser.add_argument(
 		'--alloc', 
@@ -160,8 +160,8 @@ def run(options):
 			symtbl = symtbl
 		))
 
-	if options.dot:
-		with output_file(options, "dot") as f:
+	if options.graph:
+		with output_file(options, "graph") as f:
 			pyc_lineage.graph(flat_bloc_list, f)
 
 		exit(0)
@@ -203,8 +203,8 @@ def output_file(options, type):
 	else:
 		if type == "python" :
 			ext = "py-ir" 
-		elif type == 'dot':
-			ext = 'dot'
+		elif type == 'graph':
+			ext = 'graph'
 		else:
 			ext = "s"
 
