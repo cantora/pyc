@@ -15,6 +15,7 @@ import pyc_closure
 import pyc_sir_to_py
 import pyc_declassify
 import pyc_lineage
+import pyc_dbg_sym
 
 import compiler
 from pyc_log import *
@@ -166,18 +167,20 @@ def run(options):
 
 		exit(0)
 
-	output(options, flat_bloc_list)
+	output(
+		options, 
+		flat_bloc_list, 
+		pyc_dbg_sym.generate(options.src, flat_bloc_list) 
+	)
 
 
-def asm_headers():
+def asm_headers(debug_headers):
 	headers = []
-	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
+	headers.extend(debug_headers)
 	headers.extend([
-		".section asdf",
-		"blahblah:",
-		"\t.ascii \"oijeoijfoijf\"",
 		".text",
 	])
+	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
 
 	return headers
 
@@ -223,18 +226,20 @@ def with_output_file(options, type, bloc):
 		ofile.close()
 	
 	
-def output(options, flat_bloc_list):
+def output(options, flat_bloc_list, debug_headers):
 	with output_file(options, "asm") as f:
-		for hdr in asm_headers():
+		for hdr in asm_headers(debug_headers):
 			print >>f, (hdr)
 
 		print >>f
 		for bloc in flat_bloc_list:
 			print >>f
 			print >>f, ".globl  %s" % bloc.name
+			print >>f, ".type  %s, @function" % bloc.name
 			print >>f, "%s:" % bloc.name
 			bloc.to_asm(f, lambda s: ("\t" + s))
-		
+			print >>f, ".size %s, .-%s" % (bloc.name, bloc.name)
+
 		print >>f
 		for trlr in asm_trailers():
 			print >>f, trlr
