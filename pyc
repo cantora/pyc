@@ -184,19 +184,6 @@ def asm_headers(debug_headers):
 
 	return headers
 
-def asm_trailers():
-	return [
-		".globl  start",
-		".type   start, @function",
-		"start:",
-		"\tpushl   %ebp",
-		"\tmovl    %esp, %ebp",
-		"\tcall    main",
-		"\tmovl    $0, %eax",
-		"\tleave",
-		"\tret"
-	]
-
 def output_is_to_stdout(options):
 	return (options.src_type == 'cmdline' or options.output == '-')
 
@@ -241,8 +228,6 @@ def output(options, flat_bloc_list, debug_headers):
 			print >>f, ".size %s, .-%s" % (bloc.name, bloc.name)
 
 		print >>f
-		for trlr in asm_trailers():
-			print >>f, trlr
 
 if __name__ == "__main__":
 	opt_p = opt_parser()
