@@ -265,8 +265,7 @@ class AstToIRTxformer(ASTTxformer):
 							HasAttr(obj=var_ref(fn_name), attr=ast.Str('__init__'))
 						),
 						body = var_ref(obj_name),			#no __init__, return object
-						orelse = BigInit(					#call __init__, return object
-							pyobj_name = var_ref(obj_name),
+						orelse = Seq(					#call __init__, return object
 							body = [
 								UserCall(
 									func = InjectFromBig(arg=GetFunction(
@@ -281,8 +280,9 @@ class AstToIRTxformer(ASTTxformer):
 									],
 									kwargs = None,
 									starargs = None
-								) #call __init__
-							] #BigInit body
+								), #call __init__
+								var_ref(obj_name)
+							] #body
 						) #hasattr('__init__') true
 					) #if hasattr('__init__')
 				) #let o = CreateObject(fn_name)
@@ -315,7 +315,7 @@ class AstToIRTxformer(ASTTxformer):
 			rhs = InjectFromBig(
 				arg = DictRef()
 			),
-			body = BigInit(pyobj_name = var_ref(d_name), body = elements)
+			body = Seq(body = elements + [var_ref(d_name)])
 		)
 
 
@@ -345,7 +345,7 @@ class AstToIRTxformer(ASTTxformer):
 					size = InjectFromInt(arg = ast.Num(n=len(node.elts) ) )
 				)
 			),
-			body = BigInit(pyobj_name = var_ref(list_name), body = elements)
+			body = Seq(body = elements + [var_ref(list_name)]) 
 		)
 
 	def visit_ClassRef(self, node):

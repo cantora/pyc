@@ -59,6 +59,12 @@ def opt_parser():
 		help='output intermediate representation python program instead of x86'
 	)
 	parser.add_argument(
+		'-n', 
+		'--code-only',
+		action='store_true', 
+		help='dont output prefix and suffix for IR python program (for use with --IR)'
+	)
+	parser.add_argument(
 		'-g', 
 		'--graph', 
 		action='store_true', 
@@ -128,18 +134,22 @@ def run(options):
 		exit(0)
 
 	if options.IR:
-		with output_file(options, "python") as f:
-			print >>f, "import sys"
-			print >>f, "import resource"
-			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
-			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
-			print >>f, "from pyc_runtime import *"
-			print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
-			print >>f, "sys.setrecursionlimit(10**6)"
+		type = "txt" if options.code_only else "python"
+		with output_file(options, type) as f:
+			if not options.code_only:
+				print >>f, "import sys"
+				print >>f, "import resource"
+				print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
+				print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
+				print >>f, "from pyc_runtime import *"
+				print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
+				print >>f, "sys.setrecursionlimit(10**6)"
+
 			pyc_sir_to_py.generate(sir_mod, f)	
-			print >>f, ""
-			print >>f, "#" + "*"*40 + "#"
-			print >>f, "exit(main())"
+			if not options.code_only:
+				print >>f, ""
+				print >>f, "#" + "*"*40 + "#"
+				print >>f, "exit(main())"
 		exit(0)
 	
 	bloc_list = pyc_asm_list.from_sir_mod(sir_mod)
@@ -194,8 +204,10 @@ def output_file(options, type):
 	if output_is_to_stdout(options):
 		return sys.stdout
 	else:
-		if type == "python" :
-			ext = "py-ir" 
+		if type == 'python' :
+			ext = 'py-ir'
+		elif type == 'txt':
+			ext = 'txt'
 		elif type == 'graph':
 			ext = 'graph'
 		else:

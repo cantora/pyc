@@ -52,7 +52,7 @@ class Tracer(VisTracer):
 	
 	def track(self, node, result, cpass):
 		v = Bequeather(result, node, cpass)
-		v.log = lambda s: log("Bequeather : %s" % s)
+		#v.log = lambda s: log("Bequeather : %s" % s)
 		pyc_vis.walk(v, result)
 
 	def track_closure_vis(self, node, result, cpass):

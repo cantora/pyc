@@ -29,8 +29,7 @@ def vis_cd(visitor, node, name, scope):
 	bt = BodyTxformer(node, visitor, tmpname, scope) 
 	bt.log = lambda s: log("BodyTxformer : %s" % s)
 
-	return BigInit(
-		pyobj_name = var_set(name),
+	return Seq(
 		body = (
 			[make_assign(
 				var_set(tmpname), 
@@ -90,8 +89,7 @@ class BodyTxformer(ASTTxformer):
 			]
 		else:
 			tmpname = pyc_gen_name.new(self.refname + "_classattr")
-			return BigInit(
-				pyobj_name = var_ref(tmpname),
+			return Seq(
 				body = [
 					vis_cd(self.parent, cd, tmpname, self.scope),
 					self.sattr(cd.name, var_ref(tmpname))
@@ -115,8 +113,7 @@ class BodyTxformer(ASTTxformer):
 
 	def visit_FunctionDef(self, node):
 		tmpname = pyc_gen_name.new(self.refname + "_defattr")
-		return BigInit(
-			pyobj_name = var_ref(tmpname),
+		return Seq(
 			body = [
 				vis_fn(self.parent, node, tmpname, self.scope),
 				self.sattr(node.name, var_ref(tmpname))

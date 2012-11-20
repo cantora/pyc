@@ -110,8 +110,9 @@ class SirToPyVisitor(ASTVisitor):
 		self.tab_depth -= 1
 
 		if len(node.orelse) > 0:
-			print >>self.io, "%selse: " % (
-				self.tab_str(**kwargs)
+			print >>self.io, "%selse: #%d" % (
+				self.tab_str(**kwargs),
+				node.orelse_lineno
 			)
 			self.tab_depth += 1
 			for n in node.orelse:
@@ -123,19 +124,22 @@ class SirToPyVisitor(ASTVisitor):
 		return ""
 
 	def visit_DoWhile(self, node, **kwargs):
-		for n in node.tbody:
-			pyc_vis.visit(self, n, **kwargs)
-
-		print >>self.io, "%swhile (%s):#%d" % (
+		print >>self.io, "%swhile (1):#%d" % (
 			self.tab_str(**kwargs), 
-			pyc_vis.visit(self, node.test),
-			node.lineno
+			node.dummy_lineno
 		)
 	
 		self.tab_depth += 1
-		for n in node.wbody:
-			pyc_vis.visit(self, n, **kwargs)
 		for n in node.tbody:
+			pyc_vis.visit(self, n, **kwargs)
+
+		print >>self.io, "%sif not (%s): break #%d" % (
+			self.tab_str(**kwargs),
+			pyc_vis.visit(self, node.test),
+			node.lineno
+		)
+
+		for n in node.wbody:
 			pyc_vis.visit(self, n, **kwargs)
 		self.tab_depth -= 1
 
@@ -225,7 +229,7 @@ class SirToPyVisitor(ASTVisitor):
 		return self.default(node)
 
 	def visit_BlocDef(self, node, **kwargs):
-		print >>self.io, "\ndef %s(%s): #%d" % (
+		print >>self.io, "def %s(%s): #%d" % (
 			node.name, 
 			self.format_args([n.id for n in node.params]),
 			node.lineno

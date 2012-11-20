@@ -52,7 +52,7 @@ simple_ir_nodes = {
 	'ClosureFVS':			tuple(['var']),
 	'Bloc':					tuple(['args', 'body', 'klass']),
 	'BlocDef':				tuple(['name', 'params', 'body']),
-	'DoWhile':				tuple(['test', 'tbody', 'wbody']),
+	'DoWhile':				tuple(['test', 'tbody', 'wbody', 'dummy_lineno']),
 	'Cast':					tuple(['from_typ', 'to_typ', 'arg']),
 	'IsTrue':				tuple(['arg']),
 	'IsClass':				tuple(['arg']),
@@ -63,7 +63,7 @@ simple_ir_nodes = {
 	'GetFunction':			tuple(['arg']),
 	'GetReceiver':			tuple(['arg']),
 	'Let':					tuple(['name', 'rhs', 'body']),
-	'BigInit':				tuple(['pyobj_name', 'body']),
+	'Seq':					tuple(['body']),
 	'Error':				tuple(['msg'])
 }
 

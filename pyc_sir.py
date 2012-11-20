@@ -43,6 +43,7 @@ class IRTreeSimplifier(ASTTxformer):
 		self.lineno = 0
 
 	def next_lineno(self):
+		self.log("lineno %d => %d" % (self.lineno, self.lineno + 1))
 		self.lineno += 1
 		return self.lineno
 
@@ -107,37 +108,40 @@ class IRTreeSimplifier(ASTTxformer):
 		return (var_ref(result_name), sir_list)
 		
 
-	def visit_BigInit(self, node):
+	def visit_Seq(self, node):
 		init_sir_list = []
 
 		for n in node.body:
 			(name, sir_list) = pyc_vis.visit(self, n)
 			init_sir_list.extend( sir_list )
 
-		return (pyc_vis.visit(self, node.pyobj_name)[0], init_sir_list)
+		#name represents the last item in Seq (implicit value of the Seq node)
+		return (name, init_sir_list)
 
 	def visit_Assign(self, node):	
+		(name, name_sir_list) = pyc_vis.visit(self, node.value)
+
 		if isinstance(node.targets[0], ast.Name):
 			target = node.targets[0]
 			target_sir_list = []
 		else:
 			(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
-
-		(name, name_sir_list) = pyc_vis.visit(self, node.value)
 		
+		#print "(X)%d: %s" % (self.lineno, ast.dump(node) )
+
 		sir_list = name_sir_list + target_sir_list
 		sir_list.append(self.make_assign(
 			target,			
 			name
 		))
-		
+		#print "(Y)%d: %s" % (self.lineno, ast.dump(node) )
 		return (None, sir_list)
 
 	def visit_Subscript(self, node):
-		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
 		(var_name, var_sir_list) = pyc_vis.visit(self, node.value)
+		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
 
-		sir_list = var_sir_list + slice_sir_list #+ 
+		sir_list = var_sir_list + slice_sir_list 
 		new_sub = ast.Subscript(
 			value = var_name,
 			slice = slice_name,
@@ -189,6 +193,8 @@ class IRTreeSimplifier(ASTTxformer):
 		result_node = node.__class__()
 		result_sir_list = []
 
+		#print "(A)%d: %s" % (self.lineno, ast.dump(node) )
+		
 		for (fld, value) in ast.iter_fields(node):
 			if isinstance(value, ast.AST):
 				(name, sir_list) = pyc_vis.visit(self, value)
@@ -199,6 +205,7 @@ class IRTreeSimplifier(ASTTxformer):
 			else:
 				raise Exception("unexpected field type: %r. %s" % (value, ast.dump(node)))
 
+		#print "(B)%d: %s" % (self.lineno, ast.dump(node) )
 		return (
 			var_ref(result_name),
 			result_sir_list + [
@@ -308,77 +315,89 @@ class IRTreeSimplifier(ASTTxformer):
 		(dummy, sir_list) = pyc_vis.visit(self, node.value)
 		return (None, sir_list)
 
-
 	def visit_Error(self, node):
-		return (Error(msg=node.msg, lineno=self.next_lineno() ), [])
+		return (Error(msg=node.msg), [])
 
 	def visit_Let(self, node):
 		(rhs_name, rhs_sir_list) = pyc_vis.visit(self, node.rhs)
+		assign = self.make_assign(
+			var_set(node.name.id),
+			rhs_name
+		)
 		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
 		return (
 			body_name,
-			rhs_sir_list + [
-				self.make_assign(
-					var_set(node.name.id),
-					rhs_name
-				)					
-			] + body_sir_list
+			rhs_sir_list + [assign] + body_sir_list
 		)
 
 	def visit_IfExp(self, node):
-		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
-		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
-		(els_name, els_sir_list) = pyc_vis.visit(self, node.orelse)
-
 		result_name = self.gen_name()
+		
+		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		if_lineno = self.next_lineno()
+
+		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
+		body_sir_list += [self.make_assign(
+			var_set(result_name),
+			body_name
+		)]
+
+		els_lineno = self.next_lineno() #increment to account for the 'else:' line
+		(els_name, els_sir_list) = pyc_vis.visit(self, node.orelse)
+		els_sir_list += [self.make_assign(
+				var_set(result_name),
+				els_name
+		)]
+
 		return (
 			var_ref(result_name),
 			test_sir_list + [
 				ast.If(
 					test = test_name,
-					body = body_sir_list + [
-						self.make_assign(
-							var_set(result_name),
-							body_name
-						)
-					],
-					orelse = els_sir_list + [
-						self.make_assign(
-							var_set(result_name),
-							els_name
-						)
-					],
-					lineno = self.next_lineno()
+					body = body_sir_list,
+					orelse = els_sir_list,
+					lineno = if_lineno,
+					orelse_lineno = els_lineno
 				)
 			]
 		)
 
 	def visit_If(self, node):
 		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		if_lineno = self.next_lineno()
+
 		body_sir_list = []
 		for x in node.body:
 			(dummy1, sl) = pyc_vis.visit(self, x)
 			body_sir_list += sl
 
+		#increment to account for the 'else:' line
+		els_lineno = self.next_lineno() if len(node.orelse) > 0 else None
 		els_sir_list = []
 		for x in node.orelse:
 			(dummy2, sl) = pyc_vis.visit(self, x)
 			els_sir_list += sl
 
+		ifnode = ast.If(
+			test = test_name,
+			body = body_sir_list,
+			orelse = els_sir_list,
+			lineno = if_lineno
+		)
+		
+		if els_lineno:
+			ifnode.orelse_lineno = els_lineno 
+
 		return (
 			None,
-			test_sir_list + [
-				ast.If(
-					test = test_name,
-					body = body_sir_list,
-					orelse = els_sir_list,
-					lineno = self.next_lineno()
-				)
-			]
+			test_sir_list + [ifnode]
 		)		
 
 	def visit_While(self, node):
+		dum_lineno = self.next_lineno() #dummy for 'while(1)' in SIR python output
 		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		test_lineno = self.next_lineno()
+
 		body_sir_list = []
 		for x in node.body:
 			(dummy, sl) = pyc_vis.visit(self, x)
@@ -391,7 +410,8 @@ class IRTreeSimplifier(ASTTxformer):
 					test = test_name,
 					tbody = test_sir_list,
 					wbody = body_sir_list,
-					lineno = self.next_lineno()
+					lineno = test_lineno,
+					dummy_lineno = dum_lineno
 				)
 			]
 		)
@@ -430,7 +450,7 @@ class IRTreeSimplifier(ASTTxformer):
 #simple IR statements
 def txform(ir_tree, **kwargs):
 	v = IRTreeSimplifier()
-	v.log = lambda s: log("Simplifier : %s" % s)
+	v.log = lambda s: log("Simplifier(%d) : %s" % (v.lineno, s) )
 	if 'tracer' in kwargs:
 		v.tracer = kwargs['tracer']
 

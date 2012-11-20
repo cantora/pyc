@@ -9,6 +9,7 @@ code
 *.expected
 *.out
 *.zip
+*.txt
 parsetab.py
 ply
 test/student_tests
