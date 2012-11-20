@@ -221,7 +221,8 @@ def output(options, flat_bloc_list, debug_headers):
 		print >>f
 		for bloc in flat_bloc_list:
 			print >>f
-			print >>f, ".globl  %s" % bloc.name
+			if bloc.name == "main":
+				print >>f, ".globl  %s" % bloc.name
 			print >>f, ".type  %s, @function" % bloc.name
 			print >>f, "%s:" % bloc.name
 			bloc.to_asm(f, lambda s: ("\t" + s))

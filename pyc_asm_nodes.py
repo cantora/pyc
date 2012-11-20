@@ -761,7 +761,7 @@ class GlobalString(AsmNode):
 	def data_headers():
 		headers = []
 		for (value, name) in GlobalString.cache.items():
-			headers.append("%s:\n\t.ascii \"%s\x00\"" % (name, value))
+			headers.append("%s:\n\t.asciz \"%s\"" % (name, value))
 
 		return headers
 		
