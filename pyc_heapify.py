@@ -13,10 +13,11 @@ import copy
 
 class Lamb(IRNode):
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['lamb'])
-		self.init_kwargs(**kwargs)
-		
+		IRNode.__init__(
+			self,
+			tuple(['lamb']),
+			**kwargs
+		)		
 
 	
 class Heapifier(ASTTxformer):

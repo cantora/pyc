@@ -1,4 +1,5 @@
 import ast
+import copy
 
 tag_types = ('int', 'bool', 'big')
 
@@ -10,69 +11,118 @@ def assert_type_exists(typ):
 
 class IRNode(ast.AST):
 
-	def __init__(self):
+	def __init__(self, fields, **kwargs):
 		ast.AST.__init__(self)
-
+		self._fields = fields + tuple(['lineno'])
+		self.init_kwargs(**kwargs)
+	
 	def init_kwargs(self, **kwargs):
 		for f in self._fields:
 			if f in kwargs:
 				setattr(self, f, kwargs[f])
 
-class UserCall(IRNode):
+class Tag(IRNode):
+	int = ast.Num(n=0)
+	bool = ast.Num(n=1)
+	big = ast.Num(n=3)
+
+	@staticmethod
+	def type_to_tag(type):
+		if type == 'int':
+			return 0
+		elif type == 'bool':
+			return 1
+		elif type == 'big':
+			return 3
+		else:
+			raise Exception("unknown type: %s" % type)
+
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['func', 'args', 'starargs', 'kwargs'])
-		self.init_kwargs(**kwargs)
+		IRNode.__init__(
+			self,
+			tuple(['arg']),
+			**kwargs
+		)
+
+simple_ir_nodes = {
+	'UserCall':				tuple(['func', 'args', 'starargs', 'kwargs']),
+	'NameWrap': 			tuple(['value']),
+	'CreateClosure':		tuple(['name', 'free_vars']),
+	'ClosureCall':			tuple(['var', 'args']),
+	'ClosureFVS':			tuple(['var']),
+	'Bloc':					tuple(['args', 'body', 'klass']),
+	'BlocDef':				tuple(['name', 'params', 'body']),
+	'DoWhile':				tuple(['test', 'tbody', 'wbody']),
+	'Cast':					tuple(['from_typ', 'to_typ', 'arg']),
+	'IsTrue':				tuple(['arg']),
+	'IsClass':				tuple(['arg']),
+	'IsBoundMethod':		tuple(['arg']),
+	'IsUnboundMethod':		tuple(['arg']),
+	'CreateObject':			tuple(['arg']),
+	'HasAttr':				tuple(['obj', 'attr']),
+	'GetFunction':			tuple(['arg']),
+	'GetReceiver':			tuple(['arg']),
+	'Let':					tuple(['name', 'rhs', 'body']),
+	'BigInit':				tuple(['pyobj_name', 'body']),
+	'Error':				tuple(['msg'])
+}
+
+for (name, fields) in simple_ir_nodes.items():
+	globals()[name] = type(name, (IRNode,), {})
+
+	setattr(globals()[name], 'dyn_fields', copy.copy(fields))
+	setattr(
+		globals()[name], 
+		'__init__', 
+		lambda self, **kwa:	IRNode.__init__(
+			self,
+			self.dyn_fields,
+			**kwa
+		)
+	)
+
+
+class BigRef(IRNode):
 	
-class NameWrap(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['value'])
-		self.init_kwargs(**kwargs)
-	
-class CreateClosure(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['name', 'free_vars'])
-		self.init_kwargs(**kwargs)
+	def __init__(self, fields, **kwargs):
+		IRNode.__init__(
+			self,
+			fields,
+			**kwargs
+		)
 
-class ClosureCall(IRNode):
+class ClassRef(BigRef):
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['var', 'args'])
-		self.init_kwargs(**kwargs)
+		BigRef.__init__(
+			self,
+			tuple(['bases']),
+			**kwargs
+		)
 
-class ClosureFVS(IRNode):
+class ListRef(BigRef):
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['var'])
-		self.init_kwargs(**kwargs)
+		BigRef.__init__(
+			self,
+			tuple(['size']),
+			**kwargs
+		)
 
-class Bloc(IRNode):
+class DictRef(BigRef):
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('args', 'body', 'klass')
-		self.init_kwargs(**kwargs)
+		BigRef.__init__(
+			self,
+			tuple([]),
+			**kwargs
+		)
 
-class BlocDef(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('name', 'params', 'body')
-		self.init_kwargs(**kwargs)
-
-class DoWhile(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('test', 'tbody', 'wbody')
-		self.init_kwargs(**kwargs)
-		
 class InjectFrom(IRNode):
 	
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('typ', 'arg')
-		self.init_kwargs(**kwargs)
-		#assert_type_exists(self.typ)
+		IRNode.__init__(
+			self,
+			('typ', 'arg'),
+			**kwargs
+		)
 		
 	@staticmethod
 	def inject(node, typ):
@@ -96,10 +146,11 @@ class InjectFromBig(InjectFrom):
 
 class ProjectTo(IRNode):
 	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('typ', 'arg')
-		self.init_kwargs(**kwargs)
-		#assert_type_exists(self.typ)
+		IRNode.__init__(
+			self,
+			('typ', 'arg'),
+			**kwargs
+		)
 
 	@staticmethod
 	def project(node, typ):
@@ -121,14 +172,6 @@ class ProjectToBig(ProjectTo):
 		kwargs['typ'] = 'big'
 		ProjectTo.__init__(self, **kwargs)
 
-class Cast(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('from_typ', 'to_typ', 'arg')
-		self.init_kwargs(**kwargs)
-		#assert_type_exists(self.from_typ)
-		#assert_type_exists(self.to_typ)		
-
 class CastBoolToInt(Cast):
 	def __init__(self, **kwargs):
 		kwargs['from_typ'] = 'bool'		
@@ -141,111 +184,6 @@ class CastIntToBool(Cast):
 		kwargs['to_typ'] = 'bool'
 		Cast.__init__(self, **kwargs)
 
-
-class IsTrue(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class Tag(IRNode):
-	int = ast.Num(n=0)
-	bool = ast.Num(n=1)
-	big = ast.Num(n=3)
-
-	@staticmethod
-	def type_to_tag(type):
-		if type == 'int':
-			return 0
-		elif type == 'bool':
-			return 1
-		elif type == 'big':
-			return 3
-		else:
-			raise Exception("unknown type: %s" % type)
-
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class IsClass(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class IsBoundMethod(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class IsUnboundMethod(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class CreateObject(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class HasAttr(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['obj', 'attr'])
-		self.init_kwargs(**kwargs)
-
-class GetFunction(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class GetReceiver(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['arg'])
-		self.init_kwargs(**kwargs)
-
-class Let(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = ('name', 'rhs', 'body')
-		self.init_kwargs(**kwargs)
-
-class BigRef(IRNode):
-	pass
-
-class ClassRef(BigRef):
-	def __init__(self, **kwargs):
-		BigRef.__init__(self)
-		self._fields = tuple(['bases'])
-		self.init_kwargs(**kwargs)
-
-class ListRef(BigRef):
-	def __init__(self, **kwargs):
-		BigRef.__init__(self)
-		self._fields = tuple(['size'])
-		self.init_kwargs(**kwargs)
-
-class DictRef(BigRef):
-	pass
-
-class BigInit(IRNode):
-	def __init__(self, **kwargs):
-		self._fields = tuple(['pyobj_name', 'body'])
-		self.init_kwargs(**kwargs)
-
-
-class Error(IRNode):
-	def __init__(self, **kwargs):
-		IRNode.__init__(self)
-		self._fields = tuple(['msg'])
-		self.init_kwargs(**kwargs)
 
 
 def var_set(name_id):
@@ -285,10 +223,11 @@ def make_call(func_id, args):
 	)
 
 
-def make_assign(target, value):
+def make_assign(target, value, **kwargs):
 	return ast.Assign(
 		targets = [target],
-		value = value
+		value = value,
+		**kwargs
 	)
 
 def simple_compare(lhs, rhs):
