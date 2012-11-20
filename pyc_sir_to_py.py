@@ -30,8 +30,7 @@ class SirToPyVisitor(ASTVisitor):
 		ClosureFVS: ["var"],
 		Error: ["msg"],
 		ast.Return: ["value"],
-		Tag: ["arg"],
-		HasAttr: ["obj", "attr"]
+		Tag: ["arg"]
 	}
 
 	def __init__(self, io):
@@ -77,9 +76,10 @@ class SirToPyVisitor(ASTVisitor):
 		)
 
 	def visit_Return(self, node, **kwargs):
-		print >>self.io, "%sreturn %s" % (
+		print >>self.io, "%sreturn %s #%d" % (
 			self.tab_str(**kwargs),
-			pyc_vis.visit(self, node.value)
+			pyc_vis.visit(self, node.value),
+			node.lineno
 		)
 
 	def visit_irnode(self, node):
@@ -98,7 +98,11 @@ class SirToPyVisitor(ASTVisitor):
 		return fmt % tuple(args)
  
 	def visit_If(self, node, **kwargs):
-		print >>self.io, "%sif (%s):" % (self.tab_str(**kwargs), pyc_vis.visit(self, node.test))
+		print >>self.io, "%sif (%s): #%d" % (
+			self.tab_str(**kwargs), 
+			pyc_vis.visit(self, node.test),
+			node.lineno
+		)
 
 		self.tab_depth += 1
 		for n in node.body:
@@ -106,13 +110,15 @@ class SirToPyVisitor(ASTVisitor):
 		self.tab_depth -= 1
 
 		if len(node.orelse) > 0:
-			print >>self.io, "%selse:" % self.tab_str(**kwargs)
+			print >>self.io, "%selse: " % (
+				self.tab_str(**kwargs)
+			)
 			self.tab_depth += 1
 			for n in node.orelse:
 				pyc_vis.visit(self, n, **kwargs)
 			self.tab_depth -= 1
 
-		print >>self.io, ""
+		#print >>self.io, ""
 
 		return ""
 
@@ -120,7 +126,11 @@ class SirToPyVisitor(ASTVisitor):
 		for n in node.tbody:
 			pyc_vis.visit(self, n, **kwargs)
 
-		print >>self.io, "%swhile (%s):" % (self.tab_str(**kwargs), pyc_vis.visit(self, node.test))
+		print >>self.io, "%swhile (%s):#%d" % (
+			self.tab_str(**kwargs), 
+			pyc_vis.visit(self, node.test),
+			node.lineno
+		)
 	
 		self.tab_depth += 1
 		for n in node.wbody:
@@ -160,16 +170,27 @@ class SirToPyVisitor(ASTVisitor):
 	def visit_Add(self, node):
 		return "+"
 
+	#		HasAttr: ["obj", "attr"]
+	def visit_HasAttr(self, node, **kwargs):
+		return self.visit_func_like(
+			node, 
+			[
+				pyc_vis.visit(self, node.obj),
+				repr(("_%s" % node.attr.s))
+			]
+		)
+
 	def visit_Str(self, node, **kwargs):
 		return repr(node.s)
 
 	def visit_Print(self, node, **kwargs):
-		print >>self.io, "%s%s" % (
+		print >>self.io, "%s%s #%d" % (
 			self.tab_str(**kwargs),
 			self.visit_func_like(
 				node, 
 				[pyc_vis.visit(self, n) for n in node.values]
-			)
+			),
+			node.lineno
 		)
 
 	def visit_CreateClosure(self, node, **kwargs):
@@ -192,7 +213,7 @@ class SirToPyVisitor(ASTVisitor):
 		return "%s[%s]" % (pyc_vis.visit(self, node.value), pyc_vis.visit(self, node.slice))
 
 	def visit_Attribute(self, node):
-		return "%s.%s" % (pyc_vis.visit(self, node.value), node.attr)
+		return "%s._%s" % (pyc_vis.visit(self, node.value), node.attr)
 
 	def visit_Index(self, node):
 		return pyc_vis.visit(self, node.value)
@@ -204,9 +225,10 @@ class SirToPyVisitor(ASTVisitor):
 		return self.default(node)
 
 	def visit_BlocDef(self, node, **kwargs):
-		print >>self.io, "\ndef %s(%s):" % (
+		print >>self.io, "\ndef %s(%s): #%d" % (
 			node.name, 
-			self.format_args([n.id for n in node.params])
+			self.format_args([n.id for n in node.params]),
+			node.lineno
 		)
 		for n in node.body:
 			pyc_vis.visit(self, n, **kwargs)
@@ -214,10 +236,11 @@ class SirToPyVisitor(ASTVisitor):
 		return ""
 
 	def visit_Assign(self, node, **kwargs):
-		print >>self.io, "%s%s = %s" % (
+		print >>self.io, "%s%s = %s #%d" % (
 			self.tab_str(**kwargs),
 			pyc_vis.visit(self, node.targets[0]),
-			pyc_vis.visit(self, node.value)
+			pyc_vis.visit(self, node.value),
+			node.lineno
 		)
 		return ""
 

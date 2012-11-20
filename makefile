@@ -32,6 +32,9 @@ ply:
 .PHONY: tests
 tests: p0tests p1tests p2tests p3tests
 
+.PHONY: ir-tests
+ir-tests: p0-irtests p1-irtests p2-irtests p3-irtests
+
 .PHONY: p0tests
 p0tests:
 	@for i in $(P0TESTS); do \

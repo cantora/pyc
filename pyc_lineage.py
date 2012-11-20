@@ -44,7 +44,7 @@ class Tracer(VisTracer):
 
 		vis_klass = instance.__class__.__name__ 
 		if vis_klass == 'IRTreeSimplifier':
-			self.track_ir_vis(node, result, vis_klass)
+			self.track_sir_vis(node, result, vis_klass)
 		elif vis_klass == 'Converter':
 			self.track_closure_vis(node, result, vis_klass)
 		else:
@@ -62,7 +62,7 @@ class Tracer(VisTracer):
 
 		self.track(node, child, cpass)
 
-	def track_ir_vis(self, node, result, cpass):
+	def track_sir_vis(self, node, result, cpass):
 		(name, l) = result
 		if not isinstance(l, list):
 			raise Exception("expecting list as second part of ir vis result: %r" % (l) )

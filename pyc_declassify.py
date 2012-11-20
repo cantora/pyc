@@ -151,7 +151,7 @@ class BodyTxformer(ASTTxformer):
 				return ast.IfExp(
 					test = HasAttr(
 						obj=var_ref(self.refname),
-						attr=node.id
+						attr=ast.Str(node.id)
 					),
 					body = self.attr_access(node.id),
 					orelse = copy_name(node)

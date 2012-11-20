@@ -46,7 +46,7 @@ class AstToIRTxformer(ASTTxformer):
 		return InjectFromBool(
 			arg = HasAttr(
 				obj = pyc_vis.visit(self, node.obj),
-				attr = node.attr
+				attr = pyc_vis.visit(self, node.attr)
 			)
 		)
 
@@ -262,7 +262,7 @@ class AstToIRTxformer(ASTTxformer):
 					body = ast.IfExp(
 						test = simple_compare(
 							ast.Num(0),
-							HasAttr(obj=var_ref(fn_name), attr='__init__')
+							HasAttr(obj=var_ref(fn_name), attr=ast.Str('__init__'))
 						),
 						body = var_ref(obj_name),			#no __init__, return object
 						orelse = BigInit(					#call __init__, return object

@@ -115,7 +115,7 @@ class SIRtoASM(pyc_vis.Visitor):
 	def set_var_to_HasAttr(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
 			'has_attr',
-			[node.obj, ast.Str(node.attr)],
+			[node.obj, node.attr],
 			var,
 			var_tbl
 		)

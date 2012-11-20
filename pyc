@@ -130,9 +130,12 @@ def run(options):
 	if options.IR:
 		with output_file(options, "python") as f:
 			print >>f, "import sys"
+			print >>f, "import resource"
 			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
 			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
 			print >>f, "from pyc_runtime import *"
+			print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
+			print >>f, "sys.setrecursionlimit(10**6)"
 			pyc_sir_to_py.generate(sir_mod, f)	
 			print >>f, ""
 			print >>f, "#" + "*"*40 + "#"
