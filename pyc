@@ -15,7 +15,7 @@ import pyc_closure
 import pyc_sir_to_py
 import pyc_declassify
 import pyc_lineage
-import pyc_dbg_sym
+import pyc_dbg_data
 
 import compiler
 from pyc_log import *
@@ -186,7 +186,7 @@ def run(options):
 	output(
 		options, 
 		flat_bloc_list, 
-		pyc_dbg_sym.headers(
+		pyc_dbg_data.headers(
 			options.src, 
 			sir_src.getvalue(), 
 			flat_bloc_list
