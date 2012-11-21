@@ -14,13 +14,18 @@ def bloc_table(blocs):
 		}
 
 	return d
-						
+	
+def encode_as_byte_list(str):
+	return ", ".join([
+		hex(ord(x)) for x in str
+	])
+
 def headers(src, sir_src, blocs):
 	data = dump(src, sir_src, blocs)
-	
+		
 	headers = [
 		".section .pyc_dbg",
-		".string %s" % repr(data)
+		".byte %s" % encode_as_byte_list(data)
 	]
 
 	return headers
