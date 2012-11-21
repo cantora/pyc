@@ -22,6 +22,7 @@ from pyc_log import *
 import os.path
 import time
 import resource
+import StringIO
 
 g_phases = (
 	("parse", 			pyc_parser),
@@ -145,7 +146,7 @@ def run(options):
 				print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
 				print >>f, "sys.setrecursionlimit(10**6)"
 
-			pyc_sir_to_py.generate(sir_mod, f)	
+			pyc_sir_to_py.generate(sir_mod, f, line_comments = True)
 			if not options.code_only:
 				print >>f, ""
 				print >>f, "#" + "*"*40 + "#"
@@ -180,10 +181,16 @@ def run(options):
 
 		exit(0)
 
+	sir_src = StringIO.StringIO()
+	pyc_sir_to_py.generate(sir_mod, sir_src)
 	output(
 		options, 
 		flat_bloc_list, 
-		pyc_dbg_sym.generate(options.src, flat_bloc_list) 
+		pyc_dbg_sym.headers(
+			options.src, 
+			sir_src.getvalue(), 
+			flat_bloc_list
+		)
 	)
 
 
