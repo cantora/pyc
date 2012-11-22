@@ -149,6 +149,37 @@ class State(object):
 		
 		return lns
 
+	def print_context(self, lines, lineno, **kwargs):
+		opts = {
+			'highlight':			set([]),  			#highlight any line within this set
+			'output_size':			15,					#total number of context lines
+			'prev_lines':			10					#amt of preceding lines of context
+		}
+
+		for k in opts.keys():
+			if k in kwargs:
+				opts[k] = kwargs[k]
+
+		start = lineno-opts['prev_lines']
+		if start < 1:
+			start = 1 
+		
+		fin = start + opts['output_size']
+		if fin > (len(lines) - 1):
+			fin = (len(lines) - 1)
+
+		for i in range(start, fin):
+			if i == (lineno):
+				out = "%d\t%s <<%s" % (i, lines[i], "-"*40)
+			else:
+				out = "%d\t%s" % (i, lines[i])
+
+			if i in opts['highlight']:
+				out = pyc_color.yellow(out)
+
+			print out
+		
+
 	def init_cmds(self):
 		self.cmds = []
 		
@@ -192,28 +223,6 @@ class State(object):
 			def __init__ (self, state):
 				super (Context, self).__init__(state, "context", gdb.COMMAND_RUNNING)
 
-			def print_context(self, lines, lineno, highlight = set([]) ):
-				output_size = 15
-				prev_lines = 10
-
-				start = lineno-prev_lines
-				if start < 1:
-					start = 1 
-				
-				fin = start + output_size
-				if fin > (len(lines) - 1):
-					fin = (len(lines) - 1)
-
-				for i in range(start, fin):
-					if i == (lineno):
-						out = "%d\t%s <<%s" % (i, lines[i], "-"*40)
-					else:
-						out = "%d\t%s" % (i, lines[i])
-
-					if i in highlight:
-						out = pyc_color.yellow(out)
-
-					print out
 			
 			def invoke (self, arg, from_tty):
 				try:
@@ -225,9 +234,13 @@ class State(object):
 					print "not currently executing pyc generated code"
 					return
 					
-				self.print_context(src_lines, src_lineno)
+				self.state.print_context(src_lines, src_lineno)
 				print "#"*60
-				self.print_context(sir_lines, sir_lineno, self.state.sir_linenos(src_lineno) )
+				self.state.print_context(
+					sir_lines, 
+					sir_lineno, 
+					highlight = self.state.sir_linenos(src_lineno)
+				)
 				
 
 		self.cmds.append(Context(self))
