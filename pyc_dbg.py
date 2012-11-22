@@ -3,6 +3,7 @@ from distorm3 import Decode, Decode16Bits, Decode32Bits, Decode64Bits
 import distorm3
 import pyc_dbg_elf
 from pyc_log import *
+import pyc_color
 
 class PycCmd(gdb.Command):
 	
@@ -113,20 +114,37 @@ class State(object):
 		src_lines = self.src().split('\n')
 		sir_lines = self.sir_src().split('\n')
 
+		#insert a blank line at start b.c. line numbers start at 1 not 0
+		src_lines.insert(0, "")
+		sir_lines.insert(0, "")
+
+		#bump up any lines to first valid line 
+		#(this may happen from preamble instructions that arent generated
+		#by an actual statement, i.e. push %ebp)
 		if src_lineno < 1:
 			src_lineno = 1
-			while src_lines[src_lineno-1].strip() == '':
+			while src_lines[src_lineno].strip() == '':
 				src_lineno += 1
 
 		if sir_lineno < 1:
-			sir_lineno = 1
+			sir_lineno = 1 #line 1 should never be blank in SIR source
 		
 		return (
 			src_lines, 
-			src_lineno-1,
+			src_lineno,
 			sir_lines,
-			sir_lineno-1
+			sir_lineno
 		)
+
+	def sir_linenos(self, src_lineno):
+		lns = set([])
+		for (name, bloc) in self.dbg_map['blocs'].items():
+			for i in bloc['insns']:
+				if i['src_lineno'] == src_lineno:
+					lns.add(i['sir_lineno'])
+
+		
+		return lns
 
 	def init_cmds(self):
 		self.cmds = []
@@ -171,13 +189,13 @@ class State(object):
 			def __init__ (self, state):
 				super (Context, self).__init__(state, "context", gdb.COMMAND_RUNNING)
 
-			def print_context(self, lines, lineno):
+			def print_context(self, lines, lineno, highlight = set([]) ):
 				output_size = 15
 				prev_lines = 10
 
 				start = lineno-prev_lines
-				if start < 0:
-					start = 0 
+				if start < 1:
+					start = 1 
 				
 				fin = start + output_size
 				if fin > (len(lines) - 1):
@@ -185,9 +203,14 @@ class State(object):
 
 				for i in range(start, fin):
 					if i == (lineno):
-						print "%d\t%s <<%s" % (i+1, lines[i], "-"*40)
+						out = "%d\t%s <<%s" % (i, lines[i], "-"*40)
 					else:
-						print "%d\t%s" % (i+1, lines[i])
+						out = "%d\t%s" % (i, lines[i])
+
+					if i in highlight:
+						out = pyc_color.yellow(out)
+
+					print out
 			
 			def invoke (self, arg, from_tty):
 				try:
@@ -201,7 +224,8 @@ class State(object):
 					
 				self.print_context(src_lines, src_lineno)
 				print "#"*60
-				self.print_context(sir_lines, sir_lineno)
+				self.print_context(sir_lines, sir_lineno, self.state.sir_linenos(src_lineno) )
+				
 
 		self.cmds.append(Context(self))
 
