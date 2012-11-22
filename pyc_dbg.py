@@ -70,7 +70,7 @@ class State(object):
 		l = len(il)
 		log("decoded %d instructions" % (l))
 
-		if l > len(bloc['insns']):
+		if l >= len(bloc['insns']):
 			raise CodeOutsideScope("exceeded edge of pyc code block")
 
 		return (bloc['insns'][l]['src_lineno'], bloc['insns'][l]['sir_lineno'])
@@ -89,6 +89,20 @@ class State(object):
 
 	def on_stop(self, event):
 		log("stopped: %r" % (event))
+		try:
+			(src_lines, src_lineno, sir_lines, sir_lineno) = self.adjusted_linenos()
+		except NoFrame:
+			return
+		except CodeOutsideScope:
+			return
+			
+		src_ctx = self.context_lines(src_lines, src_lineno)
+		sir_ctx = self.context_lines(sir_lines, sir_lineno)
+		asm_ctx = gdb.execute("x/1i $pc", False, True)
+
+		print "src:%s" % (src_ctx[0])
+		print "sir:%s" % (sir_ctx[0])
+		print "asm:\t%s" % (asm_ctx)
 
 	def on_cont(self, event):
 		log("cont: %r" % (event))
@@ -149,18 +163,19 @@ class State(object):
 		
 		return lns
 
-	def print_context(self, lines, lineno, **kwargs):
+	def context_lines(self, lines, lineno, **kwargs):
 		opts = {
 			'highlight':			set([]),  			#highlight any line within this set
-			'output_size':			15,					#total number of context lines
-			'prev_lines':			10					#amt of preceding lines of context
+			'output_size':			1,					#total number of context lines
+			'prev_lines':			0,					#amt of preceding lines of context
+			'arrow':				False
 		}
 
 		for k in opts.keys():
 			if k in kwargs:
 				opts[k] = kwargs[k]
 
-		start = lineno-opts['prev_lines']
+		start = lineno - opts['prev_lines']
 		if start < 1:
 			start = 1 
 		
@@ -168,8 +183,9 @@ class State(object):
 		if fin > (len(lines) - 1):
 			fin = (len(lines) - 1)
 
+		output = []
 		for i in range(start, fin):
-			if i == (lineno):
+			if opts['arrow'] and i == (lineno):
 				out = "%d\t%s <<%s" % (i, lines[i], "-"*40)
 			else:
 				out = "%d\t%s" % (i, lines[i])
@@ -177,8 +193,9 @@ class State(object):
 			if i in opts['highlight']:
 				out = pyc_color.yellow(out)
 
-			print out
+			output.append(out)
 		
+		return output
 
 	def init_cmds(self):
 		self.cmds = []
@@ -234,13 +251,22 @@ class State(object):
 					print "not currently executing pyc generated code"
 					return
 					
-				self.state.print_context(src_lines, src_lineno)
+				print "\n".join(self.state.context_lines(
+					src_lines, 
+					src_lineno,
+					output_size = 15,
+					prev_lines = 10,
+					arrow = True
+				))
 				print "#"*60
-				self.state.print_context(
+				print "\n".join(self.state.context_lines(
 					sir_lines, 
-					sir_lineno, 
+					sir_lineno,
+					output_size = 15,
+					prev_lines = 10,
+					arrow = True,
 					highlight = self.state.sir_linenos(src_lineno)
-				)
+				))
 				
 
 		self.cmds.append(Context(self))
