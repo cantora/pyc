@@ -5,6 +5,9 @@ def ansi_escape(s, code_arr):
 		s
 	)
 
+def ansi_color(s, num):
+	return ansi_escape(s, [str(num)])
+
 def yellow(s):
-	return ansi_escape(s, ['33'])
+	return ansi_color(s, 33)
 
