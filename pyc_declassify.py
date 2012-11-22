@@ -27,6 +27,7 @@ def vis_cd(visitor, node, name, scope):
 
 	tmpname = pyc_gen_name.new("0class")
 	bt = BodyTxformer(node, visitor, tmpname, scope) 
+	bt.tracer = visitor.tracer
 	bt.log = lambda s: log("BodyTxformer : %s" % s)
 
 	return Seq(
@@ -42,7 +43,7 @@ def vis_cd(visitor, node, name, scope):
 					)
 				)
 			)] + \
-			pyc_vis.visit(bt, node) + \
+			pyc_vis.visit(bt, node).body + \
 			[make_assign(
 				var_set(name), 
 				var_ref(tmpname)
@@ -84,9 +85,12 @@ class BodyTxformer(ASTTxformer):
 
 	def visit_ClassDef(self, cd):
 		if cd == self.root:
-			return [
-				pyc_vis.visit(self, n) for n in cd.body
-			]
+			
+			return Seq(
+				body = [
+					pyc_vis.visit(self, n) for n in cd.body
+				]
+			)
 		else:
 			tmpname = pyc_gen_name.new(self.refname + "_classattr")
 			return Seq(

@@ -2,9 +2,12 @@ from pyc_log import *
 import pyc_gen_name
 import pyc_vis
 import pyc_ir
+import pyc_parser
 from pyc_ir_nodes import *
 from pyc_astvisitor import ASTTxformer
 from pyc_constants import BadAss
+import pyc_lineage
+
 import ast
 
 import copy
@@ -31,7 +34,7 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.extend(_sir_list_to_str(sir.body, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, sir.name) )
 		else:
-			lines.append("%s%s" % (" "*depth, pyc_ir.dump(sir) ) )
+			lines.append("%s%s" % (" "*depth, pyc_parser.dump(sir) ) )
 			
 
 	return lines
@@ -119,6 +122,7 @@ class IRTreeSimplifier(ASTTxformer):
 		return (name, init_sir_list)
 
 	def visit_Assign(self, node):	
+		self.log("Assign(%d): %s" % (pyc_lineage.src_lineno(node), ast.dump(node) ))
 		(name, name_sir_list) = pyc_vis.visit(self, node.value)
 
 		if isinstance(node.targets[0], ast.Name):
@@ -127,14 +131,13 @@ class IRTreeSimplifier(ASTTxformer):
 		else:
 			(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
 		
-		#print "(X)%d: %s" % (self.lineno, ast.dump(node) )
-
+		
 		sir_list = name_sir_list + target_sir_list
 		sir_list.append(self.make_assign(
 			target,			
 			name
 		))
-		#print "(Y)%d: %s" % (self.lineno, ast.dump(node) )
+		
 		return (None, sir_list)
 
 	def visit_Subscript(self, node):

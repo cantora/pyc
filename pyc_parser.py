@@ -2,6 +2,7 @@ import ast
 import StringIO
 import sys
 import pyc_vis
+import pyc_lineage
 
 from pyc_astvisitor import ASTVisitor
 
@@ -19,7 +20,8 @@ class PrintASTVisitor(ASTVisitor):
 		return fmt % (" "*depth, field, val)
 
 	def default_ast(self, node, *args, **kwargs):
-		val = "%s():%d" % (node.__class__.__name__, getattr(node, 'lineno', 0) )
+		
+		val = "%s():%d" % (node.__class__.__name__, pyc_lineage.src_lineno(node) )
 
 		print >>self.io, self.format(self.depth, kwargs.get("field", ""), val)
 

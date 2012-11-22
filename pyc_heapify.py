@@ -8,6 +8,8 @@ import pyc_localize
 from pyc_ir_nodes import *
 import pyc_constants
 import pyc_ir
+import pyc_lineage
+
 import ast
 import copy
 
@@ -15,7 +17,7 @@ class Lamb(IRNode):
 	def __init__(self, **kwargs):
 		IRNode.__init__(
 			self,
-			tuple(['lamb']),
+			tuple(['lamb', 'from_node']),
 			**kwargs
 		)		
 
@@ -68,7 +70,8 @@ class Heapifier(ASTTxformer):
 		else:
 			self.log(self.depth_fmt("defer: %s" % node.id))
 			exp = NameWrap(value=Lamb(
-				lamb = lambda : self.heapify_switch(node, heap_vars)
+				lamb = lambda : self.heapify_switch(node, heap_vars),
+				from_node = node
 			))
 			self.lamb_nodes.append(exp)
 			#we will edit this node later by invoking the lambda
@@ -126,7 +129,9 @@ class Heapifier(ASTTxformer):
 	def patch_lamb_nodes(self):
 		log("patch lamb nodes:")
 		for expr in self.lamb_nodes:
-			expr.value = expr.value.lamb()
+			new_val = expr.value.lamb()
+			pyc_lineage.bequeath_lineage(expr.value.from_node, new_val, self.__class__.__name__)
+			expr.value = new_val
 			log("  ->%s" % ast.dump(expr.value))
 
 

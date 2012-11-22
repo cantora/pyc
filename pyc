@@ -131,7 +131,8 @@ def run(options):
 		
 	sir_mod = pyc_sir.txform(iast, tracer=trace)
 	if options.phase == 'sir-list':
-		print pyc_sir.sir_list_to_str(sir_mod.body)
+		#print pyc_sir.sir_list_to_str(sir_mod.body)
+		pyc_parser.print_astree(sir_mod)
 		exit(0)
 
 	if options.IR:

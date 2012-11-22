@@ -20,6 +20,10 @@ class Bequeather(ASTVisitor):
 		self.cpass = cpass
 
 	def default_ast(self, node, *args, **kwargs):
+		if hasattr(node, 'parent'):
+			raise Exception("attempted to bequeath to a node with a parent")
+
+		#self.log("bequeath!")
 		node.parent = self.parent
 		node.cpass = self.cpass
 
@@ -27,11 +31,24 @@ class Bequeather(ASTVisitor):
 		return self.default_accumulator()
 
 	def default(self, node, *args, **kwargs):
-		if node != self.root and hasattr(node, 'parent'):
+		if hasattr(node, 'parent'):
+			#self.log("node already has parent: (%s)%s" % (
+			#	str(node.parent.lineno) if hasattr(node.parent, 'lineno') else '?',
+			#	ast.dump(node.parent)
+			#))
 			return self.default_accumulator()
 
 		return ASTVisitor.default(self, node, *args, **kwargs)
-		
+
+def bequeath_lineage(old_node, new_node, cpass):
+	v = Bequeather(new_node, old_node, cpass)
+	v.log = lambda s: log("Bequeather : %s" % s)
+	#log("bequeath parent: (%s)%s" % (
+	#	src_lineno(old_node),
+	#	ast.dump(old_node)
+	#))
+	pyc_vis.walk(v, new_node)
+
 class Tracer(VisTracer):
 
 	def __init__(self):
@@ -51,9 +68,7 @@ class Tracer(VisTracer):
 			self.track(node, result, vis_klass)
 	
 	def track(self, node, result, cpass):
-		v = Bequeather(result, node, cpass)
-		#v.log = lambda s: log("Bequeather : %s" % s)
-		pyc_vis.walk(v, result)
+		bequeath_lineage(node, result, cpass)
 
 	def track_closure_vis(self, node, result, cpass):
 		child = result[0]
@@ -72,22 +87,23 @@ class Tracer(VisTracer):
 		
 		for n in l:
 			self.track(node, n, cpass)
+			#log("post track result:")
+			#log(pyc_parser.tree_to_str(n))
 
 
-
-def sir_src_line(sir_node):
-	node = sir_node
+def src_lineno(node):
+	n = node
 	lineage = []
-	while(hasattr(node, 'parent')):
-		node = node.parent
-		lineage.append(node)
+	while(hasattr(n, 'parent')):
+		n = n.parent
+		lineage.append(n)
 
 	#print "\n".join(["%s:%s" % (getattr(x, 'cpass', 'None'), pyc_parser.dump(x)) for x in lineage])
 
-	if not hasattr(node, 'lineno') or node.lineno is None:
+	if not hasattr(n, 'lineno') or n.lineno is None:
 		return 0
 	
-	return node.lineno
+	return n.lineno
 
 def graph(bloc_list, io):
 	for bloc in bloc_list:
@@ -107,7 +123,7 @@ def graph(bloc_list, io):
 					sir_str = sir_str.split("\n")[0]
 				
 				sir_str = string.strip(sir_str)
-				ln = sir_src_line(i.origin)
+				ln = src_lineno(i.origin)
 				sir_nodes[i.origin] = (ln, sir_str)
 				print >>io
 				print >>io, "%d:%s" % sir_nodes[i.origin]

@@ -9,7 +9,7 @@ def bloc_table(blocs):
 		d[bloc.name] = {
 			'insns': [{
 				'sir_lineno':		i.origin.lineno,
-				'src_lineno':		pyc_lineage.sir_src_line(i.origin)
+				'src_lineno':		pyc_lineage.src_lineno(i.origin)
 			} for i in bloc.insns]
 		}
 
