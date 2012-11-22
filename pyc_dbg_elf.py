@@ -63,7 +63,7 @@ def extract_from_bin(f):
 		raise ElfError("invalid ELF file")
 
 	dbg_map = extract_dbg_map(elf)
-	log("dbg_map: %r" % dbg_map)
+	#log("dbg_map: %r" % dbg_map)
 	bloc_map = map_blocs(elf, dbg_map)
 	for (name, addr) in bloc_map.items():
 		dbg_map['blocs'][name]['addr'] = addr

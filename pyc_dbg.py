@@ -1,5 +1,5 @@
 import gdb
-#from distorm3 import Decode, Decode16Bits, Decode32Bits, Decode64Bits
+from distorm3 import Decode, Decode16Bits, Decode32Bits, Decode64Bits
 import distorm3
 import pyc_dbg_elf
 from pyc_log import *
@@ -11,12 +11,21 @@ class PycCmd(gdb.Command):
 		self.name = self.state.cmd_name(name)
 		super (PycCmd, self).__init__(self.name, type)
 
+class NoFrame(Exception):
+	"""there is no frame context"""
+	pass
+	
 class CodeOutsideScope(Exception):
 	"""
 	we tried to determine pyc context outside of a
 	pyc defined x86 instruction
 	"""
 	pass
+
+def list_with_linenos(str):
+	lines = str.split("\n")
+	for i in range(0, len(lines)):
+		print "%d\t%s" % (i+1, lines[i])
 	
 class State(object):
 	
@@ -51,9 +60,14 @@ class State(object):
 			return (bloc['insns'][0]['src_lineno'], bloc['insns'][0]['sir_lineno'])
 
 		inf = gdb.selected_inferior()
-		buf = inf.read_memory(bloc['addr'], frame.pc() - bloc['addr'])
+		amt = frame.pc() - bloc['addr']
+		log("read memory from inferior %d@%s:" % (amt, hex(bloc['addr'])) )
+		buf = inf.read_memory(bloc['addr'], amt)
+		buf = str(buf)
+		log("buf: %s" % ([hex(ord(x)) for x in buf]) )
 		il = Decode(bloc['addr'], buf, Decode32Bits)
 		l = len(il)
+		log("decoded %d instructions" % (l))
 
 		return (bloc['insns'][l]['src_lineno'], bloc['insns'][l]['sir_lineno'])
 
@@ -67,7 +81,52 @@ class State(object):
 		return self.dbg_map['sir_src']
 
 	def cmd_name(self, cmd):
-		return "%s-%s" % (self.cmd_prefix, cmd)
+		return "%s%s" % (self.cmd_prefix, cmd)
+
+	def on_stop(self, event):
+		log("stopped: %r" % (event))
+
+	def on_cont(self, event):
+		log("cont: %r" % (event))
+	
+	def linenos(self):
+		"""raises: NoFrame, CodeOutsideScope"""
+
+		try:
+			frame = gdb.selected_frame()
+		except gdb.error:
+			raise NoFrame("no frame is selected")
+
+		return self.frame_to_linenos(frame)
+
+	def adjusted_linenos(self):
+		"""
+		get line numbers with adjustment to avoid 'line 0'
+		and also adjust to map line 1 to index 0 in the 
+		source line arrays.
+
+		raises: NoFrame, CodeOutsideScope
+		"""
+
+		(src_lineno, sir_lineno) = self.linenos()
+
+		src_lines = self.src().split('\n')
+		sir_lines = self.sir_src().split('\n')
+
+		if src_lineno < 1:
+			src_lineno = 1
+			while src_lines[src_lineno-1].strip() == '':
+				src_lineno += 1
+
+		if sir_lineno < 1:
+			sir_lineno = 1
+		
+		return (
+			src_lines, 
+			src_lineno-1,
+			sir_lines,
+			sir_lineno-1
+		)
 
 	def init_cmds(self):
 		self.cmds = []
@@ -91,7 +150,7 @@ class State(object):
 				super (List, self).__init__(state, "list", gdb.COMMAND_FILES)
 			
 			def invoke (self, arg, from_tty):
-				print self.state.src()
+				list_with_linenos(self.state.src())
 			
 		self.cmds.append(List(self))
 		
@@ -102,57 +161,47 @@ class State(object):
 				super (SIRList, self).__init__(state, "sir-list", gdb.COMMAND_FILES)
 			
 			def invoke (self, arg, from_tty):
-				print self.state.sir_src()
-#				for i in range(lineno-5, lineno+(output_size-5)):
-#					if i == lineno:
-#						print "%s <<-------------------" % lines[i]
-#					else:
-#						print lines[i]
+				list_with_linenos(self.state.sir_src())
 			
 		self.cmds.append(SIRList(self))
 
 		class Context(PycCmd):
 			"""list the user and sir source context"""
 
-			output_size = 15
-
 			def __init__ (self, state):
 				super (Context, self).__init__(state, "context", gdb.COMMAND_RUNNING)
+
+			def print_context(self, lines, lineno):
+				output_size = 15
+				prev_lines = 10
+
+				start = lineno-prev_lines
+				if start < 0:
+					start = 0 
+				
+				fin = start + output_size
+				if fin > (len(lines) - 1):
+					fin = (len(lines) - 1)
+
+				for i in range(start, fin):
+					if i == (lineno):
+						print "%d\t%s <<%s" % (i+1, lines[i], "-"*40)
+					else:
+						print "%d\t%s" % (i+1, lines[i])
 			
 			def invoke (self, arg, from_tty):
 				try:
-					frame = gdb.selected_frame()
-				except gdb.error:
-					frame = None
-
-				if frame is None:
-					print "no active frame"
+					(src_lines, src_lineno, sir_lines, sir_lineno) = self.state.adjusted_linenos()
+				except NoFrame:
+					print "no selected frame"
 					return
-
-				try:
-					(src_lineno, sir_lineno) = self.state.frame_to_linenos(frame)
 				except CodeOutsideScope:
-					print "active frame is not a pyc frame"
-					return 
-
-				log("%s(%s) => (%d, %d)" % (frame.name(), hex(frame.pc()), src_lineno, sir_lineno) )
-				src_lines = self.state.src().split('\n')
-				sir_lines = self.state.sir_src().split('\n')
-
-				log(repr(src_lines))
-				if src_lineno < 1:
-					log("Asdf")
-					src_lineno = 1
-					while src_lines[src_lineno-1].strip() == '':
-						log("Qwer")
-						src_lineno += 1
-
-				if sir_lineno < 1:
-					sir_lineno = 1
-
-				log("%s(%s) => (%d, %d)" % (frame.name(), hex(frame.pc()), src_lineno, sir_lineno) )
-				print src_lines[src_lineno-1]
-				print sir_lines[sir_lineno-1]
+					print "current frame is not pyc generated code"
+					return
+					
+				self.print_context(src_lines, src_lineno)
+				print "#"*60
+				self.print_context(sir_lines, sir_lineno)
 
 		self.cmds.append(Context(self))
 
@@ -171,11 +220,21 @@ class State(object):
 def init(opts):
 	if opts.verbose == True:
 		log_set_verbose()
+		gdb.execute("set python print-stack full")
 	else:
 		log_set_quiet()
 
 	log("opts: %r" % (opts.__dict__))
 	
 	state = State(**(opts.__dict__))
+
+	def on_stop(event):
+		state.on_stop(event)
+
+	def on_cont(event):
+		state.on_cont(event)
+	
+	gdb.events.stop.connect(on_stop)
+	gdb.events.cont.connect(on_cont)
 
 	
