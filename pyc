@@ -184,13 +184,18 @@ def run(options):
 
 	sir_src = StringIO.StringIO()
 	pyc_sir_to_py.generate(sir_mod, sir_src)
+
+	patched_bloc_list = []
+	for bloc in flat_bloc_list:
+		patched_bloc_list.append(bloc.patch())
+
 	output(
 		options, 
-		flat_bloc_list, 
+		patched_bloc_list, 
 		pyc_dbg_data.headers(
 			options.src, 
 			sir_src.getvalue(), 
-			flat_bloc_list
+			patched_bloc_list
 		)
 	)
 
@@ -236,13 +241,13 @@ def with_output_file(options, type, bloc):
 		ofile.close()
 	
 	
-def output(options, flat_bloc_list, debug_headers):
+def output(options, patched_bloc_list, debug_headers):
 	with output_file(options, "asm") as f:
 		for hdr in asm_headers(debug_headers):
 			print >>f, (hdr)
 
 		print >>f
-		for bloc in flat_bloc_list:
+		for bloc in patched_bloc_list:
 			print >>f
 			if bloc.name == "main":
 				print >>f, ".globl  %s" % bloc.name

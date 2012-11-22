@@ -6,11 +6,14 @@ def bloc_table(blocs):
 	d = {}
 	
 	for bloc in blocs:
+		real_insns = [{
+			'sir_lineno':		i.origin.lineno,
+			'src_lineno':		pyc_lineage.src_lineno(i.origin)
+		} for i in bloc.insns]
+		
+		dummy_insns = [{'src_lineno': 0, 'sir_lineno': 0}]*bloc.preamble_size()
 		d[bloc.name] = {
-			'insns': [{
-				'sir_lineno':		i.origin.lineno,
-				'src_lineno':		pyc_lineage.src_lineno(i.origin)
-			} for i in bloc.insns]
+			'insns': dummy_insns + real_insns
 		}
 
 	return d

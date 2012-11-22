@@ -64,8 +64,12 @@ class FlatCodeBloc(CodeBloc):
 		self.insns = insns
 		self.symtbl = symtbl
 
-	def to_str(self, io, lamb = lambda s: s):
+	def preamble_size(self):
+		return len(asm_prefix())
 
+	def patched_insns(self):
+		insns = []
+		
 		for ins in self.insns:
 			if not isinstance(ins, Inst):
 				raise Exception("expected instruction node")
@@ -77,14 +81,37 @@ class FlatCodeBloc(CodeBloc):
 			
 			if patched.is_noop():
 				continue
-			
-			s = str(patched)
-			origin_str = "None" if ins.origin is None else pyc_parser.dump(ins.origin)
+		
+			insns.append(patched)
+
+		end_return = [
+			Mov(Immed(0), Register("eax")),
+			Label(self.end_label())
+		]
+		for i in end_return:
+			i.origin = insns[-1].origin
+		insns.extend(end_return)
+
+		return insns
+
+	def patch(self):
+		insns = self.patched_insns()
+		
+		return PatchedCodeBloc(
+			self.name,
+			insns,
+			self.symtbl
+		)
+
+class PatchedCodeBloc(FlatCodeBloc):
+
+	def to_str(self, io, lamb = lambda s: s):
+		for ins in self.insns:
+			s = str(ins)
+			#origin_str = "None" if ins.origin is None else pyc_parser.dump(ins.origin)
 			#s += "; " + origin_str
 			print >>io, lamb(s)
 
-		print >>io, lamb(str(Mov(Immed(0), Register("eax")) )) #if not return stmt, return 0
-		print >>io, lamb(str(Label(self.end_label())))
 	
 	def to_asm(self, io, lamb = lambda s: s):
 		for insn in asm_prefix():
@@ -99,6 +126,7 @@ class FlatCodeBloc(CodeBloc):
 
 		for insn in asm_suffix():
 			print >>io, lamb(insn)
+
 
 class Operand:
 	def __init__(self, asm_node):
