@@ -70,6 +70,9 @@ class State(object):
 		l = len(il)
 		log("decoded %d instructions" % (l))
 
+		if l > len(bloc['insns']):
+			raise CodeOutsideScope("exceeded edge of pyc code block")
+
 		return (bloc['insns'][l]['src_lineno'], bloc['insns'][l]['sir_lineno'])
 
 	def blocs(self):
@@ -219,7 +222,7 @@ class State(object):
 					print "no selected frame"
 					return
 				except CodeOutsideScope:
-					print "current frame is not pyc generated code"
+					print "not currently executing pyc generated code"
 					return
 					
 				self.print_context(src_lines, src_lineno)
