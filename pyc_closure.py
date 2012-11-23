@@ -10,6 +10,8 @@ from pyc_ir_nodes import *
 import pyc_constants
 import pyc_heapify
 import pyc_ir
+import pyc_lineage
+
 import ast
 import copy
 
@@ -67,13 +69,16 @@ class Converter(ASTTxformer):
 	def visit_Bloc(self, node):
 		bname = pyc_gen_name.new("bloc")
 		
+		new_bd = BlocDef(
+			name = bname,
+			body = node.body,
+			params = [var_ref("fvs")] + node.args.args
+		)
+		pyc_lineage.bequeath_lineage(node, new_bd, self.__class__.__name__)
+
 		(def_node, d) = pyc_vis.visit(
 			self,
-			BlocDef(
-				name = bname,
-				body = node.body,
-				params = [var_ref("fvs")] + node.args.args
-			)
+			new_bd
 		)
 
 		self.log(self.depth_fmt("bloc vars: %r" % d["bloc_vars"]))
