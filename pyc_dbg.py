@@ -5,6 +5,8 @@ import pyc_dbg_elf
 from pyc_log import *
 import pyc_color
 
+import sys
+
 class PycCmd(gdb.Command):
 	
 	def __init__ (self, state, name, type):
@@ -197,6 +199,17 @@ class State(object):
 		
 		return lns
 
+	def dead_sir_linenos(self):
+		lns = set([
+			i+1 for i in range(0, len(self.dbg_map['sir_src'].split("\n")))
+		])
+
+		for (name, bloc) in self.dbg_map['blocs'].items():
+			for ins in bloc['insns']:
+				lns.discard(ins['sir_lineno'])
+		
+		return lns
+
 	def asm_linenos(self, sir_lineno):
 		indices = set([])
 		for (name, bloc) in self.dbg_map['blocs'].items():
@@ -209,8 +222,7 @@ class State(object):
 
 	def context_lines(self, lines, lineno, **kwargs):
 		opts = {
-			'highlight':			set([]),  			#highlight any line within this set
-			'highlight_color':		33,
+			'highlight':			{},  				#dict of color => highlight set
 			'output_size':			1,					#total number of context lines
 			'prev_lines':			0,					#amt of preceding lines of context
 			'arrow':				False,
@@ -239,13 +251,53 @@ class State(object):
 			else:
 				out = "%d\t%s" % (i, lines[i])
 
-			if i in opts['highlight']:
-				out = pyc_color.ansi_color(out, opts['highlight_color'])
+			for (color, hset) in opts['highlight'].items():
+				if i in hset:
+					out = pyc_color.ansi_color(out, color)
+					break
 
 			output.append(out)
 		
 		return output
 
+	def full_context(self, io, src_lines, src_lineno, sir_lines, sir_lineno):
+		print >>io, "\n".join(self.context_lines(
+			src_lines, 
+			src_lineno,
+			output_size = 8,
+			prev_lines = 4,
+			arrow = True,
+			arrow_color = 33
+		))
+
+		optimized_out = self.dead_sir_linenos()
+
+		print >>io, "#"*60
+		print >>io, "\n".join(self.context_lines(
+			sir_lines, 
+			sir_lineno,
+			output_size = 15,
+			prev_lines = 10,
+			arrow = True,
+			arrow_color = 36,
+			highlight = {
+				33: self.sir_linenos(src_lineno),
+				31: optimized_out
+			}
+		))
+
+		(asm_lines, asm_lineno) = self.adjusted_asm_linenos()
+		print >>io, "#"*60
+		print >>io, "\n".join(self.context_lines(
+			asm_lines, 
+			asm_lineno,
+			output_size = 8,
+			prev_lines = 3,
+			highlight = {
+				36: self.asm_linenos(sir_lineno),
+			}
+		))
+		
 	def init_cmds(self):
 		self.cmds = []
 		
@@ -301,38 +353,7 @@ class State(object):
 					print "not currently executing pyc generated code"
 					return
 					
-				print "\n".join(self.state.context_lines(
-					src_lines, 
-					src_lineno,
-					output_size = 8,
-					prev_lines = 4,
-					arrow = True,
-					arrow_color = 33
-				))
-
-				print "#"*60
-				print "\n".join(self.state.context_lines(
-					sir_lines, 
-					sir_lineno,
-					output_size = 15,
-					prev_lines = 10,
-					arrow = True,
-					arrow_color = 36,
-					highlight = self.state.sir_linenos(src_lineno),
-					highlight_color = 33
-				))
-	
-				(asm_lines, asm_lineno) = self.state.adjusted_asm_linenos()
-				print "#"*60
-				print "\n".join(self.state.context_lines(
-					asm_lines, 
-					asm_lineno,
-					output_size = 8,
-					prev_lines = 3,
-					highlight = self.state.asm_linenos(sir_lineno),
-					highlight_color = 36
-				))
-				
+				self.state.full_context(sys.stdout, src_lines, src_lineno, sir_lines, sir_lineno)
 
 		self.cmds.append(Context(self))
 
