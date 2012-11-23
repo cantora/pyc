@@ -366,7 +366,8 @@ class SIRtoASM(pyc_vis.Visitor):
 
 		return CodeBloc(
 			node.name,
-			insns
+			insns,
+			node
 		)
 
 def sir_to_asm(sir_node):

@@ -37,9 +37,10 @@ class AsmNode:
 		return str(self).__hash__()
 
 class CodeBloc:
-	def __init__(self, name, insns):
+	def __init__(self, name, insns, origin):
 		self.name = name
 		self.insns = insns
+		self.origin = origin
 
 	def __repr__(self):
 		return "\n".join(self.inspect())
@@ -59,9 +60,8 @@ class CodeBloc:
 		return "%s_end" % self.name
 
 class FlatCodeBloc(CodeBloc):
-	def __init__(self, name, insns, symtbl):
-		self.name = name
-		self.insns = insns
+	def __init__(self, name, insns, symtbl, origin):
+		CodeBloc.__init__(self, name, insns, origin)
 		self.symtbl = symtbl
 
 	def preamble_size(self):
@@ -104,7 +104,8 @@ class FlatCodeBloc(CodeBloc):
 		return PatchedCodeBloc(
 			self.name,
 			insns,
-			self.symtbl
+			self.symtbl,
+			self.origin
 		)
 
 class PatchedCodeBloc(FlatCodeBloc):

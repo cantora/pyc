@@ -48,6 +48,10 @@ def bequeath_lineage(old_node, new_node, cpass):
 	#	ast.dump(old_node)
 	#))
 	pyc_vis.walk(v, new_node)
+	#log("bequeath result: (%s)%s" % (
+	#	src_lineno(new_node),
+	#	ast.dump(new_node)
+	#))
 
 class Tracer(VisTracer):
 
@@ -93,16 +97,16 @@ class Tracer(VisTracer):
 
 def src_lineno(node):
 	n = node
-	lineage = []
+	lineage = [n]
 	while(hasattr(n, 'parent')):
 		n = n.parent
 		lineage.append(n)
 
 	if not hasattr(n, 'lineno') or n.lineno is None:
-		#raise Exception("could not find origin for node: %s" % (
-		#	"\n".join(["%s:%s" % (getattr(x, 'cpass', 'None'), pyc_parser.dump(x)) for x in lineage])
-		#))
-		return 0
+		raise Exception("could not find origin for node: %s" % (
+			"\n".join(["%s:%s" % (getattr(x, 'cpass', 'None'), pyc_parser.dump(x)) for x in lineage])
+		))
+		#return 0
 	
 	return n.lineno
 

@@ -13,15 +13,18 @@ def bloc_table(blocs):
 			if isinstance(ins, pyc_asm_nodes.PseudoInst):
 				continue
  
-			sir_lineno = ins.origin.lineno
-			src_lineno = pyc_lineage.src_lineno(ins.origin)
-			
 			real_insns.append({
-				'sir_lineno':		sir_lineno,
-				'src_lineno':		src_lineno
+				'sir_lineno':		ins.origin.lineno,
+				'src_lineno':		pyc_lineage.src_lineno(ins.origin)
 			})
 		
-		dummy_insns = [{'src_lineno': 0, 'sir_lineno': 0}]*bloc.preamble_size()
+		bloc_src_lineno = pyc_lineage.src_lineno(bloc.origin)
+		
+		dummy_insns = [{
+			'src_lineno': bloc_src_lineno, 
+			'sir_lineno': bloc.origin.lineno
+		}]*bloc.preamble_size()
+
 		d[bloc.name] = {
 			'insns': dummy_insns + real_insns
 		}

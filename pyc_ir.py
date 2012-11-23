@@ -490,7 +490,7 @@ class AstToIRTxformer(ASTTxformer):
 
 	def visit_FunctionDef(self, node):
 		return make_assign(
-			pyc_vis.visit(self, var_set(node.name)),
+			var_set(node.name),
 			Bloc(
 				args = pyc_vis.visit(self, node.args),
 				body = [pyc_vis.visit(self, n) for n in node.body],

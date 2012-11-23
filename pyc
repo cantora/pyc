@@ -179,7 +179,8 @@ def run(options):
 		flat_bloc_list.append(pyc_asm_nodes.FlatCodeBloc(
 			name = bloc.name,
 			insns = asm_ir,
-			symtbl = symtbl
+			symtbl = symtbl,
+			origin = bloc.origin
 		))
 
 	if options.graph:
