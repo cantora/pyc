@@ -98,9 +98,10 @@ def src_lineno(node):
 		n = n.parent
 		lineage.append(n)
 
-	#print "\n".join(["%s:%s" % (getattr(x, 'cpass', 'None'), pyc_parser.dump(x)) for x in lineage])
-
 	if not hasattr(n, 'lineno') or n.lineno is None:
+		#raise Exception("could not find origin for node: %s" % (
+		#	"\n".join(["%s:%s" % (getattr(x, 'cpass', 'None'), pyc_parser.dump(x)) for x in lineage])
+		#))
 		return 0
 	
 	return n.lineno
@@ -119,7 +120,7 @@ def graph(bloc_list, io):
 				sir_str = StringIO.StringIO()
 				pyc_sir_to_py.generate(i.origin, sir_str)
 				sir_str = sir_str.getvalue()
-				if i.origin.__class__ in [ast.If, pyc_ir_nodes.DoWhile]:
+				if i.origin.__class__ in [ast.If, pyc_ir_nodes.DoWhile, pyc_ir_nodes.BlocDef]:
 					sir_str = sir_str.split("\n")[0]
 				
 				sir_str = string.strip(sir_str)

@@ -66,6 +66,12 @@ def opt_parser():
 		help='dont output prefix and suffix for IR python program (for use with --IR)'
 	)
 	parser.add_argument(
+		'-l', 
+		'--sir-lineno',
+		action='store_true', 
+		help='output source line numbers as comments in SIR source (for use with --IR)'
+	)
+	parser.add_argument(
 		'-g', 
 		'--graph', 
 		action='store_true', 
@@ -147,7 +153,7 @@ def run(options):
 				print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
 				print >>f, "sys.setrecursionlimit(10**6)"
 
-			pyc_sir_to_py.generate(sir_mod, f, line_comments = True)
+			pyc_sir_to_py.generate(sir_mod, f, line_comments = True, src_line_comments = options.sir_lineno)
 			if not options.code_only:
 				print >>f, ""
 				print >>f, "#" + "*"*40 + "#"

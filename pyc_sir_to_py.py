@@ -2,6 +2,7 @@ from pyc_ir_nodes import *
 from pyc_astvisitor import ASTVisitor
 import pyc_vis
 from pyc_log import log
+import pyc_lineage
 
 class SirToPyVisitor(ASTVisitor):
 
@@ -38,9 +39,22 @@ class SirToPyVisitor(ASTVisitor):
 		self.io = io
 		self.tab_depth = 0
 		self.line_comments = ("line_comments" in kwargs)
+		self.src_line_comments = (kwargs.get("src_line_comments", False) == True)
 
 	def lineno_str(self, lineno):
 		return "#%d" % (lineno) if self.line_comments else ""
+
+	def src_lineno_str(self, lineno, src_lineno):
+		if self.line_comments:
+			return self.lineno_str(lineno) + ", %d" % (src_lineno)
+		else:
+			return ""
+
+	def lineno(self, node):
+		if not self.src_line_comments:
+			return self.lineno_str(node.lineno)
+		else:
+			return self.src_lineno_str(node.lineno, pyc_lineage.src_lineno(node) )
 
 	def tab_str(self, **kwargs):
 		return "  "*(1 + self.tab_depth)
@@ -83,7 +97,7 @@ class SirToPyVisitor(ASTVisitor):
 		print >>self.io, "%sreturn %s %s" % (
 			self.tab_str(**kwargs),
 			pyc_vis.visit(self, node.value),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 
 	def visit_irnode(self, node):
@@ -105,7 +119,7 @@ class SirToPyVisitor(ASTVisitor):
 		print >>self.io, "%sif (%s): %s" % (
 			self.tab_str(**kwargs), 
 			pyc_vis.visit(self, node.test),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 
 		self.tab_depth += 1
@@ -140,7 +154,7 @@ class SirToPyVisitor(ASTVisitor):
 		print >>self.io, "%sif not (%s): break %s" % (
 			self.tab_str(**kwargs),
 			pyc_vis.visit(self, node.test),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 
 		for n in node.wbody:
@@ -198,7 +212,7 @@ class SirToPyVisitor(ASTVisitor):
 				node, 
 				[pyc_vis.visit(self, n) for n in node.values]
 			),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 
 	def visit_CreateClosure(self, node, **kwargs):
@@ -236,7 +250,7 @@ class SirToPyVisitor(ASTVisitor):
 		print >>self.io, "def %s(%s): %s" % (
 			node.name, 
 			self.format_args([n.id for n in node.params]),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 		for n in node.body:
 			pyc_vis.visit(self, n, **kwargs)
@@ -248,7 +262,7 @@ class SirToPyVisitor(ASTVisitor):
 			self.tab_str(**kwargs),
 			pyc_vis.visit(self, node.targets[0]),
 			pyc_vis.visit(self, node.value),
-			self.lineno_str(node.lineno)
+			self.lineno(node)
 		)
 		return ""
 
