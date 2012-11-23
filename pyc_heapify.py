@@ -31,23 +31,17 @@ class Heapifier(ASTTxformer):
 	def visit_Module(self, node):
 		heap_vars = {}
 		locs = pyc_localize.locals(node)
-		env = set(["True", "False"])
-		locs = locs | env
+		locs = locs
 
 		self.log("locals: %r" % locs)
 
-		bool_inits = [
-			make_assign(var_set('False'), InjectFromBool(arg=ast.Num(n=0)) ),
-			make_assign(var_set('True'), InjectFromBool(arg=ast.Num(n=1)) )
-		]
-
 		result = [pyc_vis.visit(self, n, heap_vars, locs) for n in node.body]
-		inits = self.init_local_heap_vars(locs, env, heap_vars)
+		inits = self.init_local_heap_vars(locs, set([]), heap_vars)
 
 		self.log("heapify result: %r" % heap_vars)
 		self.patch_lamb_nodes()		
 		return ast.Module(
-			body = bool_inits + inits + result
+			body = inits + result
 		)
 	
 	def heapify_name(self, node, new_name):
@@ -61,6 +55,7 @@ class Heapifier(ASTTxformer):
 
 	def visit_Name(self, node, heap_vars, locals):
 		if node.id in pyc_constants.internal_names \
+				or node.id in pyc_constants.predefined_vars \
 				or node.id[0:2] == "ir":
 			return copy_name(node)
 		elif node.id in heap_vars or node.id not in locals:

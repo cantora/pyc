@@ -5,8 +5,8 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
 #$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
 #$(wildcard ./p0tests/student_tests/*.py)
 
-P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py)
-P2TESTS	= $(wildcard ./p2tests/grader_tests/*.py)
+P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py) $(wildcard ./p1tests/my_tests/*.py)
+P2TESTS	= $(wildcard ./p2tests/grader_tests/*.py) $(wildcard ./p2tests/my_tests/*.py)
 P3TESTS	= $(wildcard ./p3tests/grader_tests/*.py) $(wildcard ./p3tests/my_tests/*.py)
 
 .PHONY: pkg

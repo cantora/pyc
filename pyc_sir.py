@@ -72,6 +72,19 @@ class IRTreeSimplifier(ASTTxformer):
 		sir_body = []
 		bloc_lineno = self.next_lineno()
 
+		sir_body.extend([
+			make_assign(
+				var_set('False'), 
+				InjectFromBool(arg=ast.Num(n=0)), 
+				lineno = self.next_lineno() 
+			),
+			make_assign(
+				var_set('True'), 
+				InjectFromBool(arg=ast.Num(n=1)),
+				lineno = self.next_lineno()
+			)
+		])
+
 		for n in node.body:
 			(name, sir_list) = pyc_vis.visit(self, n)
 			sir_body += sir_list
