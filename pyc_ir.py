@@ -332,7 +332,7 @@ class AstToIRTxformer(ASTTxformer):
 			elements.append(make_assign(
 				ast.Subscript(
 					value = var_ref(list_name),
-					slice = ast.Index(pyc_vis.visit(self, ast.Num(n=i))),
+					slice = ast.Index(ast.Num(n=i)),
 					ctx = ast.Store()
 				),
 				pyc_vis.visit(self, e))
