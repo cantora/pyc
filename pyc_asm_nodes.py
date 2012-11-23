@@ -65,7 +65,11 @@ class FlatCodeBloc(CodeBloc):
 		self.symtbl = symtbl
 
 	def preamble_size(self):
-		return len(asm_prefix())
+		n = len(asm_prefix())
+		if self.symtbl.stack() > 0:
+			n += 1
+
+		return n
 
 	def patched_insns(self):
 		insns = []
