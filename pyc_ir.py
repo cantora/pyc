@@ -374,7 +374,7 @@ class AstToIRTxformer(ASTTxformer):
 		)
 		
 	def visit_BinOp_Add(self, dummy, node, l_name, r_name):
-		print pyc_lineage.src_lineno(dummy)
+
 		class AddPolySwitch(PolySwitch):
 
 			def no_match(self, name_typ_list):
