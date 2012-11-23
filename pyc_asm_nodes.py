@@ -601,10 +601,13 @@ class AsmDoWhile(AsmFlow):
 		])
 
 		return result
+
+class PseudoInst(Inst):
+	pass
 		
-class Label(Inst):
+class Label(PseudoInst):
 	def __init__(self, s):
-		Inst.__init__(self)
+		PseudoInst.__init__(self)
 		self.s = s
 
 	def __str__(self):

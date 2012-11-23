@@ -52,10 +52,6 @@ class State(object):
 			raise Exception("expected valid frame")
 		if frame.type() != gdb.NORMAL_FRAME:
 			raise Exception("expected frame.type == NORMAL_FRAME. got: %s" % frame.type())
-		if frame.name() is None:
-			raise Exception("frame has no name!")
-		if frame.name() not in self.dbg_map['blocs']:
-			raise CodeOutsideScope("this is not a pyc frame")
 
 	def frame_to_linenos(self, frame):
 		bloc = self.frame_to_bloc(frame)
@@ -71,15 +67,14 @@ class State(object):
 	def frame_to_bloc(self, frame):
 		self.assert_frame(frame)
 
-		bloc = self.dbg_map['blocs'][frame.name()]
-		if frame.pc() < bloc['addr']:
-			raise Exception("frame.pc < bloc['addr']")
-		
-		return bloc
+		pc = frame.pc()
+		for (name, bloc) in self.dbg_map['blocs'].items():
+			if bloc['addr'] <= pc and pc <= (bloc['addr'] + bloc['size']):
+				return bloc
+
+		raise CodeOutsideScope("this is not a pyc frame")
 
 	def frame_to_asm_lineno(self, frame, bloc):
-		self.assert_frame(frame)
-
 		inf = gdb.selected_inferior()
 		amt = frame.pc() - bloc['addr']
 		log("read memory from inferior %d@%s:" % (amt, hex(bloc['addr'])) )

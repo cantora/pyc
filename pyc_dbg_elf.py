@@ -50,7 +50,10 @@ def map_blocs(elf, dbg_map):
 			log("map bloc %s" % sym.name)
 			#log(cont_pp(StringIO(), sym).getvalue())
 
-			bmap[sym.name] = sym.entry.st_value
+			bmap[sym.name] = {
+				'addr':		sym.entry.st_value,
+				'size':		sym.entry.st_size
+			}
 
 	if len(bmap) != len(dbg_map['blocs']):
 		raise ElfError("could not map blocs: %r" % (set(dbg_map['blocs'].keys()) - set(bmap.keys()) ) )
@@ -65,7 +68,8 @@ def extract_from_bin(f):
 	dbg_map = extract_dbg_map(elf)
 	#log("dbg_map: %r" % dbg_map)
 	bloc_map = map_blocs(elf, dbg_map)
-	for (name, addr) in bloc_map.items():
-		dbg_map['blocs'][name]['addr'] = addr
+	for (name, info) in bloc_map.items():
+		for (k,v) in info.items():
+			dbg_map['blocs'][name][k] = v
 
 	return dbg_map

@@ -1,4 +1,6 @@
 import pyc_lineage
+import pyc_asm_nodes
+
 import pickle
 import struct
 
@@ -6,10 +8,15 @@ def bloc_table(blocs):
 	d = {}
 	
 	for bloc in blocs:
-		real_insns = [{
-			'sir_lineno':		i.origin.lineno,
-			'src_lineno':		pyc_lineage.src_lineno(i.origin)
-		} for i in bloc.insns]
+		real_insns = []
+		for ins in bloc.insns:
+			if isinstance(ins, pyc_asm_nodes.PseudoInst):
+				continue
+ 
+			real_insns.append({
+				'sir_lineno':		ins.origin.lineno,
+				'src_lineno':		pyc_lineage.src_lineno(ins.origin)
+			})
 		
 		dummy_insns = [{'src_lineno': 0, 'sir_lineno': 0}]*bloc.preamble_size()
 		d[bloc.name] = {
