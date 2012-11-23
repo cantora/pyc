@@ -5,6 +5,7 @@ import pyc_vis
 import pyc_lineage
 
 from pyc_astvisitor import ASTVisitor
+from pyc_astvisitor import ASTTxformer
 
 class PrintASTVisitor(ASTVisitor):
 	
@@ -28,21 +29,22 @@ class PrintASTVisitor(ASTVisitor):
 	def default_non_ast(self, obj, *args, **kwargs):		
 		print >>self.io, self.format(self.depth, kwargs.get("field", ""), repr(obj) )
 
-def fix_source_lines(node):
-	def _fix(node, lineno):
-		if not hasattr(node, 'lineno'):
-			node.lineno = lineno
+class SrcLineFixer(ASTTxformer):
 	
-		for child in ast.iter_child_nodes(node):
-			_fix(child, node.lineno)
+	def default(self, node, lineno):
+		new_lineno = node.lineno if hasattr(node, 'lineno') else lineno
+		result = ASTTxformer.default(self, node, new_lineno)
+		result.lineno = new_lineno
 
-	_fix(node, getattr(node, 'lineno', 0) )
-	return node
+		return result
+
+def fix_source_lines(node):
+	v = SrcLineFixer()
+	return pyc_vis.walk(v, node, 0)
 
 def parse(src):
 	result = ast.parse(src)
-	fix_source_lines(result)
-	return result
+	return fix_source_lines(result)
 
 def tree_to_str(astree):
 	s = StringIO.StringIO()

@@ -45,7 +45,7 @@ class Heapifier(ASTTxformer):
 		)
 	
 	def heapify_name(self, node, new_name):
-		return pyc_ir.txform(make_subn(new_name, node.ctx.__class__, 0), tracer = self.tracer)
+		return pyc_ir.txform(make_subn(new_name, node.ctx.__class__, 0))
 
 	def heapify_switch(self, node, heap_vars):
 		if node.id in heap_vars:
