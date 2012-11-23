@@ -14,3 +14,4 @@ parsetab.py
 ply
 test/student_tests
 scratch
+*.graph
