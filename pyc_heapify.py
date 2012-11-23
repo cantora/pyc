@@ -80,8 +80,7 @@ class Heapifier(ASTTxformer):
 				ast.List(
 					elts = [value],
 					ctx = ast.Load()
-				),
-				tracer = self.tracer
+				)
 			)
 		)
 
