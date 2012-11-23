@@ -36,6 +36,7 @@ class State(object):
 		for attr in ('file', 'cmd_prefix', 'input'):
 			setattr(self, attr, kwargs[attr])
 
+		self.stop_verbosity = 0
 		self.init_cmds()
 		self.extract_from_bin()
 
@@ -68,6 +69,8 @@ class State(object):
 		return (bloc['insns'][l]['src_lineno'], bloc['insns'][l]['sir_lineno'])
 
 	def frame_to_bloc(self, frame):
+		self.assert_frame(frame)
+
 		bloc = self.dbg_map['blocs'][frame.name()]
 		if frame.pc() < bloc['addr']:
 			raise Exception("frame.pc < bloc['addr']")
@@ -109,14 +112,17 @@ class State(object):
 			return
 		except CodeOutsideScope:
 			return
-			
-		src_ctx = self.context_lines(src_lines, src_lineno)
-		sir_ctx = self.context_lines(sir_lines, sir_lineno)
-		asm_ctx = gdb.execute("x/1i $pc", False, True)
-
-		print "src:%s" % (src_ctx[0])
-		print "sir:%s" % (sir_ctx[0])
-		print "asm:\t%s" % (asm_ctx)
+		
+		if self.stop_verbosity == 0:
+			src_ctx = self.context_lines(src_lines, src_lineno)
+			sir_ctx = self.context_lines(sir_lines, sir_lineno)
+			asm_ctx = gdb.execute("x/1i $pc", False, True)
+	
+			print "src:%s" % (src_ctx[0])
+			print "sir:%s" % (sir_ctx[0])
+			print "asm:\t%s" % (asm_ctx)
+		else:
+			self.full_context(sys.stdout, src_lines, src_lineno, sir_lines, sir_lineno)			
 
 	def on_cont(self, event):
 		log("cont: %r" % (event))
@@ -357,6 +363,25 @@ class State(object):
 
 		self.cmds.append(Context(self))
 
+		class StopVerbosity(PycCmd):
+			"""set the verbosity level for context output at stop points. pass either 'brief' or 'full'"""
+
+			def __init__ (self, state):
+				super (StopVerbosity, self).__init__(state, "stop-verbosity", gdb.COMMAND_RUNNING)
+			
+			def invoke (self, arg, from_tty):
+				if arg[0:1] == 'b':
+					lvl = 0
+				elif arg[0:1] == 'f':
+					lvl = 1
+				else:
+					print "usage: %s b[rief] | f[ull] " % (self.name)
+					return
+
+				self.state.stop_verbosity = lvl
+
+		self.cmds.append(StopVerbosity(self))
+
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""
 	
@@ -370,9 +395,10 @@ class State(object):
 		self.cmds.append(Cmds(self))
 
 def init(opts):
+	gdb.execute("set python print-stack full")
+
 	if opts.verbose == True:
 		log_set_verbose()
-		gdb.execute("set python print-stack full")
 	else:
 		log_set_quiet()
 
