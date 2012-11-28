@@ -212,7 +212,7 @@ def allocate(asm_list, no_sudoku=False):
 	while more_alloc_needed:
 		log("analyze asm nodes and assign memory locations")
 		t0 = time.time()
-		live_list, graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
+		graph = pyc_var_analyzer.interference_graph(adjusted_asm_list)
 		if no_sudoku:
 			allocator.dump_vars_to_stack(graph.keys(), graph)
 			no_sudoku = False	

@@ -169,6 +169,7 @@ class Inst(AsmNode):
 	def __init__(self):
 		AsmNode.__init__(self)
 		self.origin = None	
+		self.live = set([])
 		self.operand_props = {}
 		self.operand_order = []
 
@@ -276,11 +277,13 @@ class Inst(AsmNode):
 	def beget(self, klass, dc_memo, *args):
 		new_inst = klass(*[copy.deepcopy(x, dc_memo) for x in args] )
 		new_inst.origin = self.origin
+		new_inst.live = self.live
 		return new_inst
 
 	def shallow_beget(self, klass, *args):
 		new_inst = klass(*args)
 		new_inst.origin = self.origin
+		new_inst.live = self.live
 		return new_inst
 
 	#works only for instructions where all the data structure 
