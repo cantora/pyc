@@ -8,22 +8,6 @@ import copy
 import time
 import Queue
 
-reg_index_map = {}
-for i in range(0, len(Register.registers) ):
-	reg_index_map[Register.registers[i]] = i
-
-def reg_to_index(reg):
-	global reg_index_map
-	return reg_index_map[reg]
-
-def index_to_loc(index):
-	if index < 0:
-		raise Exception("invalid index %d" % index)
-	elif index < len(Register.registers):
-		return Register(Register.registers[index])
-	else:
-		return EBPIndirect( (index - len(Register.registers))*4 )
-
 class SymTable:
 	
 	def __init__(self):
@@ -36,7 +20,13 @@ class SymTable:
 			self.map(Register(Register.registers[i]), i)
 
 	def location(self, x):
-		return index_to_loc(self[x])
+		index = self[x]
+		if index < 0:
+			raise Exception("invalid index %d" % index)
+		elif index < len(Register.registers):
+			return Register(Register.registers[index])
+		else:
+			return EBPIndirect( (index - len(Register.registers))*4 )
 
 	def boot_reg_dwellers(self):
 		for var in self.mem_map.keys():
@@ -270,7 +260,7 @@ def adjust(asm_list, symtbl, depth=0):
 
 
 def patch_insn(ins, symtbl):
-	result = ins.patch_vars(lambda node: index_to_loc(symtbl[node]) )
+	result = ins.patch_vars(lambda node: symtbl.location(node) )
 	return result
 
 #the default allocator algorithm is the 'sudoku' algorithm
