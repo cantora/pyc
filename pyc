@@ -149,7 +149,7 @@ def run(options):
 		exit(0)
 
 	log("phase: heapify")
-	iast = pyc_heapify.txform(iast, tracer=trace)
+	(iast, name_map) = pyc_heapify.txform(iast, tracer=trace)
 	if options.phase == 'heapify':
 		pyc_parser.print_astree(iast)
 		exit(0)

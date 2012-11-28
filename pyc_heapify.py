@@ -27,6 +27,7 @@ class Heapifier(ASTTxformer):
 	def __init__(self):
 		ASTTxformer.__init__(self)
 		self.lamb_nodes = []
+		self.mappings = {}
 
 	def visit_Module(self, node):
 		heap_vars = {}
@@ -60,6 +61,7 @@ class Heapifier(ASTTxformer):
 			return copy_name(node)
 		elif node.id in heap_vars or node.id not in locals:
 			heap_vars[node.id] = heap_name(node.id)
+			self.mappings[node.id] = heap_vars[node.id]
 			self.log(self.depth_fmt("heap: %s" % node.id))
 			return self.heapify_name(node, heap_vars[node.id])
 		else:
@@ -138,4 +140,4 @@ def txform(as_tree, **kwargs):
 	if 'tracer' in kwargs:
 		v.tracer = kwargs['tracer']
 
-	return pyc_vis.walk(v, as_tree)
+	return (pyc_vis.walk(v, as_tree), v.mappings)
