@@ -28,7 +28,8 @@ def bloc_table(blocs):
 		d[bloc.name] = {
 			'insns':		dummy_insns + real_insns,
 			'src_lineno':	bloc_src_lineno,
-			'sir_lineno':	bloc.origin.lineno
+			'sir_lineno':	bloc.origin.lineno,
+			'mem_map':		bloc.symtbl.mem_map
 		}
 
 	return d

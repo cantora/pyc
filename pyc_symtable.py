@@ -11,6 +11,13 @@ class SymTable:
 		#themselves
 		for i in range(0, len(Register.registers)):
 			self.map(Register(Register.registers[i]), i)
+	
+	@staticmethod
+	def from_map(map):
+		symtbl = SymTable()
+		symtbl.mem_map = map
+
+		return symtbl		
 
 	def location(self, x):
 		index = self[x]

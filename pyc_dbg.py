@@ -4,6 +4,8 @@ import distorm3
 import pyc_dbg_elf
 from pyc_log import *
 import pyc_color
+from pyc_symtable import SymTable
+from pyc_asm_nodes import *
 
 import sys
 
@@ -52,6 +54,9 @@ class State(object):
 		try:
 			with open(self.file, 'r') as f:
 				self.dbg_map = pyc_dbg_elf.extract_from_bin(f)
+				for (name, bloc) in self.dbg_map['blocs'].items():
+					bloc['symtbl'] = SymTable.from_map(bloc['mem_map'])
+
 		except pyc_dbg_elf.ElfError as e:
 			raise Exception("invalid binary '%s': %s" % (self.file, e))
 
@@ -95,6 +100,18 @@ class State(object):
 
 		return l
 	
+	def frame_symtbl(self):
+		bloc = self.frame_to_bloc(self.get_frame() )
+		return bloc['symtbl']
+
+	def symtbl_vars(self, symtbl):
+		vars = []
+		for v in symtbl.mem_map.keys():
+			if isinstance(v, Register): continue
+			vars.append(v.name)
+
+		return vars
+
 	def blocs(self):
 		return self.dbg_map['blocs'].keys()
 
@@ -359,7 +376,7 @@ class State(object):
 		if loc_len == 1:
 			name = locs.keys()[0]
 			return (self.dbg_map['blocs'][name], locs[name])
-		else:
+		elif loc_len > 1:
 			raise Exception(
 				"only found multiple functions with init instructions from line %d: %r" % (lineno, locs) 
 			)
@@ -475,8 +492,8 @@ class State(object):
 
 		self.cmds.append(StopVerbosity(self))
 
-		def brk_usage():
-			print "usage: %s N " % (self.name)
+		def brk_usage(cmd):
+			print "usage: %s N " % (cmd.name)
 			print ""
 			print "\n\t".join([
 				"note: you cannot specify the line number of an 'else'",
@@ -491,7 +508,7 @@ class State(object):
 				super (BrkSir, self).__init__(state, "break-sir", gdb.COMMAND_RUNNING)
 			
 			def usage(self):
-				brk_usage()
+				brk_usage(self)
 
 			def invoke (self, arg, from_tty):
 				try:
@@ -519,13 +536,13 @@ class State(object):
 		self.cmds.append(BrkSir(self))
 
 		class BrkSrc(PycCmd):
-			"""set a break point at supplied SIR source line number."""
+			"""set a break point at supplied source line number."""
 
 			def __init__ (self, state):
 				super (BrkSrc, self).__init__(state, "break", gdb.COMMAND_RUNNING)
 
 			def usage(self):
-				brk_usage()
+				brk_usage(self)
 						
 			def invoke (self, arg, from_tty):
 				try:
@@ -551,6 +568,41 @@ class State(object):
 				gdb.Breakpoint("*0x%08x" % (addr) )
 
 		self.cmds.append(BrkSrc(self))
+
+		class LocalSIR(PycCmd):
+			"""display location of named SIR local variable"""
+
+			def __init__ (self, state):
+				super (LocalSIR, self).__init__(state, "local-sir", gdb.COMMAND_RUNNING)
+
+			def usage(self, locals):
+				print "usage: %s VAR " % (self.name)
+				print ""
+				print "locals: %s" % (", ".join(locals) )
+						
+			def invoke (self, arg, from_tty):
+				local = arg
+
+				try:
+					frame_symtbl = self.state.frame_symtbl()
+				except NoFrame:
+					print "no selected frame"
+					return
+				except CodeOutsideScope as e:
+					log("e: %s" % e)
+					print "not currently executing pyc generated code"
+					return
+
+				try:
+					location = frame_symtbl.location(Var(local))
+				except KeyError:
+					print "unknown local SIR variable '%s'" % (local)
+					self.usage(self.state.symtbl_vars(frame_symtbl) )
+					return
+
+				print str(location)
+
+		self.cmds.append(LocalSIR(self))
 
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""
