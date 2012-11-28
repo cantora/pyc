@@ -61,7 +61,7 @@ class Heapifier(ASTTxformer):
 			return copy_name(node)
 		elif node.id in heap_vars or node.id not in locals:
 			heap_vars[node.id] = heap_name(node.id)
-			self.mappings[node.id] = heap_vars[node.id]
+			self.mappings[heap_vars[node.id]] = node.id
 			self.log(self.depth_fmt("heap: %s" % node.id))
 			return self.heapify_name(node, heap_vars[node.id])
 		else:

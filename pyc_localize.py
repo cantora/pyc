@@ -21,7 +21,7 @@ class Localizer(ASTTxformer):
 		return "%s_%s" % (scope, s)
 
 	def map(self, local_map, name, value):
-		self.mappings[name] = value
+		self.mappings[value] = name
 		local_map[name] = value
 
 	def visit_Module(self, node):

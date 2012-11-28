@@ -235,11 +235,16 @@ def run(options):
 def name_map(localize_map, heapify_map):
 	result = {}
 
-	for (x, y) in localize_map.items():
-		if y in heapify_map:
-			result[x] = heapify_map[y]
-		else:
-			result[x] = y
+	for (local_name, user_name) in localize_map.items():
+		heapified = False
+		for (heap_name, non_heap_name) in heapify_map.items():
+			if local_name == non_heap_name:
+				result[heap_name] = user_name
+				heapified = True
+				break
+
+		if heapified == False:
+			result[local_name] = user_name
 	
 	return result
 
