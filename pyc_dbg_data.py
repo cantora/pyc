@@ -4,25 +4,37 @@ import pyc_asm_nodes
 import pickle
 import struct
 
+def get_vars(live_set):
+	result = set([])
+
+	for n in live_set:
+		if isinstance(n, pyc_asm_nodes.Register): continue
+		result.add(n.name)
+
+	return result
+
 def bloc_table(blocs):
 	d = {}
 	
 	for bloc in blocs:
 		real_insns = []
+		
 		for ins in bloc.insns:
 			if isinstance(ins, pyc_asm_nodes.PseudoInst):
 				continue
  
 			real_insns.append({
 				'sir_lineno':		ins.origin.lineno,
-				'src_lineno':		pyc_lineage.src_lineno(ins.origin)
+				'src_lineno':		pyc_lineage.src_lineno(ins.origin),
+				'live':				get_vars(ins.live)
 			})
 		
 		bloc_src_lineno = pyc_lineage.src_lineno(bloc.origin)
 		
 		dummy_insns = [{
 			'src_lineno': bloc_src_lineno, 
-			'sir_lineno': bloc.origin.lineno
+			'sir_lineno': bloc.origin.lineno,
+			'live':	set([])
 		}]*bloc.preamble_size()
 
 		d[bloc.name] = {

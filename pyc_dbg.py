@@ -302,8 +302,8 @@ class State(object):
 		print >>io, "\n".join(self.context_lines(
 			sir_lines, 
 			sir_lineno,
-			output_size = 15,
-			prev_lines = 10,
+			output_size = 10,
+			prev_lines = 5,
 			arrow = True,
 			arrow_color = 36,
 			highlight = {
@@ -323,6 +323,42 @@ class State(object):
 				36: self.asm_linenos(sir_lineno),
 			}
 		))
+
+		print >>io, "#"*60
+		self.live_context(io)
+
+	def live_sir_locals(self, bloc, asm_lineno):
+		return bloc['insns'][asm_lineno]['live']
+
+	def live_locals(self, bloc, asm_lineno):
+		result = []
+
+		live_sirs = self.live_sir_locals(bloc, asm_lineno)
+		name_map = self.dbg_map['name_map']
+		for ls in live_sirs:
+			if ls not in name_map: continue
+
+			location = bloc['symtbl'].location(Var(ls))
+			result.append( (name_map[ls], location) )
+		
+		return result
+
+	def live_context(self, io):
+		"""
+		raises: NoFrame, CodeOutsideScope
+		"""
+		
+		frame = self.get_frame() 
+		bloc = self.frame_to_bloc(frame)
+		asm_lineno = self.frame_to_asm_lineno(frame, bloc)
+
+		live_local_list = self.live_locals(bloc, asm_lineno)
+
+		for (name, location) in live_local_list:		
+			val = gdb.execute("print/x %s" % (location.to_gdb() ), False, True).strip()
+			left = "%s(%s)" % (name, location)
+			print >>io, "%s %s" % (left.ljust(25), val)
+
 
 	def loc_at_sir_lineno(self, sir_lineno):
 		offset = None
