@@ -137,7 +137,7 @@ def run(options):
 		exit(0)
 
 	log("phase: localize")
-	(iast, name_map) = pyc_localize.txform(iast, tracer=trace)
+	(iast, localize_name_map) = pyc_localize.txform(iast, tracer=trace)
 	if options.phase == 'localize':
 		pyc_parser.print_astree(iast)
 		exit(0)
@@ -149,7 +149,7 @@ def run(options):
 		exit(0)
 
 	log("phase: heapify")
-	(iast, name_map) = pyc_heapify.txform(iast, tracer=trace)
+	(iast, heapify_name_map) = pyc_heapify.txform(iast, tracer=trace)
 	if options.phase == 'heapify':
 		pyc_parser.print_astree(iast)
 		exit(0)
@@ -227,10 +227,21 @@ def run(options):
 		pyc_dbg_data.headers(
 			options.src, 
 			sir_src.getvalue(), 
-			patched_bloc_list
+			patched_bloc_list,
+			name_map(localize_name_map, heapify_name_map)
 		)
 	)
 
+def name_map(localize_map, heapify_map):
+	result = {}
+
+	for (x, y) in localize_map.items():
+		if y in heapify_map:
+			result[x] = heapify_map[y]
+		else:
+			result[x] = y
+	
+	return result
 
 def asm_headers(debug_headers):
 	headers = []

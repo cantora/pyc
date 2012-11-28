@@ -39,8 +39,8 @@ def encode_as_byte_list(str):
 		hex(ord(x)) for x in str
 	])
 
-def headers(src, sir_src, blocs):
-	data = dump(src, sir_src, blocs)
+def headers(src, sir_src, blocs, name_map):
+	data = dump(src, sir_src, blocs, name_map)
 		
 	headers = [
 		".section .pyc_dbg",
@@ -49,13 +49,14 @@ def headers(src, sir_src, blocs):
 
 	return headers
 
-def dump(src, sir_src, blocs):
+def dump(src, sir_src, blocs, name_map):
 	b_table = bloc_table(blocs)
 
 	dbg_table = {
 		'src': 		src,
 		'sir_src':	sir_src,
-		'blocs':	b_table
+		'blocs':	b_table,
+		'name_map': name_map
 	}
 		
 	return pickle.dumps(dbg_table)
