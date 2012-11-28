@@ -26,7 +26,9 @@ def bloc_table(blocs):
 		}]*bloc.preamble_size()
 
 		d[bloc.name] = {
-			'insns': dummy_insns + real_insns
+			'insns': 		dummy_insns + real_insns,
+			'src_lineno':	bloc_src_lineno,
+			'sir_lineno':	bloc.origin.lineno
 		}
 
 	return d

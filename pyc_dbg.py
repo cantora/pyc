@@ -327,6 +327,44 @@ class State(object):
 
 		return (func, offset)			
 
+	def loc_at_lineno(self, lineno):
+		locs = {}
+
+		for (name, bloc) in self.dbg_map['blocs'].items():
+			for i in range(0, len(bloc['insns'])):
+				if bloc['insns'][i]['src_lineno'] == lineno:
+					locs[name] = i
+					break
+
+		if 'main' in locs:
+			return (self.dbg_map['blocs']['main'], locs['main'])
+
+		not_bloc_start = []
+		for (name, i) in locs.items():
+			if self.dbg_map['blocs'][name]['src_lineno'] != i:
+				not_bloc_start.append(name)
+
+		nbs_len = len(not_bloc_start)
+		if nbs_len == 1:
+			return (
+				self.dbg_map['blocs'][not_bloc_start[0]], 
+				locs[not_bloc_start[0]]
+			)
+		elif nbs_len > 1:
+			raise Exception(
+				"found multiple functions which both have non-init instructions from line %d: %r" % (lineno, not_bloc_start) 
+			)
+
+		loc_len = len(locs)
+		if loc_len == 1:
+			name = locs.keys()[0]
+			return (self.dbg_map['blocs'][name], locs[name])
+		else:
+			raise Exception(
+				"only found multiple functions with init instructions from line %d: %r" % (lineno, locs) 
+			)
+
+		raise LocNotFound("no instruction corresponds with source line %d" % (lineno) )
 
 	def bloc_offset_to_addr(self, bloc, offset):
 		inf = gdb.selected_inferior()
@@ -349,6 +387,12 @@ class State(object):
 	
 	def sir_lineno_to_addr(self, sir_lineno):
 		(bloc, offset) = self.loc_at_sir_lineno(sir_lineno)
+		addr = self.bloc_offset_to_addr(bloc, offset)
+
+		return addr
+
+	def lineno_to_addr(self, lineno):
+		(bloc, offset) = self.loc_at_lineno(lineno)
 		addr = self.bloc_offset_to_addr(bloc, offset)
 
 		return addr
@@ -431,6 +475,15 @@ class State(object):
 
 		self.cmds.append(StopVerbosity(self))
 
+		def brk_usage():
+			print "usage: %s N " % (self.name)
+			print ""
+			print "\n\t".join([
+				"note: you cannot specify the line number of an 'else'",
+				"line. please specify the first line number",
+				"of that particular branch body instead"
+			])
+
 		class BrkSir(PycCmd):
 			"""set a break point at supplied SIR source line number."""
 
@@ -438,13 +491,7 @@ class State(object):
 				super (BrkSir, self).__init__(state, "break-sir", gdb.COMMAND_RUNNING)
 			
 			def usage(self):
-				print "usage: %s N " % (self.name)
-				print ""
-				print "\n\t".join([
-					"note: you cannot specify the line number of an 'else'",
-					"line. please specify the first line number",
-					"of that particular branch body instead"
-				])
+				brk_usage()
 
 			def invoke (self, arg, from_tty):
 				try:
@@ -467,9 +514,43 @@ class State(object):
 					return
 
 				log("create breakpoint at *%s" % (hex(addr)) )
-				gdb.Breakpoint("*%s" % (hex(addr)) )
+				gdb.Breakpoint("*0x%08x" % (addr) )
 
 		self.cmds.append(BrkSir(self))
+
+		class BrkSrc(PycCmd):
+			"""set a break point at supplied SIR source line number."""
+
+			def __init__ (self, state):
+				super (BrkSrc, self).__init__(state, "break", gdb.COMMAND_RUNNING)
+
+			def usage(self):
+				brk_usage()
+						
+			def invoke (self, arg, from_tty):
+				try:
+					lineno = int(arg)
+				except ValueError:
+					self.usage()
+					return
+
+				srclen = len(self.state.src())
+
+				if lineno < 1 or lineno > srclen:
+					self.usage()
+					return
+
+				try:
+					addr = self.state.lineno_to_addr(lineno)
+				except LocNotFound as e:
+					print e
+					self.usage()
+					return
+
+				log("create breakpoint at *%s" % (hex(addr)) )
+				gdb.Breakpoint("*0x%08x" % (addr) )
+
+		self.cmds.append(BrkSrc(self))
 
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""
