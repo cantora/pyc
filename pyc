@@ -128,13 +128,38 @@ def run(options):
 		pyc_parser.print_astree(iast)
 		exit(0)
 
-	for (phase_name, phase_mod) in g_phases[1:-2]:
-		log("phase: %s" % phase_name)
-		iast = getattr(phase_mod, 'txform')(iast, tracer=trace)
-		if options.phase == phase_name:
-			pyc_parser.print_astree(iast)
-			exit(0)
+	
+	
+	log("phase: declassify")
+	iast = pyc_declassify.txform(iast, tracer=trace)
+	if options.phase == 'declassify':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: localize")
+	(iast, name_map) = pyc_localize.txform(iast, tracer=trace)
+	if options.phase == 'localize':
+		pyc_parser.print_astree(iast)
+		exit(0)
 		
+	log("phase: IR")
+	iast = pyc_ir.txform(iast, tracer=trace)
+	if options.phase == 'explicate':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: heapify")
+	iast = pyc_heapify.txform(iast, tracer=trace)
+	if options.phase == 'heapify':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: closure")
+	iast = pyc_closure.txform(iast, tracer=trace)
+	if options.phase == 'closure':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
 	sir_mod = pyc_sir.txform(iast, tracer=trace)
 	if options.phase == 'sir-list':
 		#print pyc_sir.sir_list_to_str(sir_mod.body)

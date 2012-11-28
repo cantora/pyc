@@ -14,10 +14,15 @@ class Localizer(ASTTxformer):
 	
 	def __init__(self):
 		ASTTxformer.__init__(self)
+		self.mappings = {}
 
 	@staticmethod
 	def scope_fmt(scope, s):
 		return "%s_%s" % (scope, s)
+
+	def map(self, local_map, name, value):
+		self.mappings[name] = value
+		local_map[name] = value
 
 	def visit_Module(self, node):
 		locs = locals(node)
@@ -25,7 +30,7 @@ class Localizer(ASTTxformer):
 
 		mappy = {}
 		for loco in locs:
-			mappy[loco] = Localizer.scope_fmt("main", loco)
+			self.map(mappy, loco, Localizer.scope_fmt("main", loco) )
 
 		return ast.Module(
 			body = [pyc_vis.visit(self, n, mappy, "main") for n in node.body]
@@ -68,7 +73,7 @@ class Localizer(ASTTxformer):
 
 		lam_mappy = copy.copy(mappy) #dont need deep copy, its a shallow dict
 		for loco in locs:
-			lam_mappy[loco] = Localizer.scope_fmt(lam_name, loco)
+			self.map(lam_mappy, loco, Localizer.scope_fmt(lam_name, loco) )
 
 		body = [node.body] if isinstance(node, ast.Lambda) else node.body
 		return (
@@ -156,4 +161,4 @@ def txform(as_tree, **kwargs):
 	if 'tracer' in kwargs:
 		v.tracer = kwargs['tracer']
 
-	return pyc_vis.walk(v, as_tree)
+	return (pyc_vis.walk(v, as_tree), v.mappings)
