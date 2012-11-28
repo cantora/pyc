@@ -413,6 +413,22 @@ class State(object):
 		addr = self.bloc_offset_to_addr(bloc, offset)
 
 		return addr
+
+	def local_to_sir_local(self, frame_symtbl, user_local):
+		matched = None
+		all_locals = {}
+		name_map = self.dbg_map['name_map']
+
+		for sir_local in self.symtbl_vars(frame_symtbl):
+			if sir_local in name_map:
+				if name_map[sir_local] == user_local:
+					if matched is not None:
+						raise Exception("expected to only find one local mapping to %s" % (user_local))
+					matched = sir_local
+			
+				all_locals[name_map[sir_local]] = sir_local
+
+		return (matched, all_locals)
 		
 	def init_cmds(self):
 		self.cmds = []
@@ -631,17 +647,7 @@ class State(object):
 					print "not currently executing pyc generated code"
 					return
 
-				matched = None
-				all_locals = {}
-				name_map = self.state.dbg_map['name_map']
-				for sir_local in self.state.symtbl_vars(frame_symtbl):
-					if sir_local in name_map:
-						if name_map[sir_local] == local:
-							if matched is not None:
-								raise Exception("expected to only find one local mapping to %s" % (local))
-							matched = sir_local
-					
-						all_locals[name_map[sir_local]] = sir_local
+				(matched, all_locals) = self.state.local_to_sir_local(frame_symtbl, local)
 
 				if local == '':
 					for (user_name, sir_local) in all_locals.items():
@@ -657,6 +663,72 @@ class State(object):
 					print str(frame_symtbl.location(Var(matched)) )
 
 		self.cmds.append(Local(self))
+
+		class ValueSIR(PycCmd):
+			"""display value of named SIR local variable"""
+
+			def __init__ (self, state):
+				super (ValueSIR, self).__init__(state, "value-sir", gdb.COMMAND_RUNNING)
+
+			def usage(self):
+				print "usage: %s VAR " % (self.name)
+						
+			def invoke (self, arg, from_tty):
+				local = arg.strip()
+
+				try:
+					frame_symtbl = self.state.frame_symtbl()
+				except NoFrame:
+					print "no selected frame"
+					return
+				except CodeOutsideScope as e:
+					log("e: %s" % e)
+					print "not currently executing pyc generated code"
+					return
+
+				try:
+					location = frame_symtbl.location(Var(local))
+				except KeyError:
+					print "unknown local SIR variable '%s'" % (local)
+					self.usage()
+					return
+
+				gdb.execute("print %s" % (location.to_gdb()) )
+
+		self.cmds.append(ValueSIR(self))
+
+		class Value(PycCmd):
+			"""display location of named local variable"""
+
+			def __init__ (self, state):
+				super (Value, self).__init__(state, "value", gdb.COMMAND_RUNNING)
+
+			def usage(self):
+				print "usage: %s VAR " % (self.name)
+						
+			def invoke (self, arg, from_tty):
+				local = arg.strip()
+
+				try:
+					frame_symtbl = self.state.frame_symtbl()
+				except NoFrame:
+					print "no selected frame"
+					return
+				except CodeOutsideScope as e:
+					log("e: %s" % e)
+					print "not currently executing pyc generated code"
+					return
+
+				(matched, all_locals) = self.state.local_to_sir_local(frame_symtbl, local)
+
+				if matched is None:
+					print "unknown user variable '%s'" % (local)
+					self.usage()
+					return
+					
+				gdb.execute("print %s" % (frame_symtbl.location(Var(matched) ).to_gdb() ) )
+
+		self.cmds.append(Value(self))
 
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""

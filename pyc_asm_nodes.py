@@ -670,6 +670,9 @@ class Var(AsmNode):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.name)
 
+	def to_gdb(self):
+		return "$%s" % (self.name)
+
 class Register(Var):
 	caller_save = [
 		"ecx",
@@ -735,6 +738,18 @@ class Indirect(MemoryRef):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.reg, self.offset)
 	
+	def to_gdb(self):
+		return self._to_gdb(self.offset)
+
+	def _to_gdb(self, offset):
+		off_str = ""
+		if offset != 0:
+			off_str = str(offset)
+
+		s = "%s%s" % (self.reg.to_gdb(), off_str)
+
+		return s
+		
 """
 an offset of 0 => -4(%ebp)
 an offset of 4 => -8(%ebp)
@@ -748,6 +763,9 @@ class EBPIndirect(Indirect):
 	def __str__(self):
 		return self._to_s(-(self.offset+4) )
 		
+	def to_gdb(self):
+		return self._to_gdb(-(self.offset+4) )
+
 class Param(Indirect):
 	def __init__(self, n):
 		Indirect.__init__(
