@@ -18,7 +18,7 @@ def bloc_table(blocs):
 	
 	for bloc in blocs:
 		real_insns = []
-		
+
 		for ins in bloc.insns:
 			if isinstance(ins, pyc_asm_nodes.PseudoInst):
 				continue
@@ -26,19 +26,28 @@ def bloc_table(blocs):
 			real_insns.append({
 				'sir_lineno':		ins.origin.lineno,
 				'src_lineno':		pyc_lineage.src_lineno(ins.origin),
-				'live':				get_vars(ins.live)
+				'live':				get_vars(ins.live),
+				'dummy':			False
 			})
 		
 		bloc_src_lineno = pyc_lineage.src_lineno(bloc.origin)
 		
-		dummy_insns = [{
+		dummy_prefix_insns = [{
 			'src_lineno': bloc_src_lineno, 
 			'sir_lineno': bloc.origin.lineno,
-			'live':	set([])
+			'live':	set([]),
+			'dummy': True
 		}]*bloc.preamble_size()
 
+		dummy_suffix_insns = [{
+			'src_lineno': bloc_src_lineno, 
+			'sir_lineno': bloc.origin.lineno,
+			'live':	set([]),
+			'dummy': True
+		}]*bloc.postamble_size()
+
 		d[bloc.name] = {
-			'insns':		dummy_insns + real_insns,
+			'insns':		dummy_prefix_insns + real_insns + dummy_suffix_insns,
 			'src_lineno':	bloc_src_lineno,
 			'sir_lineno':	bloc.origin.lineno,
 			'mem_map':		bloc.symtbl.mem_map

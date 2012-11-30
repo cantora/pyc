@@ -71,6 +71,11 @@ class FlatCodeBloc(CodeBloc):
 
 		return n
 
+	def postamble_size(self):
+		n = len(asm_suffix())
+
+		return n
+
 	def patched_insns(self):
 		insns = []
 		

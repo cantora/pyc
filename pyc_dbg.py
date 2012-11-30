@@ -16,6 +16,24 @@ class PycCmd(gdb.Command):
 		self.name = self.state.cmd_name(name)
 		super (PycCmd, self).__init__(self.name, type)
 
+class MultiBP(gdb.Breakpoint):
+	def __init__(self, siblings, expr):
+		super(MultiBP, self).__init__(expr, gdb.BP_BREAKPOINT, gdb.WP_WRITE, True)
+		
+		self.siblings = siblings
+
+	def delete_siblings(self):
+		for sib in self.siblings:
+			if self != sib:
+				sib.delete()
+
+	def stop(self):
+		def erase():
+			self.delete_siblings()
+			self.delete()
+		gdb.post_event( erase )
+		return True
+		
 class NoFrame(Exception):
 	"""there is no frame context"""
 	pass
@@ -124,7 +142,7 @@ class State(object):
 	def cmd_name(self, cmd):
 		return "%s%s" % (self.cmd_prefix, cmd)
 
-	def on_stop(self, event):
+	def on_context_stop(self, event):
 		log("stopped: %r" % (event))
 		try:
 			(src_lines, src_lineno, sir_lines, sir_lineno) = self.adjusted_linenos()
@@ -144,9 +162,40 @@ class State(object):
 		else:
 			self.full_context(sys.stdout, src_lines, src_lineno, sir_lines, sir_lineno)			
 
+	def step_bps(self, selector):
+		inf = gdb.selected_inferior()
+
+		bps = []
+		for (name, bloc) in self.dbg_map['blocs'].items():
+			buf = str(inf.read_memory(bloc['addr'], bloc['size']) )
+			il = Decode(bloc['addr'], buf, Decode32Bits)
+			if len(il) != len(bloc['insns']):
+				raise Exception(
+					"decoded instruction list of different size than instruction map: %d != %d" % (
+						len(il), len(bloc['insns']) 
+					)
+				)
+
+			for i in range(0, len(il)): 
+				ins = il[i]
+				if bloc['insns'][i]['dummy']:
+					continue
+				if not selector(bloc['insns'][i]['src_lineno'], bloc['insns'][i]['sir_lineno']):
+					continue
+				bps.append(MultiBP(bps, "*0x%08x" % (ins[0]) ))
+
+		return bps
+
+	def on_stop(self, event):
+		self.on_context_stop(event)
+
 	def on_cont(self, event):
 		log("cont: %r" % (event))
 	
+	def on_exit(self, event):
+		print "pyc inferior exited"
+		log("exit: %r" % (event))
+		
 	def get_frame(self):
 		try:
 			frame = gdb.selected_frame()
@@ -765,6 +814,62 @@ class State(object):
 				gdb.execute("print %s" % (frame_symtbl.location(Var(matched) ).to_gdb() ) )
 
 		self.cmds.append(Value(self))
+
+		class StepSIR(PycCmd):
+			"""step through one line of SIR source code"""
+
+			def __init__ (self, state):
+				super (StepSIR, self).__init__(state, "step-sir", gdb.COMMAND_RUNNING)
+
+			def invoke (self, arg, from_tty):
+				try:
+					(src_lines, src_lineno, sir_lines, sir_lineno) = self.state.adjusted_linenos()
+				except NoFrame:
+					print "no selected frame"
+					return
+				except CodeOutsideScope as e:
+					log("e: %s" % e)
+					print "not currently executing pyc generated code"
+					return
+
+				def selector(src_ln, sir_ln):
+					if sir_ln == sir_lineno:
+						return False
+
+					return True
+
+				self.state.step_bps(selector)
+				gdb.post_event(lambda: gdb.execute("continue", True, False) )
+
+		self.cmds.append(StepSIR(self))
+
+		class Step(PycCmd):
+			"""step through one line of source code"""
+
+			def __init__ (self, state):
+				super (Step, self).__init__(state, "step", gdb.COMMAND_RUNNING)
+
+			def invoke (self, arg, from_tty):
+				try:
+					(src_lines, src_lineno, sir_lines, sir_lineno) = self.state.adjusted_linenos()
+				except NoFrame:
+					print "no selected frame"
+					return
+				except CodeOutsideScope as e:
+					log("e: %s" % e)
+					print "not currently executing pyc generated code"
+					return
+
+				def selector(src_ln, sir_ln):
+					if src_ln == src_lineno:
+						return False
+
+					return True
+
+				self.state.step_bps(selector)
+				gdb.post_event(lambda: gdb.execute("continue", True, False) )
+
+		self.cmds.append(Step(self))
 
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""
