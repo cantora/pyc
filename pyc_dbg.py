@@ -17,10 +17,11 @@ class PycCmd(gdb.Command):
 		super (PycCmd, self).__init__(self.name, type)
 
 class MultiBP(gdb.Breakpoint):
-	def __init__(self, siblings, expr):
+	def __init__(self, siblings, expr, on_break=None):
 		super(MultiBP, self).__init__(expr, gdb.BP_BREAKPOINT, gdb.WP_WRITE, True)
 		
 		self.siblings = siblings
+		self.on_break = on_break
 
 	def delete_siblings(self):
 		for sib in self.siblings:
@@ -32,6 +33,9 @@ class MultiBP(gdb.Breakpoint):
 			self.delete_siblings()
 			self.delete()
 		gdb.post_event( erase )
+		if self.on_break:
+			self.on_break()
+
 		return True
 		
 class NoFrame(Exception):
@@ -182,12 +186,16 @@ class State(object):
 					continue
 				if not selector(bloc['insns'][i]['src_lineno'], bloc['insns'][i]['sir_lineno']):
 					continue
-				bps.append(MultiBP(bps, "*0x%08x" % (ins[0]) ))
+				bps.append(MultiBP(
+					bps, 
+					"*0x%08x" % (ins[0])
+				))
 
 		return bps
 
 	def on_stop(self, event):
 		self.on_context_stop(event)
+		#sys.stdout.write("(gdb) ")
 
 	def on_cont(self, event):
 		log("cont: %r" % (event))
@@ -532,8 +540,9 @@ class State(object):
 	
 			def __init__ (self, state):
 				super (Functions, self).__init__(state, "functions", gdb.COMMAND_FILES)
-			
+
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				for bloc in self.state.blocs():
 					print bloc
 			
@@ -546,6 +555,7 @@ class State(object):
 				super (List, self).__init__(state, "list", gdb.COMMAND_FILES)
 			
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				list_with_linenos(self.state.src())
 			
 		self.cmds.append(List(self))
@@ -557,6 +567,7 @@ class State(object):
 				super (SIRList, self).__init__(state, "sir-list", gdb.COMMAND_FILES)
 			
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				list_with_linenos(self.state.sir_src())
 			
 		self.cmds.append(SIRList(self))
@@ -566,9 +577,9 @@ class State(object):
 
 			def __init__ (self, state):
 				super (Context, self).__init__(state, "context", gdb.COMMAND_RUNNING)
-
 			
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				try:
 					(src_lines, src_lineno, sir_lines, sir_lineno) = self.state.adjusted_linenos()
 				except NoFrame:
@@ -590,6 +601,7 @@ class State(object):
 				super (StopVerbosity, self).__init__(state, "stop-verbosity", gdb.COMMAND_RUNNING)
 			
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				if arg[0:1] == 'b':
 					lvl = 0
 				elif arg[0:1] == 'f':
@@ -621,6 +633,7 @@ class State(object):
 				brk_usage(self)
 
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				try:
 					lineno = int(arg)
 				except ValueError:
@@ -655,6 +668,7 @@ class State(object):
 				brk_usage(self)
 						
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				try:
 					lineno = int(arg)
 				except ValueError:
@@ -691,6 +705,7 @@ class State(object):
 				print "locals: %s" % (", ".join(locals) )
 						
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				local = arg.strip()
 
 				try:
@@ -729,6 +744,7 @@ class State(object):
 				print "usage: %s [VAR] " % (self.name)
 						
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				local = arg.strip()
 
 				try:
@@ -768,6 +784,7 @@ class State(object):
 				print "usage: %s VAR " % (self.name)
 						
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				local = arg.strip()
 
 				try:
@@ -796,11 +813,12 @@ class State(object):
 
 			def __init__ (self, state):
 				super (Value, self).__init__(state, "value", gdb.COMMAND_RUNNING)
-
+				
 			def usage(self):
 				print "usage: %s VAR " % (self.name)
 						
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
 				local = arg.strip()
 
 				try:
@@ -887,11 +905,13 @@ class State(object):
 				super (Run, self).__init__(state, "run", gdb.COMMAND_RUNNING)
 
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
+
 				if not self.state.input:
 					print "no input file provided"
 					return	
 				
-				gdb.post_event(lambda: gdb.execute("run < %s" % (self.state.input)) )
+				gdb.post_event(lambda: gdb.execute("run < %s" % (self.state.input), True) )
 
 		self.cmds.append(Run(self))
 
@@ -902,6 +922,8 @@ class State(object):
 				super (Input, self).__init__(state, "input", gdb.COMMAND_FILES)
 
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
+
 				if not self.state.input:
 					print "no input file provided"
 					return	
@@ -912,6 +934,7 @@ class State(object):
 				except IOError as e:
 					print "read error: %s" % (e) 
 
+
 		self.cmds.append(Input(self))
 
 		class Cmds(PycCmd):
@@ -919,10 +942,13 @@ class State(object):
 	
 			def __init__ (self, state):
 				super (Cmds, self).__init__(state, "cmds", gdb.COMMAND_SUPPORT)
-			
+							
 			def invoke (self, arg, from_tty):
+				self.dont_repeat()
+
 				for cmd in self.state.cmds:
 					print("%s %s" % (cmd.name.ljust(15), cmd.__doc__ ) )
+				
 				
 		self.cmds.append(Cmds(self))
 
