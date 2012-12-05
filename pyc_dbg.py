@@ -383,12 +383,12 @@ class State(object):
 		result = []
 
 		live_sirs = self.live_sir_locals(bloc, asm_lineno)
+		log('live_sirs: %r' % (live_sirs) )
 		name_map = self.dbg_map['name_map']
 		for ls in live_sirs:
 			if ls not in name_map: continue
 
-			location = bloc['symtbl'].location(Var(ls))
-			result.append( (name_map[ls], location) )
+			result.append( name_map[ls] )
 		
 		return result
 
@@ -402,11 +402,17 @@ class State(object):
 		asm_lineno = self.frame_to_asm_lineno(frame, bloc)
 
 		live_local_list = self.live_locals(bloc, asm_lineno)
+		locals = self.locals(bloc['symtbl'])
 
-		for (name, location) in live_local_list:		
+		for (name, sir_name) in locals.items():
+			location = bloc['symtbl'].location(Var(sir_name))
 			val = gdb.execute("print/x %s" % (location.to_gdb() ), False, True).strip()
 			left = "%s(%s)" % (name, location)
-			print >>io, "%s %s" % (left.ljust(25), val)
+			line = "%s %s" % (left.ljust(25), val)
+			if name in live_local_list:
+				line = pyc_color.yellow(line)
+
+			print >>io, line
 
 
 	def loc_at_sir_lineno(self, sir_lineno):
@@ -498,6 +504,9 @@ class State(object):
 		addr = self.bloc_offset_to_addr(bloc, offset)
 
 		return addr
+
+	def locals(self, frame_symtbl):
+		return self.local_to_sir_local(frame_symtbl, None)[1]
 
 	def local_to_sir_local(self, frame_symtbl, user_local):
 		matched = None
@@ -885,6 +894,7 @@ class State(object):
 
 def init(opts):
 	gdb.execute("set python print-stack full")
+	gdb.execute("set pagination off")
 
 	if opts.verbose == True:
 		log_set_verbose()
