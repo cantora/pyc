@@ -44,6 +44,7 @@ class Tag(IRNode):
 			**kwargs
 		)
 
+
 simple_ir_nodes = {
 	'UserCall':				tuple(['func', 'args', 'starargs', 'kwargs']),
 	'NameWrap': 			tuple(['value']),
@@ -240,19 +241,33 @@ def simple_compare(lhs, rhs):
 def false_node():
 	return var_ref("False")
 	
-def let_env(body, *name_node_pairs):
-	if len(name_node_pairs) < 1:
-		return body
+def let(name_gen, rhs, body):
+	if isinstance(rhs, ast.Name):
+		return body(rhs.id)
 
-	if not (isinstance(name_node_pairs[0], tuple) \
-			and len(name_node_pairs[0]) == 2 ):
-		raise Exception("not a name-node pair: %r" % name_node_pairs[0])
-
+	tmp_name = name_gen()
 	return Let(
-		name = name_node_pairs[0][0],
-		rhs = name_node_pairs[0][1],
-		body = let_env(body, *name_node_pairs[1:])
+		name = var_ref(tmp_name),
+		rhs = rhs,
+		body = body(tmp_name)
 	)
+
+	
+def let_env(name_gen, body, *nodes):
+	if len(nodes) < 1:
+		raise Exception("let env with no nodes?")
+
+	def _let_env(nodes, names = []):
+		if len(nodes) < 1:
+			return body(names)			
+
+		return let(
+			name_gen = name_gen,
+			rhs = nodes[0],
+			body = lambda name: _let_env(nodes[1:], names + [name] )
+		)
+
+	return _let_env(nodes)
 
 
 def tag_switch(name, int_node, bool_node, big_node):

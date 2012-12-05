@@ -453,13 +453,13 @@ class IRTreeSimplifier(ASTTxformer):
 		)
 
 	def visit_Tag(self, node):
-		if not isinstance(node.arg, ast.Name):
-			raise Exception("error: Tag should only have Name nodes as argument")
-		
+		(arg_name, sir_list) = pyc_vis.visit(self, node.arg)
 		result_name = self.gen_name()
 		return (
 			var_ref(result_name), 
-			[self.make_assign(var_set(result_name), Tag(arg=var_ref(node.arg.id))) ]
+			sir_list + [
+				self.make_assign(var_set(result_name), Tag(arg=arg_name) ) 
+			]
 		)
 
 #convert an abstract syntax tree into a list of

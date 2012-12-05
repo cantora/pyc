@@ -101,12 +101,10 @@ class AstToIRTxformer(ASTTxformer):
 
 		#end USubPolySwitch
 
-		op_name = self.gen_name()
-
-		return Let(
-			name = var_set(op_name),
+		return let(
+			name_gen = self.gen_name,
 			rhs = pyc_vis.visit(self, node.operand),
-			body = polyswitch(USubPolySwitch(), var_ref(op_name))
+			body = lambda name: polyswitch(USubPolySwitch(), var_ref(name))
 		)		
 
 
@@ -178,15 +176,10 @@ class AstToIRTxformer(ASTTxformer):
 		ps = IsPolySwitch() if isinstance(node.ops[0], ast.Is) else CmpPolySwitch()
 
 		result = let_env(
-			InjectFromBool(arg=polyswitch(ps, var_ref(l_name), var_ref(comp_name))),
-			(
-				var_set(l_name),
-				pyc_vis.visit(self, node.left)
-			),
-			(
-				var_set(comp_name), 
-				pyc_vis.visit(self, node.comparators[0])
-			)
+			self.gen_name,
+			lambda names: InjectFromBool(arg=polyswitch(ps, var_ref(names[0]), var_ref(names[1]))),
+			pyc_vis.visit(self, node.left),
+			pyc_vis.visit(self, node.comparators[0])
 		)
 			
 		if isinstance(node.ops[0], ast.NotEq):
@@ -211,59 +204,57 @@ class AstToIRTxformer(ASTTxformer):
 	#this could be made much cleaner if runtime.c were rewritten in a 
 	#smarter way
 	def make_user_call(self, node):
-		fn_name = self.gen_name()
 		obj_name = self.gen_name()
-		arg_names = []
 		arg_nodes = []
 
 		for n in node.args:
-			arg_names.append(self.gen_name())
 			arg_nodes.append(pyc_vis.visit(self, n))
 		
 		return let_env(
-			ast.IfExp(
+			self.gen_name,
+			lambda names: ast.IfExp(
 				test = simple_compare(
 					ast.Num(0),
-					IsClass(arg=var_ref(fn_name))
+					IsClass(arg=var_ref(names[0]))
 				),
 				body = ast.IfExp(
 					test = simple_compare(
 						ast.Num(0),
-						IsBoundMethod(arg=var_ref(fn_name))
+						IsBoundMethod(arg=var_ref(names[0]))
 					),
 					body = ast.IfExp(
 						test = simple_compare(
 							ast.Num(0),
-							IsUnboundMethod(arg=var_ref(fn_name))
+							IsUnboundMethod(arg=var_ref(names[0]))
 						),
 						body = UserCall( 					#just a normal function call
-							func = var_ref(fn_name),
-							args = [var_ref(name) for name in arg_names],
+							func = var_ref(names[0]),
+							args = [var_ref(name) for name in names[1:] ],
 							kwargs = None,
 							starargs = None
 						),
 						orelse = UserCall(					#unbound method call: get function and call
-							func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
-							args = [var_ref(name) for name in arg_names],
+							func = InjectFromBig(arg=GetFunction(arg=var_ref(names[0]))),
+							args = [var_ref(name) for name in names[1:] ],
 							kwargs = None,
 							starargs = None
 						)
 					),
 					orelse = UserCall(						#bound method call: get function, receiver and call
-						func = InjectFromBig(arg=GetFunction(arg=var_ref(fn_name))),
-						args = [InjectFromBig(arg=GetReceiver(arg=var_ref(fn_name)))] \
-									+ [var_ref(name) for name in arg_names],
+						func = InjectFromBig(arg=GetFunction(arg=var_ref(names[0]))),
+						args = [InjectFromBig(arg=GetReceiver(arg=var_ref(names[0])))] \
+									+ [var_ref(name) for name in names[1:] ],
 						kwargs = None,
 						starargs = None
 					)
 				),
 				orelse = Let(								#object creation: create and call __init__ if exists
 					name = var_set(obj_name),
-					rhs = InjectFromBig(arg=CreateObject(arg=var_ref(fn_name))),
+					rhs = InjectFromBig(arg=CreateObject(arg=var_ref(names[0]))),
 					body = ast.IfExp(
 						test = simple_compare(
 							ast.Num(0),
-							HasAttr(obj=var_ref(fn_name), attr=ast.Str('__init__'))
+							HasAttr(obj=var_ref(names[0]), attr=ast.Str('__init__'))
 						),
 						body = var_ref(obj_name),			#no __init__, return object
 						orelse = Seq(					#call __init__, return object
@@ -271,13 +262,13 @@ class AstToIRTxformer(ASTTxformer):
 								UserCall(
 									func = InjectFromBig(arg=GetFunction(
 										arg = ast.Attribute(
-											value = var_ref(fn_name),
+											value = var_ref(names[0]),
 											attr = '__init__',
 											ctx = ast.Load()
 										)
 									)),
 									args = [				#(object, arg1, ..., argn)
-										var_ref(name) for name in [obj_name] + arg_names
+										var_ref(name) for name in ([obj_name] + names[1:])
 									],
 									kwargs = None,
 									starargs = None
@@ -286,13 +277,10 @@ class AstToIRTxformer(ASTTxformer):
 							] #body
 						) #hasattr('__init__') true
 					) #if hasattr('__init__')
-				) #let o = CreateObject(fn_name)
+				) #let o = CreateObject(names[0])
 			),
-			( var_set(fn_name), pyc_vis.visit(self, node.func) ),
-			*zip(
-				[var_set(x) for x in arg_names], 
-				arg_nodes
-			)
+			pyc_vis.visit(self, node.func),
+			*arg_nodes
 		)
 
 	def visit_Dict(self, node):
@@ -359,9 +347,6 @@ class AstToIRTxformer(ASTTxformer):
 		)
 
 	def visit_BinOp(self, node):
-		l_name = self.gen_name()
-		r_name = self.gen_name()
-		
 		def unknown_op(node, *args):
 			raise Exception("unsupported BinOp: %s" % ast.dump(node))
 
@@ -370,12 +355,10 @@ class AstToIRTxformer(ASTTxformer):
 			'visit_BinOp_',
 			unknown_op,			
 			node.op,
-			node,
-			l_name,
-			r_name
+			node
 		)
 		
-	def visit_BinOp_Add(self, dummy, node, l_name, r_name):
+	def visit_BinOp_Add(self, dummy, node):
 
 		class AddPolySwitch(PolySwitch):
 
@@ -424,66 +407,58 @@ class AstToIRTxformer(ASTTxformer):
 						[ProjectToBig(arg=l), ProjectToBig(arg=r)]
 					)
 				)
-
 		#AddPolyswitch
 
 		return let_env(
-			polyswitch(AddPolySwitch(), var_ref(l_name), var_ref(r_name)),
-			(
-				var_set(l_name),
-				pyc_vis.visit(self, node.left)
-			),
-			(
-				var_set(r_name),
-				pyc_vis.visit(self, node.right)
-			)
+			self.gen_name,
+			lambda names: polyswitch(AddPolySwitch(), var_ref(names[0]), var_ref(names[1])),
+			pyc_vis.visit(self, node.left), 
+			pyc_vis.visit(self, node.right)
 		)
 
 	def visit_BoolOp(self, node):
 		def unknown_op(node, *args):
 			raise Exception("unsupported BoolOp: %s" % ast.dump(node))
-		l_name = self.gen_name()
 
 		return pyc_vis.dispatch_to_prefix(
 			self,
 			'visit_BoolOp_',
 			unknown_op,			
 			node.op,
-			node,
-			l_name
+			node
 		)
 
-	def visit_BoolOp_And(self, dummy, node, l_name):
+	def visit_BoolOp_And(self, dummy, node):
 		if len(node.values) != 2:
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
-		return Let(
-			name = var_set(l_name),
+		return let(
+			name_gen = self.gen_name,
 			rhs = pyc_vis.visit(self, node.values[0]),
-			body = ast.IfExp(
+			body = lambda name: ast.IfExp(
 				test = simple_compare(
 					lhs = ast.Num(1),
-					rhs = IsTrue(arg=var_ref(l_name))
+					rhs = IsTrue(arg=var_ref(name))
 				),
 				body = pyc_vis.visit(self, node.values[1]),
-				orelse = var_ref(l_name)
+				orelse = var_ref(name)
 			)
 		)
 					
 				
-	def visit_BoolOp_Or(self, dummy, node, l_name):
+	def visit_BoolOp_Or(self, dummy, node):
 		if len(node.values) != 2:
 			raise BadAss("expected 2 operands to bool op: %s" % ast.dump(node))
 
-		return Let(
-			name = var_set(l_name),
+		return let(
+			name_gen = self.gen_name,
 			rhs = pyc_vis.visit(self, node.values[0]),
-			body = ast.IfExp(
+			body = lambda name: ast.IfExp(
 				test = simple_compare(
 					lhs = ast.Num(1),
-					rhs = IsTrue(arg=var_ref(l_name))
+					rhs = IsTrue(arg=var_ref(name))
 				),
-				body = var_ref(l_name),
+				body = var_ref(name),
 				orelse = pyc_vis.visit(self, node.values[1])
 			)
 		)		
