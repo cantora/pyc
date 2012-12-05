@@ -880,6 +880,40 @@ class State(object):
 
 		self.cmds.append(Step(self))
 
+		class Run(PycCmd):
+			"""run the binary with the appropriate input file"""
+
+			def __init__ (self, state):
+				super (Run, self).__init__(state, "run", gdb.COMMAND_RUNNING)
+
+			def invoke (self, arg, from_tty):
+				if not self.state.input:
+					print "no input file provided"
+					return	
+				
+				gdb.post_event(lambda: gdb.execute("run < %s" % (self.state.input)) )
+
+		self.cmds.append(Run(self))
+
+		class Input(PycCmd):
+			"""list the provided input file"""
+
+			def __init__ (self, state):
+				super (Input, self).__init__(state, "input", gdb.COMMAND_FILES)
+
+			def invoke (self, arg, from_tty):
+				if not self.state.input:
+					print "no input file provided"
+					return	
+
+				try:
+					with open(self.state.input, 'r') as f:
+						list_with_linenos(f.read())
+				except IOError as e:
+					print "read error: %s" % (e) 
+
+		self.cmds.append(Input(self))
+
 		class Cmds(PycCmd):
 			"""list pyc related gdb commands"""
 	
