@@ -85,10 +85,6 @@ class SIRtoASM(pyc_vis.Visitor):
 		ClosureFVS:		('get_free_vars', 'var'),
 		DictRef:		('create_dict',),
 		ListRef:		('create_list', 'size'),
-		ProjectToInt:	('project_int', 'arg'),
-		ProjectToBool:	('project_bool', 'arg'),
-		ProjectToBig:	('project_big', 'arg'),
-		Tag:			('tag', 'arg'),
 		IsTrue:			('is_true', 'arg'),
 		IsClass:		('is_class', 'arg'),
 		IsBoundMethod:	('is_bound_method', 'arg'),
@@ -108,6 +104,14 @@ class SIRtoASM(pyc_vis.Visitor):
 			var,
 			var_tbl
 		)
+
+	def set_var_to_Tag(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0x03)), var)
+		]
 
 	def set_var_to_ProjectToInt(self, node, var, var_tbl):
 		return self.set_var_to_project(node, var, var_tbl)
