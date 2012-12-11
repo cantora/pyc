@@ -85,9 +85,6 @@ class SIRtoASM(pyc_vis.Visitor):
 		ClosureFVS:		('get_free_vars', 'var'),
 		DictRef:		('create_dict',),
 		ListRef:		('create_list', 'size'),
-		#InjectFromInt:	('inject_int', 'arg'),
-		InjectFromBool:	('inject_bool', 'arg'),
-		InjectFromBig:	('inject_big', 'arg'),
 		ProjectToInt:	('project_int', 'arg'),
 		ProjectToBool:	('project_bool', 'arg'),
 		ProjectToBig:	('project_big', 'arg'),
@@ -111,6 +108,13 @@ class SIRtoASM(pyc_vis.Visitor):
 			var,
 			var_tbl
 		)
+
+	def set_var_to_InjectFromBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Or(Immed(HexInt(Tag.big.n)), var)
+		]
 
 	def set_var_to_InjectFromBool(self, node, var, var_tbl):
 		return self.set_var_to_inject(node, var, var_tbl, Tag.bool.n)
