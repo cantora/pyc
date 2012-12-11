@@ -345,13 +345,22 @@ class Pop(Inst):
 		return self.inst_join(["pop", str(self.operand)])
 
 class Sall(Inst):
-	def __init__(self, operand, amt):
+	def __init__(self, amt, operand):
 		Inst.__init__(self)
 		self.read_operand('amt', amt)
 		self.read_write_operand('operand', operand)
 
 	def __str__(self):
 		return self.inst_join(["sall", "%s, %s" % (str(self.amt), str(self.operand) ) ])
+
+class Sarl(Inst):
+	def __init__(self, amt, operand):
+		Inst.__init__(self)
+		self.read_operand('amt', amt)
+		self.read_write_operand('operand', operand)
+
+	def __str__(self):
+		return self.inst_join(["sarl", "%s, %s" % (str(self.amt), str(self.operand) ) ])
 
 class And(Inst):
 	def __init__(self, left, right):

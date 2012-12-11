@@ -109,6 +109,26 @@ class SIRtoASM(pyc_vis.Visitor):
 			var_tbl
 		)
 
+	def set_var_to_ProjectToInt(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBool(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0xfffffffc)), var)
+		]
+
+	def set_var_to_project(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Sarl(Immed(HexInt(2)), var)
+		]
+
 	def set_var_to_InjectFromBig(self, node, var, var_tbl):
 		op = self.se_to_operand(node.arg, var_tbl)
 		return [
