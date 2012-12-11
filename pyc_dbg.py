@@ -620,8 +620,17 @@ class State(object):
 					log("e: %s" % e)
 					print "not currently executing pyc generated code"
 					return
-					
-				self.state.full_context(sys.stdout, src_lines, src_lineno, sir_lines, sir_lineno)
+
+				curr_live = self.state.live_map()
+				self.state.full_context(
+					sys.stdout, 
+					src_lines, 
+					src_lineno, 
+					sir_lines, 
+					sir_lineno, 
+					curr_live, 
+					self.state.prev_live
+				)
 
 		self.cmds.append(Context(self))
 
