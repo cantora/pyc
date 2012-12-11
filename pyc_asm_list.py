@@ -155,11 +155,15 @@ class SIRtoASM(pyc_vis.Visitor):
 			n = n | tag
 			return [Mov(Immed(HexInt(n)), var)]
 			
-		return [
+		insns = [
 			Mov(op, var),
-			Sall(Immed(HexInt(0x02)), var),
-			Or(Immed(HexInt(tag)), var)
+			Sall(Immed(HexInt(0x02)), var)
 		]
+		
+		if tag != 0:
+			insns.append(Or(Immed(HexInt(tag)), var))
+
+		return insns
 
 	def set_var_to_HasAttr(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
