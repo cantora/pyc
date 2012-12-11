@@ -112,20 +112,25 @@ class SIRtoASM(pyc_vis.Visitor):
 			var_tbl
 		)
 
+	def set_var_to_InjectFromBool(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.bool.n)
+
 	def set_var_to_InjectFromInt(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.int.n)
+
+	def set_var_to_inject(self, node, var, var_tbl, tag):
 		op = self.se_to_operand(node.arg, var_tbl)
 
-		int_mask = 0xfffffffc
 		if isinstance(op, Immed):
 			n = op.node.val
 			n = n << 2
-			n = n & int_mask
+			n = n | tag
 			return [Mov(Immed(HexInt(n)), var)]
 			
 		return [
 			Mov(op, var),
 			Sall(Immed(HexInt(0x02)), var),
-			And(Immed(HexInt(int_mask)), var)
+			Or(Immed(HexInt(tag)), var)
 		]
 
 	def set_var_to_HasAttr(self, node, var, var_tbl):

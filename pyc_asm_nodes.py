@@ -360,7 +360,16 @@ class And(Inst):
 		self.read_write_operand('right', right)
 
 	def __str__(self):
-		return self.inst_join(["and", "%s, %s" % (str(self.left), str(self.right) ) ])
+		return self.inst_join(["andl", "%s, %s" % (str(self.left), str(self.right) ) ])
+
+class Or(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
+
+	def __str__(self):
+		return self.inst_join(["orl", "%s, %s" % (str(self.left), str(self.right) ) ])
 
 
 class Neg(Inst):
@@ -817,7 +826,14 @@ class HexInt(AsmNode):
 		self.val = val
 
 	def __str__(self):
-		return "0x%02x" % self.val
+		n = self.val
+		s = ""
+		if n < 0:
+			n = -n
+			s += "-"
+
+		s += "0x%02x" % n
+		return s
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, str(self))
