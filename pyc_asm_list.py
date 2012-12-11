@@ -85,7 +85,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		ClosureFVS:		('get_free_vars', 'var'),
 		DictRef:		('create_dict',),
 		ListRef:		('create_list', 'size'),
-		InjectFromInt:	('inject_int', 'arg'),
+		#InjectFromInt:	('inject_int', 'arg'),
 		InjectFromBool:	('inject_bool', 'arg'),
 		InjectFromBig:	('inject_big', 'arg'),
 		ProjectToInt:	('project_int', 'arg'),
@@ -111,6 +111,22 @@ class SIRtoASM(pyc_vis.Visitor):
 			var,
 			var_tbl
 		)
+
+	def set_var_to_InjectFromInt(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+
+		int_mask = 0xfffffffc
+		if isinstance(op, Immed):
+			n = op.node.val
+			n = n << 2
+			n = n & int_mask
+			return [Mov(Immed(HexInt(n)), var)]
+			
+		return [
+			Mov(op, var),
+			Sall(Immed(HexInt(0x02)), var),
+			And(Immed(HexInt(int_mask)), var)
+		]
 
 	def set_var_to_HasAttr(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
