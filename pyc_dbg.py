@@ -71,6 +71,7 @@ class State(object):
 		self.stop_verbosity = 0
 		self.init_cmds()
 		self.extract_from_bin()
+		self.prev_live = {}
 
 	def extract_from_bin(self):
 		try:
@@ -155,6 +156,8 @@ class State(object):
 		except CodeOutsideScope:
 			return
 		
+		curr_live = self.live_map()
+
 		if self.stop_verbosity == 0:
 			src_ctx = self.context_lines(src_lines, src_lineno)
 			sir_ctx = self.context_lines(sir_lines, sir_lineno)
@@ -164,7 +167,19 @@ class State(object):
 			print "sir:%s" % (sir_ctx[0])
 			print "asm:\t%s" % (asm_ctx)
 		else:
-			self.full_context(sys.stdout, src_lines, src_lineno, sir_lines, sir_lineno)			
+			self.full_context(
+				sys.stdout, 
+				src_lines, 
+				src_lineno, 
+				sir_lines, 
+				sir_lineno, 
+				curr_live,
+				self.prev_live
+			)
+
+		self.prev_live = curr_live
+		
+
 
 	def step_bps(self, selector):
 		inf = gdb.selected_inferior()
@@ -343,7 +358,7 @@ class State(object):
 		
 		return output
 
-	def full_context(self, io, src_lines, src_lineno, sir_lines, sir_lineno):
+	def full_context(self, io, src_lines, src_lineno, sir_lines, sir_lineno, curr_live, prev_live):
 		print >>io, "\n".join(self.context_lines(
 			src_lines, 
 			src_lineno,
@@ -382,7 +397,7 @@ class State(object):
 		))
 
 		print >>io, "#"*60
-		self.live_context(io)
+		self.live_context(curr_live, prev_live, io)
 
 	def live_sir_locals(self, bloc, asm_lineno):
 		return bloc['insns'][asm_lineno]['live']
@@ -400,7 +415,7 @@ class State(object):
 		
 		return result
 
-	def live_context(self, io):
+	def live_map(self):
 		"""
 		raises: NoFrame, CodeOutsideScope
 		"""
@@ -412,17 +427,33 @@ class State(object):
 		live_local_list = self.live_locals(bloc, asm_lineno)
 		locals = self.locals(bloc['symtbl'])
 
+		live_map = {}
 		for (name, sir_name) in locals.items():
 			location = bloc['symtbl'].location(Var(sir_name))
-			val = gdb.execute("print/x %s" % (location.to_gdb() ), False, True).strip()
+			val = gdb.parse_and_eval(location.to_gdb() )
+			live_map[name] = (val, (name in live_local_list), location)
+
+		return live_map
+
+	def live_context(self, live_map, prev_live_map, io):
+		for (name, (val, live, location) ) in live_map.items():
 			left = "%s(%s)" % (name, location)
-			line = "%s %s" % (left.ljust(25), val)
-			if name in live_local_list:
+			val_s = str(val)
+			if name in prev_live_map:
+				(prev_val, prev_live, dummy) = prev_live_map[name]
+				if live and not prev_live:
+					left = "*%s" % left
+	
+				if prev_val != val:
+					val_s += pyc_color.red(" <= (%s)" % prev_val)
+
+			line = "%s %s" % (left.ljust(25), val_s)
+			if live:
 				line = pyc_color.yellow(line)
 
 			print >>io, line
-
-
+			
+		
 	def loc_at_sir_lineno(self, sir_lineno):
 		offset = None
 		func = None

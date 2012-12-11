@@ -11,3 +11,6 @@ def ansi_color(s, num):
 def yellow(s):
 	return ansi_color(s, 33)
 
+def red(s):
+	return ansi_color(s, 31)
+
