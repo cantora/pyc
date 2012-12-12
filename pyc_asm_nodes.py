@@ -790,7 +790,7 @@ class Indirect(MemoryRef):
 		if offset != 0:
 			off_str = str(offset)
 
-		s = "%s%s" % (self.reg.to_gdb(), off_str)
+		s = "*(int *)(%s%s)" % (self.reg.to_gdb(), off_str)
 
 		return s
 		
