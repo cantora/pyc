@@ -344,6 +344,42 @@ class Pop(Inst):
 	def __str__(self):
 		return self.inst_join(["pop", str(self.operand)])
 
+class Sall(Inst):
+	def __init__(self, amt, operand):
+		Inst.__init__(self)
+		self.read_operand('amt', amt)
+		self.read_write_operand('operand', operand)
+
+	def __str__(self):
+		return self.inst_join(["sall", "%s, %s" % (str(self.amt), str(self.operand) ) ])
+
+class Sarl(Inst):
+	def __init__(self, amt, operand):
+		Inst.__init__(self)
+		self.read_operand('amt', amt)
+		self.read_write_operand('operand', operand)
+
+	def __str__(self):
+		return self.inst_join(["sarl", "%s, %s" % (str(self.amt), str(self.operand) ) ])
+
+class And(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
+
+	def __str__(self):
+		return self.inst_join(["andl", "%s, %s" % (str(self.left), str(self.right) ) ])
+
+class Or(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
+
+	def __str__(self):
+		return self.inst_join(["orl", "%s, %s" % (str(self.left), str(self.right) ) ])
+
 
 class Neg(Inst):
 	def __init__(self, operand):
@@ -754,7 +790,7 @@ class Indirect(MemoryRef):
 		if offset != 0:
 			off_str = str(offset)
 
-		s = "%s%s" % (self.reg.to_gdb(), off_str)
+		s = "*(int *)(%s%s)" % (self.reg.to_gdb(), off_str)
 
 		return s
 		
@@ -799,7 +835,14 @@ class HexInt(AsmNode):
 		self.val = val
 
 	def __str__(self):
-		return "0x%02x" % self.val
+		n = self.val
+		s = ""
+		if n < 0:
+			n = -n
+			s += "-"
+
+		s += "0x%02x" % n
+		return s
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, str(self))

@@ -85,13 +85,6 @@ class SIRtoASM(pyc_vis.Visitor):
 		ClosureFVS:		('get_free_vars', 'var'),
 		DictRef:		('create_dict',),
 		ListRef:		('create_list', 'size'),
-		InjectFromInt:	('inject_int', 'arg'),
-		InjectFromBool:	('inject_bool', 'arg'),
-		InjectFromBig:	('inject_big', 'arg'),
-		ProjectToInt:	('project_int', 'arg'),
-		ProjectToBool:	('project_bool', 'arg'),
-		ProjectToBig:	('project_big', 'arg'),
-		Tag:			('tag', 'arg'),
 		IsTrue:			('is_true', 'arg'),
 		IsClass:		('is_class', 'arg'),
 		IsBoundMethod:	('is_bound_method', 'arg'),
@@ -111,6 +104,66 @@ class SIRtoASM(pyc_vis.Visitor):
 			var,
 			var_tbl
 		)
+
+	def set_var_to_Tag(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0x03)), var)
+		]
+
+	def set_var_to_ProjectToInt(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBool(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0xfffffffc)), var)
+		]
+
+	def set_var_to_project(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Sarl(Immed(HexInt(2)), var)
+		]
+
+	def set_var_to_InjectFromBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Or(Immed(HexInt(Tag.big.n)), var)
+		]
+
+	def set_var_to_InjectFromBool(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.bool.n)
+
+	def set_var_to_InjectFromInt(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.int.n)
+
+	def set_var_to_inject(self, node, var, var_tbl, tag):
+		op = self.se_to_operand(node.arg, var_tbl)
+
+		if isinstance(op, Immed):
+			n = op.node.val
+			n = n << 2
+			n = n | tag
+			return [Mov(Immed(HexInt(n)), var)]
+			
+		insns = [
+			Mov(op, var),
+			Sall(Immed(HexInt(0x02)), var)
+		]
+		
+		if tag != 0:
+			insns.append(Or(Immed(HexInt(tag)), var))
+
+		return insns
 
 	def set_var_to_HasAttr(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(

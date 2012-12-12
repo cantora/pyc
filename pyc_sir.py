@@ -332,7 +332,8 @@ class IRTreeSimplifier(ASTTxformer):
 		return (None, sir_list)
 
 	def visit_Error(self, node):
-		return (Error(msg=node.msg), [])
+		n = ast.Str(node.msg.s + " (sir-line %s)" % (self.lineno+1) )
+		return (Error(msg=n), [])
 
 	def visit_Let(self, node):
 		(rhs_name, rhs_sir_list) = pyc_vis.visit(self, node.rhs)
