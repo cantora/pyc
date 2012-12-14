@@ -123,7 +123,7 @@ def set_live(asm_list, live = set([]), depth=0):
 
 			while True:
 				log("%sins: AsmDoWhile(%d)-test" % (" "*depth, i))
-				#live = live | prev_live #union back in the condition live set
+				live = live | prev_live #union back in the condition live set
 				live = live | set( get_vars(ins.reads()) )
 				log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
 				if live == prev_live and i > 0:
