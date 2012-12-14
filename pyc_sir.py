@@ -2,9 +2,12 @@ from pyc_log import *
 import pyc_gen_name
 import pyc_vis
 import pyc_ir
+import pyc_parser
 from pyc_ir_nodes import *
 from pyc_astvisitor import ASTTxformer
 from pyc_constants import BadAss
+import pyc_lineage
+
 import ast
 
 import copy
@@ -31,7 +34,7 @@ def _sir_list_to_str(sir_list, depth=0):
 			lines.extend(_sir_list_to_str(sir.body, depth+1) )
 			lines.append("%send(%s)" % (" "*depth, sir.name) )
 		else:
-			lines.append("%s%s" % (" "*depth, pyc_ir.dump(sir) ) )
+			lines.append("%s%s" % (" "*depth, pyc_parser.dump(sir) ) )
 			
 
 	return lines
@@ -40,10 +43,23 @@ class IRTreeSimplifier(ASTTxformer):
 	
 	def __init__(self):
 		ASTTxformer.__init__(self)
+		self.lineno = 0
+
+	def next_lineno(self):
+		self.log("lineno %d => %d" % (self.lineno, self.lineno + 1))
+		self.lineno += 1
+		return self.lineno
 
 	def gen_name(self):
 		return pyc_gen_name.new("gen_")
-	
+
+	def make_assign(self, target, value):
+		return make_assign(
+			target,
+			value,
+			lineno = self.next_lineno()
+		)
+
 	def visit_Module(self, node):
 		return (
 			ast.Module(
@@ -54,6 +70,21 @@ class IRTreeSimplifier(ASTTxformer):
 
 	def visit_BlocDef(self, node):
 		sir_body = []
+		bloc_lineno = self.next_lineno()
+
+		sir_body.extend([
+			make_assign(
+				var_set('False'), 
+				InjectFromBool(arg=ast.Num(n=0)), 
+				lineno = self.next_lineno() 
+			),
+			make_assign(
+				var_set('True'), 
+				InjectFromBool(arg=ast.Num(n=1)),
+				lineno = self.next_lineno()
+			)
+		])
+
 		for n in node.body:
 			(name, sir_list) = pyc_vis.visit(self, n)
 			sir_body += sir_list
@@ -62,14 +93,15 @@ class IRTreeSimplifier(ASTTxformer):
 			BlocDef(
 				name = node.name,
 				body = sir_body,
-				params = [pyc_vis.visit(self, n)[0] for n in node.params]
+				lineno = bloc_lineno,
+				params = [pyc_vis.visit(self, n)[0] for n in node.params]				
 			),
 			[]
 		)
 
 	def visit_Return(self, node):
 		(name, sir_list) = pyc_vis.visit(self, node.value)
-		sir_list.append(ast.Return(value = name))
+		sir_list.append(ast.Return(value = name, lineno = self.next_lineno() ))
 		return (None, sir_list)
 		
 	def visit_ClosureCall(self, node):
@@ -81,7 +113,7 @@ class IRTreeSimplifier(ASTTxformer):
 			arg_names.append(arg_name)
 
 		result_name = self.gen_name()
-		sir_list.append(make_assign(
+		sir_list.append(self.make_assign(
 			var_set(result_name),
 			ClosureCall(
 				var = var_ref(node.var.id),
@@ -92,26 +124,29 @@ class IRTreeSimplifier(ASTTxformer):
 		return (var_ref(result_name), sir_list)
 		
 
-	def visit_BigInit(self, node):
+	def visit_Seq(self, node):
 		init_sir_list = []
 
 		for n in node.body:
 			(name, sir_list) = pyc_vis.visit(self, n)
 			init_sir_list.extend( sir_list )
 
-		return (pyc_vis.visit(self, node.pyobj_name)[0], init_sir_list)
+		#name represents the last item in Seq (implicit value of the Seq node)
+		return (name, init_sir_list)
 
 	def visit_Assign(self, node):	
+		self.log("Assign(%d): %s" % (pyc_lineage.src_lineno(node), ast.dump(node) ))
+		(name, name_sir_list) = pyc_vis.visit(self, node.value)
+
 		if isinstance(node.targets[0], ast.Name):
 			target = node.targets[0]
 			target_sir_list = []
 		else:
 			(target, target_sir_list) = pyc_vis.visit(self, node.targets[0])
-
-		(name, name_sir_list) = pyc_vis.visit(self, node.value)
+		
 		
 		sir_list = name_sir_list + target_sir_list
-		sir_list.append(make_assign(
+		sir_list.append(self.make_assign(
 			target,			
 			name
 		))
@@ -119,10 +154,10 @@ class IRTreeSimplifier(ASTTxformer):
 		return (None, sir_list)
 
 	def visit_Subscript(self, node):
-		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
 		(var_name, var_sir_list) = pyc_vis.visit(self, node.value)
+		(slice_name, slice_sir_list) = pyc_vis.visit(self, node.slice)
 
-		sir_list = var_sir_list + slice_sir_list #+ 
+		sir_list = var_sir_list + slice_sir_list 
 		new_sub = ast.Subscript(
 			value = var_name,
 			slice = slice_name,
@@ -131,9 +166,9 @@ class IRTreeSimplifier(ASTTxformer):
 
 		if isinstance(node.ctx, ast.Load):
 			result_name = self.gen_name()
-			sir_list.append(make_assign(
+			sir_list.append(self.make_assign(
 				var_set(result_name),
-				new_sub		
+				new_sub
 			))
 			return (var_ref(result_name), sir_list)
 		
@@ -151,7 +186,7 @@ class IRTreeSimplifier(ASTTxformer):
 
 		if isinstance(node.ctx, ast.Load):
 			result_name = self.gen_name()
-			sir_list.append(make_assign(
+			sir_list.append(self.make_assign(
 				var_set(result_name),
 				new_attr
 			))
@@ -174,6 +209,8 @@ class IRTreeSimplifier(ASTTxformer):
 		result_node = node.__class__()
 		result_sir_list = []
 
+		#print "(A)%d: %s" % (self.lineno, ast.dump(node) )
+		
 		for (fld, value) in ast.iter_fields(node):
 			if isinstance(value, ast.AST):
 				(name, sir_list) = pyc_vis.visit(self, value)
@@ -184,10 +221,11 @@ class IRTreeSimplifier(ASTTxformer):
 			else:
 				raise Exception("unexpected field type: %r. %s" % (value, ast.dump(node)))
 
+		#print "(B)%d: %s" % (self.lineno, ast.dump(node) )
 		return (
 			var_ref(result_name),
 			result_sir_list + [
-				make_assign(
+				self.make_assign(
 					var_set(result_name),
 					result_node
 				)
@@ -200,7 +238,7 @@ class IRTreeSimplifier(ASTTxformer):
 		
 		result_name = self.gen_name()
 		l_sir_list += r_sir_list
-		l_sir_list.append(make_assign(
+		l_sir_list.append(self.make_assign(
 			var_set(result_name),
 			ast.BinOp( 
 				left = l_name, 
@@ -214,7 +252,7 @@ class IRTreeSimplifier(ASTTxformer):
 	def visit_UnaryOp(self, node):
 		(name, sir_list) = pyc_vis.visit(self, node.operand)
 		result_name = self.gen_name()
-		sir_list.append(make_assign(
+		sir_list.append(self.make_assign(
 			var_set(result_name),
 			ast.UnaryOp(
 				op = node.op.__class__(),
@@ -240,7 +278,7 @@ class IRTreeSimplifier(ASTTxformer):
 				sir_list += arg_sir_list
 		
 		result_name = self.gen_name()
-		sir_list.append(make_assign(
+		sir_list.append(self.make_assign(
 			var_set(result_name),
 			node.__class__(
 				func = node.func, 
@@ -265,7 +303,12 @@ class IRTreeSimplifier(ASTTxformer):
 		return (ast.Index(value_name), value_sir_list)
 
 	def make_print(self, args):
-		return ast.Print(dest=None, values=args, nl=True)
+		return ast.Print(
+			dest=None, 
+			values=args, 
+			nl=True, 
+			lineno = self.next_lineno()
+		)
 
 	def visit_Print(self, node):
 		nlen = len(node.values)
@@ -280,80 +323,98 @@ class IRTreeSimplifier(ASTTxformer):
 
 	def visit_Num(self, node):
 		return (ast.Num(n=node.n), [])
-		
+	
+	def visit_Str(self, node):
+		return (ast.Str(node.s), [])
+
 	def visit_Expr(self, node):
 		(dummy, sir_list) = pyc_vis.visit(self, node.value)
 		return (None, sir_list)
 
-
 	def visit_Error(self, node):
-		return (Error(msg=node.msg), [])
+		n = ast.Str(node.msg.s + " (sir-line %s)" % (self.lineno+1) )
+		return (Error(msg=n), [])
 
 	def visit_Let(self, node):
 		(rhs_name, rhs_sir_list) = pyc_vis.visit(self, node.rhs)
+		assign = self.make_assign(
+			var_set(node.name.id),
+			rhs_name
+		)
 		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
 		return (
 			body_name,
-			rhs_sir_list + [
-				make_assign(
-					var_set(node.name.id),
-					rhs_name
-				)					
-			] + body_sir_list
+			rhs_sir_list + [assign] + body_sir_list
 		)
 
 	def visit_IfExp(self, node):
-		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
-		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
-		(els_name, els_sir_list) = pyc_vis.visit(self, node.orelse)
-
 		result_name = self.gen_name()
+		
+		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		if_lineno = self.next_lineno()
+
+		(body_name, body_sir_list) = pyc_vis.visit(self, node.body)
+		body_sir_list += [self.make_assign(
+			var_set(result_name),
+			body_name
+		)]
+
+		els_lineno = self.next_lineno() #increment to account for the 'else:' line
+		(els_name, els_sir_list) = pyc_vis.visit(self, node.orelse)
+		els_sir_list += [self.make_assign(
+				var_set(result_name),
+				els_name
+		)]
+
 		return (
 			var_ref(result_name),
 			test_sir_list + [
 				ast.If(
 					test = test_name,
-					body = body_sir_list + [
-						make_assign(
-							var_set(result_name),
-							body_name
-						)
-					],
-					orelse = els_sir_list + [
-						make_assign(
-							var_set(result_name),
-							els_name
-						)
-					]
+					body = body_sir_list,
+					orelse = els_sir_list,
+					lineno = if_lineno,
+					orelse_lineno = els_lineno
 				)
 			]
 		)
 
 	def visit_If(self, node):
 		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		if_lineno = self.next_lineno()
+
 		body_sir_list = []
 		for x in node.body:
 			(dummy1, sl) = pyc_vis.visit(self, x)
 			body_sir_list += sl
 
+		#increment to account for the 'else:' line
+		els_lineno = self.next_lineno() if len(node.orelse) > 0 else None
 		els_sir_list = []
 		for x in node.orelse:
 			(dummy2, sl) = pyc_vis.visit(self, x)
 			els_sir_list += sl
 
+		ifnode = ast.If(
+			test = test_name,
+			body = body_sir_list,
+			orelse = els_sir_list,
+			lineno = if_lineno
+		)
+		
+		if els_lineno:
+			ifnode.orelse_lineno = els_lineno 
+
 		return (
 			None,
-			test_sir_list + [
-				ast.If(
-					test = test_name,
-					body = body_sir_list,
-					orelse = els_sir_list
-				)
-			]
+			test_sir_list + [ifnode]
 		)		
 
 	def visit_While(self, node):
+		dum_lineno = self.next_lineno() #dummy for 'while(1)' in SIR python output
 		(test_name, test_sir_list) = pyc_vis.visit(self, node.test)
+		test_lineno = self.next_lineno()
+
 		body_sir_list = []
 		for x in node.body:
 			(dummy, sl) = pyc_vis.visit(self, x)
@@ -365,7 +426,9 @@ class IRTreeSimplifier(ASTTxformer):
 				DoWhile(
 					test = test_name,
 					tbody = test_sir_list,
-					wbody = body_sir_list
+					wbody = body_sir_list,
+					lineno = test_lineno,
+					dummy_lineno = dum_lineno
 				)
 			]
 		)
@@ -383,7 +446,7 @@ class IRTreeSimplifier(ASTTxformer):
 		return (
 			var_ref(result_name),
 			l_sir_list + r_sir_list + [
-				make_assign(
+				self.make_assign(
 					var_set(result_name),
 					simple_compare(l_name, r_name)
 				)
@@ -391,20 +454,20 @@ class IRTreeSimplifier(ASTTxformer):
 		)
 
 	def visit_Tag(self, node):
-		if not isinstance(node.arg, ast.Name):
-			raise Exception("error: Tag should only have Name nodes as argument")
-		
+		(arg_name, sir_list) = pyc_vis.visit(self, node.arg)
 		result_name = self.gen_name()
 		return (
 			var_ref(result_name), 
-			[make_assign(var_set(result_name), Tag(arg=var_ref(node.arg.id))) ]
+			sir_list + [
+				self.make_assign(var_set(result_name), Tag(arg=arg_name) ) 
+			]
 		)
 
 #convert an abstract syntax tree into a list of
 #simple IR statements
 def txform(ir_tree, **kwargs):
 	v = IRTreeSimplifier()
-	v.log = lambda s: log("Simplifier : %s" % s)
+	v.log = lambda s: log("Simplifier(%d) : %s" % (v.lineno, s) )
 	if 'tracer' in kwargs:
 		v.tracer = kwargs['tracer']
 

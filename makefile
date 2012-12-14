@@ -5,8 +5,8 @@ P0TESTS	= $(wildcard ./p0tests/grader_tests/*.py) #\
 #$(filter-out %stack_test.py, $(wildcard ./p0tests/mytests/*.py) ) \
 #$(wildcard ./p0tests/student_tests/*.py)
 
-P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py)
-P2TESTS	= $(wildcard ./p2tests/grader_tests/*.py)
+P1TESTS	= $(wildcard ./p1tests/grader_tests/*.py) $(wildcard ./p1tests/my_tests/*.py)
+P2TESTS	= $(wildcard ./p2tests/grader_tests/*.py) $(wildcard ./p2tests/my_tests/*.py)
 P3TESTS	= $(wildcard ./p3tests/grader_tests/*.py) $(wildcard ./p3tests/my_tests/*.py)
 
 .PHONY: pkg
@@ -31,6 +31,12 @@ ply:
 
 .PHONY: tests
 tests: p0tests p1tests p2tests p3tests
+
+.PHONY: ir-tests
+ir-tests: p0-irtests p1-irtests p2-irtests p3-irtests
+
+.PHONY: ir-line-tests
+ir-line-tests: p0-ir-linetests p1-ir-linetests p2-ir-linetests p3-ir-linetests
 
 .PHONY: p0tests
 p0tests:
@@ -106,6 +112,46 @@ p2-irtests:
 p3-irtests:
 	@for i in $(P3TESTS); do \
 		VERBOSE=0 ./test-ir.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p0-ir-linetests
+p0-ir-linetests:
+	@for i in $(P0TESTS); do \
+		VERBOSE=0 ./test-ir-line.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p1-ir-linetests
+p1-ir-linetests:
+	@for i in $(P1TESTS); do \
+		VERBOSE=0 ./test-ir-line.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p2-ir-linetests
+p2-ir-linetests:
+	@for i in $(P2TESTS); do \
+		VERBOSE=0 ./test-ir-line.sh $$i; \
+		if [ $$? -ne 0 ]; then \
+			echo "FAILED: $$(basename $$i)"; \
+			break; \
+		fi; \
+	done
+
+.PHONY: p3-ir-linetests
+p3-ir-linetests:
+	@for i in $(P3TESTS); do \
+		VERBOSE=0 ./test-ir-line.sh $$i; \
 		if [ $$? -ne 0 ]; then \
 			echo "FAILED: $$(basename $$i)"; \
 			break; \

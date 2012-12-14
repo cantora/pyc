@@ -15,12 +15,14 @@ import pyc_closure
 import pyc_sir_to_py
 import pyc_declassify
 import pyc_lineage
+import pyc_dbg_data
 
 import compiler
 from pyc_log import *
 import os.path
 import time
 import resource
+import StringIO
 
 g_phases = (
 	("parse", 			pyc_parser),
@@ -56,6 +58,24 @@ def opt_parser():
 		'--IR', 
 		action='store_true', 
 		help='output intermediate representation python program instead of x86'
+	)
+	parser.add_argument(
+		'-n', 
+		'--code-only',
+		action='store_true', 
+		help='dont output prefix and suffix for IR python program (for use with --IR)'
+	)
+	parser.add_argument(
+		'-l', 
+		'--sir-lineno',
+		action='store_true', 
+		help='output source line numbers as comments in SIR source (for use with --IR)'
+	)
+	parser.add_argument(
+		'-g', 
+		'--graph', 
+		action='store_true', 
+		help='output graph visualization script of the generated AST instead of x86'
 	)
 	parser.add_argument(
 		'--alloc', 
@@ -108,28 +128,61 @@ def run(options):
 		pyc_parser.print_astree(iast)
 		exit(0)
 
-	for (phase_name, phase_mod) in g_phases[1:-2]:
-		log("phase: %s" % phase_name)
-		iast = getattr(phase_mod, 'txform')(iast, tracer=trace)
-		if options.phase == phase_name:
-			pyc_parser.print_astree(iast)
-			exit(0)
+	
+	
+	log("phase: declassify")
+	iast = pyc_declassify.txform(iast, tracer=trace)
+	if options.phase == 'declassify':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: localize")
+	(iast, localize_name_map) = pyc_localize.txform(iast, tracer=trace)
+	if options.phase == 'localize':
+		pyc_parser.print_astree(iast)
+		exit(0)
 		
+	log("phase: IR")
+	iast = pyc_ir.txform(iast, tracer=trace)
+	if options.phase == 'explicate':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: heapify")
+	(iast, heapify_name_map) = pyc_heapify.txform(iast, tracer=trace)
+	if options.phase == 'heapify':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
+	log("phase: closure")
+	iast = pyc_closure.txform(iast, tracer=trace)
+	if options.phase == 'closure':
+		pyc_parser.print_astree(iast)
+		exit(0)
+
 	sir_mod = pyc_sir.txform(iast, tracer=trace)
 	if options.phase == 'sir-list':
-		print pyc_sir.sir_list_to_str(sir_mod.body)
+		#print pyc_sir.sir_list_to_str(sir_mod.body)
+		pyc_parser.print_astree(sir_mod)
 		exit(0)
 
 	if options.IR:
-		with output_file(options, "python") as f:
-			print >>f, "import sys"
-			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
-			print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
-			print >>f, "from pyc_runtime import *"
-			pyc_sir_to_py.generate(sir_mod, f)	
-			print >>f, ""
-			print >>f, "#" + "*"*40 + "#"
-			print >>f, "exit(main())"
+		type = "txt" if options.code_only else "python"
+		with output_file(options, type) as f:
+			if not options.code_only:
+				print >>f, "import sys"
+				print >>f, "import resource"
+				print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./pylib"))
+				print >>f, "sys.path.append(%s)" % repr(os.path.abspath("./."))
+				print >>f, "from pyc_runtime import *"
+				print >>f, "resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))"
+				print >>f, "sys.setrecursionlimit(10**6)"
+
+			pyc_sir_to_py.generate(sir_mod, f, line_comments = True, src_line_comments = options.sir_lineno)
+			if not options.code_only:
+				print >>f, ""
+				print >>f, "#" + "*"*40 + "#"
+				print >>f, "exit(main())"
 		exit(0)
 	
 	bloc_list = pyc_asm_list.from_sir_mod(sir_mod)
@@ -145,42 +198,65 @@ def run(options):
 		(adjusted_insns, symtbl) = pyc_reg_allocator.allocate(bloc.insns, options.alloc == 'stack')
 		#print "allocation time: %d" % (time.time() - t0)
 	
-		asm_ir = pyc_asm_nodes.AsmIf.patch(adjusted_insns)
+		asm_ir = pyc_asm_nodes.AsmFlow.patch(adjusted_insns)
 
 		log(lambda : "final bloc: %r" % bloc )
 		flat_bloc_list.append(pyc_asm_nodes.FlatCodeBloc(
 			name = bloc.name,
 			insns = asm_ir,
-			symtbl = symtbl
+			symtbl = symtbl,
+			origin = bloc.origin
 		))
 
-	output(options, flat_bloc_list)
+	if options.graph:
+		with output_file(options, "graph") as f:
+			pyc_lineage.graph(flat_bloc_list, f)
 
+		exit(0)
 
-def asm_headers():
+	sir_src = StringIO.StringIO()
+	pyc_sir_to_py.generate(sir_mod, sir_src)
+
+	patched_bloc_list = []
+	for bloc in flat_bloc_list:
+		patched_bloc_list.append(bloc.patch())
+
+	output(
+		options, 
+		patched_bloc_list, 
+		pyc_dbg_data.headers(
+			options.src, 
+			sir_src.getvalue(), 
+			patched_bloc_list,
+			name_map(localize_name_map, heapify_name_map)
+		)
+	)
+
+def name_map(localize_map, heapify_map):
+	result = {}
+
+	for (local_name, user_name) in localize_map.items():
+		heapified = False
+		for (heap_name, non_heap_name) in heapify_map.items():
+			if local_name == non_heap_name:
+				result[heap_name] = user_name
+				heapified = True
+				break
+
+		if heapified == False:
+			result[local_name] = user_name
+	
+	return result
+
+def asm_headers(debug_headers):
 	headers = []
-	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
+	headers.extend(debug_headers)
 	headers.extend([
-		".section asdf",
-		"blahblah:",
-		"\t.ascii \"oijeoijfoijf\"",
 		".text",
 	])
+	headers.extend(pyc_asm_nodes.GlobalString.data_headers())
 
 	return headers
-
-def asm_trailers():
-	return [
-		".globl  start",
-		".type   start, @function",
-		"start:",
-		"\tpushl   %ebp",
-		"\tmovl    %esp, %ebp",
-		"\tcall    main",
-		"\tmovl    $0, %eax",
-		"\tleave",
-		"\tret"
-	]
 
 def output_is_to_stdout(options):
 	return (options.src_type == 'cmdline' or options.output == '-')
@@ -189,7 +265,15 @@ def output_file(options, type):
 	if output_is_to_stdout(options):
 		return sys.stdout
 	else:
-		ext = "py-ir" if type == "python" else "s"
+		if type == 'python' :
+			ext = 'py-ir'
+		elif type == 'txt':
+			ext = 'txt'
+		elif type == 'graph':
+			ext = 'graph'
+		else:
+			ext = "s"
+
 		output_fname = "%s.%s" % (os.path.splitext(options.file.name)[0], ext)
 		ofile = open(output_fname, 'w')
 		return ofile
@@ -205,21 +289,22 @@ def with_output_file(options, type, bloc):
 		ofile.close()
 	
 	
-def output(options, flat_bloc_list):
+def output(options, patched_bloc_list, debug_headers):
 	with output_file(options, "asm") as f:
-		for hdr in asm_headers():
+		for hdr in asm_headers(debug_headers):
 			print >>f, (hdr)
 
 		print >>f
-		for bloc in flat_bloc_list:
+		for bloc in patched_bloc_list:
 			print >>f
-			print >>f, ".globl  %s" % bloc.name
+			if bloc.name == "main":
+				print >>f, ".globl  %s" % bloc.name
+			print >>f, ".type  %s, @function" % bloc.name
 			print >>f, "%s:" % bloc.name
 			bloc.to_asm(f, lambda s: ("\t" + s))
-		
+			print >>f, ".size %s, .-%s" % (bloc.name, bloc.name)
+
 		print >>f
-		for trlr in asm_trailers():
-			print >>f, trlr
 
 if __name__ == "__main__":
 	opt_p = opt_parser()

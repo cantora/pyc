@@ -50,7 +50,7 @@ def dispatch_to_prefix_value(instance, prefix, default, value, *args, **kwargs):
 		instance.log(instance.depth_fmt("%s => %s" % (value, meth.__name__) ) )
 
 	result = meth(*args, **kwargs)
-	if instance.tracer is not None:
+	if hasattr(instance, 'tracer') and instance.tracer is not None:
 		instance.tracer.trace(result, instance, prefix, default, value, *args, **kwargs)
 
 	return result
@@ -66,4 +66,8 @@ def visit(instance, node, *args, **kwargs):
 
 def walk(instance, tree, *args, **kwargs):
 	instance.depth = 0
+
+	if isinstance(tree, list):
+		raise Exception("expected a tree root of some sort, not a list: %r" % tree)
+
 	return dispatch(instance, tree, *args, **kwargs)

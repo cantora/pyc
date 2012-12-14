@@ -2,29 +2,29 @@ from pyc_log import *
 from pyc_asm_nodes import *
 import time
 
-def live_list_to_str_lines(live_list):
+def live_list_to_str_lines(asm_list):
 	lines = []
-	for x in reversed(live_list):
-		if isinstance(x[0], AsmFlow):
-			lines.append("(%s(%s), %s)" % (x[0].__class__.__name__, x[0].test, repr(x[1]) ) )
+	for x in asm_list:
+		if isinstance(x, AsmFlow):
+			lines.append("(%s(%s), %s)" % (x.__class__.__name__, x.test, repr(x.live) ) )
 		else:
-			lines.append(repr(x))
+			lines.append(repr((x, x.live)))
 
 	return lines
 
 def interference_graph(asm_list):
 	t0 = time.time()
-	live_list = to_live_list(asm_list)
+	live = set_live(asm_list)
 	#print "    live list time %d" % (time.time() - t0)
-	log(lambda: "live_list:\n\t%s" % ("\n\t".join(live_list_to_str_lines(live_list) ) ) )
+	log(lambda: "live_list:\n\t%s" % ("\n\t".join(live_list_to_str_lines(asm_list) ) ) )
 
 	t0 = time.time()
-	graph = to_intf_graph(live_list)
+	graph = to_intf_graph(asm_list)
 	#print "    interference time: %d" % (time.time() - t0)
 
 	log(lambda: "graph:\n\t%s" % "\n\t".join(["%s: %s" % (repr(k), repr(v)) for (k,v) in graph.items()]) )
 	
-	return (live_list, graph)
+	return graph
 
 class IntfGraph(dict):
 	def add_edge(self, n1, n2):
@@ -35,16 +35,16 @@ class IntfGraph(dict):
 	def init_node(self, node):
 		self[node] = self.get(node, set([]))
 
-def to_intf_graph(live_list):
+def to_intf_graph(asm_list):
 	graph = IntfGraph({})
 
 	for reg in Register.registers:
 		graph.init_node(Register(reg))
 
-	def _to_intf_graph(live_list, graph, depth):
-		log("%screate interference graph from live_list" % (" "*depth))	
-		for (ins, live) in live_list:
-			#print "live=%d, depth=%d" % (len(live), depth)
+	def _to_intf_graph(asm_list, graph, depth):
+		log("%screate interference graph from asm_list" % (" "*depth))	
+		for ins in asm_list:
+			#print "live=%d, depth=%d" % (len(ins.live), depth)
 			if isinstance(ins, AsmIf):
 				log("%sAsmIf.orelse" % (" "*depth))
 				graph = _to_intf_graph(ins.orelse, graph, depth+1)
@@ -64,12 +64,12 @@ def to_intf_graph(live_list):
 				if len(writes) < 1:
 					continue
 		
-				log("%s(%s) => %s \n\t%s" % (" "*depth, ins.__class__.__name__, repr(writes), repr(live) ) )
+				log("%s(%s) => %s \n\t%s" % (" "*depth, ins.__class__.__name__, repr(writes), repr(ins.live) ) )
 						
 				for write in writes:
 					graph.init_node(write)
 		
-				for var in live:
+				for var in ins.live:
 					graph.init_node(var)			
 					if isinstance(ins, Call):
 						for write in writes:
@@ -92,9 +92,9 @@ def to_intf_graph(live_list):
 		return graph
 	#def _to_intf_graph
 
-	return _to_intf_graph(live_list, graph, 0)
+	return _to_intf_graph(asm_list, graph, 0)
 
-def to_live_list(asm_list, live = set([]), depth=0):
+def set_live(asm_list, live = set([]), depth=0):
 	result = []
 
 	log("%sprocess asm_list into live_list: %s" % (" "*depth, repr(live)) )
@@ -103,22 +103,16 @@ def to_live_list(asm_list, live = set([]), depth=0):
 		writes = set([])
 
 		if isinstance(ins, AsmIf):
-			body_live_list = []
-			els_live_list = []
 			body_live = set([])
 			els_live = set([])
 
 			log("%sins: AsmIf-end" % (" "*depth) )
 			if len(ins.orelse) > 0:
-				els_live_list = to_live_list(ins.orelse, live, depth+1)
-				els_live = els_live_list[-1][1]
+				els_live = set_live(ins.orelse, live, depth+1)
 			
 			log("%sins: AsmIf-else" % (" "*depth) )
 			if len(ins.body) > 0:
-				body_live_list = to_live_list(ins.body, live, depth+1)
-				body_live = body_live_list[-1][1]
-
-			ins = ins.shallow_beget(ins.__class__, ins.test, body_live_list, els_live_list)
+				body_live = set_live(ins.body, live, depth+1)
 			
 			live = body_live | els_live
 			log("%sins: AsmIf" % (" "*depth) )
@@ -137,24 +131,19 @@ def to_live_list(asm_list, live = set([]), depth=0):
 				prev_live = set([]) | live
 
 				log("%sins: AsmDoWhile(%d)-tbody" % (" "*depth, i))
-				tbody_live_list = to_live_list(ins.tbody, live, depth+1)
-				live = tbody_live_list[-1][1]
+				live = set_live(ins.tbody, live, depth+1)
 				
 				log("%sins: AsmDoWhile(%d)-wbody" % (" "*depth, i))
-				wbody_live_list = to_live_list(ins.wbody, live, depth+1)
-				live = wbody_live_list[-1][1] 
+				live = set_live(ins.wbody, live, depth+1)
 				i += 1
-			
-			ins = ins.shallow_beget(ins.__class__, ins.test, tbody_live_list, wbody_live_list)
 		else:
 			log("%sins: %s" % (" "*depth, ins) )
 			reads = set( get_vars(ins.reads()) )
 			writes = set( get_vars(ins.writes()) )
 
 		live = (live - writes) | reads
-		result.append((ins, set(live)) )
+		ins.live = live
 		log("%slive(%d): %s" % (" "*depth, len(live), repr(live) ) )
 
-
-	return result
+	return live
 

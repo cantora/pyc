@@ -19,24 +19,28 @@ class SIRtoASM(pyc_vis.Visitor):
 	def __init__(self):
 		pyc_vis.Visitor.__init__(self)
 
+	def set_origin(self, insns, node):
+		for i in insns:
+			i.origin = node
 
 	def visit_Assign(self, assign, var_tbl):
 		
 		nodelen = len(assign.targets)
 		if nodelen != 1:
 			raise Exception("expected Assign with a single assignment")
-	
+
 		if isinstance(assign.targets[0], ast.Subscript):
-			return self.set_subscript(assign, var_tbl)
+			result = self.set_subscript(assign, var_tbl)
 		elif isinstance(assign.targets[0], ast.Attribute):
-			return self.set_attribute(assign, var_tbl)
+			result = self.set_attribute(assign, var_tbl)
 		else:
 			var = Var(assign.targets[0].id)
 				
 			result = self.set_var(var, assign.value, var_tbl)
 			var_tbl[var] = True
 		
-			return result
+		self.set_origin(result, assign)
+		return result
 
 	def set_subscript(self, node, var_tbl):
 		return self.fn_call(
@@ -81,13 +85,6 @@ class SIRtoASM(pyc_vis.Visitor):
 		ClosureFVS:		('get_free_vars', 'var'),
 		DictRef:		('create_dict',),
 		ListRef:		('create_list', 'size'),
-		InjectFromInt:	('inject_int', 'arg'),
-		InjectFromBool:	('inject_bool', 'arg'),
-		InjectFromBig:	('inject_big', 'arg'),
-		ProjectToInt:	('project_int', 'arg'),
-		ProjectToBool:	('project_bool', 'arg'),
-		ProjectToBig:	('project_big', 'arg'),
-		Tag:			('tag', 'arg'),
 		IsTrue:			('is_true', 'arg'),
 		IsClass:		('is_class', 'arg'),
 		IsBoundMethod:	('is_bound_method', 'arg'),
@@ -108,10 +105,70 @@ class SIRtoASM(pyc_vis.Visitor):
 			var_tbl
 		)
 
+	def set_var_to_Tag(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0x03)), var)
+		]
+
+	def set_var_to_ProjectToInt(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBool(self, node, var, var_tbl):
+		return self.set_var_to_project(node, var, var_tbl)
+
+	def set_var_to_ProjectToBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			And(Immed(HexInt(0xfffffffc)), var)
+		]
+
+	def set_var_to_project(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Sarl(Immed(HexInt(2)), var)
+		]
+
+	def set_var_to_InjectFromBig(self, node, var, var_tbl):
+		op = self.se_to_operand(node.arg, var_tbl)
+		return [
+			Mov(op, var),
+			Or(Immed(HexInt(Tag.big.n)), var)
+		]
+
+	def set_var_to_InjectFromBool(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.bool.n)
+
+	def set_var_to_InjectFromInt(self, node, var, var_tbl):
+		return self.set_var_to_inject(node, var, var_tbl, Tag.int.n)
+
+	def set_var_to_inject(self, node, var, var_tbl, tag):
+		op = self.se_to_operand(node.arg, var_tbl)
+
+		if isinstance(op, Immed):
+			n = op.node.val
+			n = n << 2
+			n = n | tag
+			return [Mov(Immed(HexInt(n)), var)]
+			
+		insns = [
+			Mov(op, var),
+			Sall(Immed(HexInt(0x02)), var)
+		]
+		
+		if tag != 0:
+			insns.append(Or(Immed(HexInt(tag)), var))
+
+		return insns
+
 	def set_var_to_HasAttr(self, node, var, var_tbl):
 		return self.set_var_to_fn_call(
 			'has_attr',
-			[node.obj, ast.Str(node.attr)],
+			[node.obj, node.attr],
 			var,
 			var_tbl
 		)
@@ -294,7 +351,9 @@ class SIRtoASM(pyc_vis.Visitor):
 		if len(pr_node.values) != 1:
 			raise Exception("expected pr_node with 1 node")
 		
-		return self.fn_call("print_any", [pr_node.values[0]], var_tbl)
+		result = self.fn_call("print_any", [pr_node.values[0]], var_tbl)
+		self.set_origin(result, pr_node)
+		return result
 
 	def visit_If(self, ifnode, var_tbl):
 		testop = self.se_to_operand(ifnode.test, var_tbl)
@@ -306,11 +365,13 @@ class SIRtoASM(pyc_vis.Visitor):
 		for node in ifnode.orelse:
 			els_insns.extend(pyc_vis.visit(self, node, var_tbl) )
 
-		return [AsmIf(
+		result = [AsmIf(
 			test = testop,
 			body = body_insns,
 			orelse = els_insns
 		)]
+		self.set_origin(result, ifnode)
+		return result
 
 	def visit_DoWhile(self, node, var_tbl):
 		tbody_insns = []
@@ -323,17 +384,21 @@ class SIRtoASM(pyc_vis.Visitor):
 		for n in node.wbody:
 			wbody_insns.extend(pyc_vis.visit(self, n, var_tbl) )
 
-		return [AsmDoWhile(
+		result = [AsmDoWhile(
 			test = testop,
 			tbody = tbody_insns,
 			wbody = wbody_insns
 		)]
+		self.set_origin(result, node)
+		return result
 
 	def visit_Return(self, node, var_tbl):
-		return [
+		result = [
 			Mov(self.se_to_operand(node.value, var_tbl), Register("eax")),
 			Return() #instruction node; gets replaced later with a jmp
 		]
+		self.set_origin(result, node)
+		return result
 
 	def visit_BlocDef(self, node):
 		vt = {
@@ -345,14 +410,17 @@ class SIRtoASM(pyc_vis.Visitor):
 		for i in range(0, len(node.params)):
 			n = node.params[i]
 			vt[Var(n.id)] = True
-			insns.append(Mov(Param(i), Var(n.id)))
+			mv = Mov(Param(i), Var(n.id))
+			mv.origin = node
+			insns.append(mv)
 
 		for sir in node.body:
-			insns.extend(pyc_vis.visit(self, sir, vt) )
+			insns.extend(pyc_vis.visit(self, sir, vt))
 
 		return CodeBloc(
 			node.name,
-			insns
+			insns,
+			node
 		)
 
 def sir_to_asm(sir_node):

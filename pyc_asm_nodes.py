@@ -1,5 +1,7 @@
 from pyc_log import *
 import pyc_gen_name
+import pyc_parser
+
 import copy
 
 def asm_prefix():
@@ -35,9 +37,10 @@ class AsmNode:
 		return str(self).__hash__()
 
 class CodeBloc:
-	def __init__(self, name, insns):
+	def __init__(self, name, insns, origin):
 		self.name = name
 		self.insns = insns
+		self.origin = origin
 
 	def __repr__(self):
 		return "\n".join(self.inspect())
@@ -57,13 +60,25 @@ class CodeBloc:
 		return "%s_end" % self.name
 
 class FlatCodeBloc(CodeBloc):
-	def __init__(self, name, insns, symtbl):
-		self.name = name
-		self.insns = insns
+	def __init__(self, name, insns, symtbl, origin):
+		CodeBloc.__init__(self, name, insns, origin)
 		self.symtbl = symtbl
 
-	def to_str(self, io, lamb = lambda s: s):
+	def preamble_size(self):
+		n = len(asm_prefix())
+		if self.symtbl.stack() > 0:
+			n += 1
 
+		return n
+
+	def postamble_size(self):
+		n = len(asm_suffix())
+
+		return n
+
+	def patched_insns(self):
+		insns = []
+		
 		for ins in self.insns:
 			if not isinstance(ins, Inst):
 				raise Exception("expected instruction node")
@@ -75,12 +90,38 @@ class FlatCodeBloc(CodeBloc):
 			
 			if patched.is_noop():
 				continue
-			
-			s = str(patched)
+		
+			insns.append(patched)
+
+		end_return = [
+			Mov(Immed(0), Register("eax")),
+			Label(self.end_label())
+		]
+		for i in end_return:
+			i.origin = insns[-1].origin
+		insns.extend(end_return)
+
+		return insns
+
+	def patch(self):
+		insns = self.patched_insns()
+		
+		return PatchedCodeBloc(
+			self.name,
+			insns,
+			self.symtbl,
+			self.origin
+		)
+
+class PatchedCodeBloc(FlatCodeBloc):
+
+	def to_str(self, io, lamb = lambda s: s):
+		for ins in self.insns:
+			s = str(ins)
+			#origin_str = "None" if ins.origin is None else pyc_parser.dump(ins.origin)
+			#s += "; " + origin_str
 			print >>io, lamb(s)
 
-		print >>io, lamb(str(Mov(Immed(0), Register("eax")) )) #if not return stmt, return 0
-		print >>io, lamb(str(Label(self.end_label())))
 	
 	def to_asm(self, io, lamb = lambda s: s):
 		for insn in asm_prefix():
@@ -95,6 +136,7 @@ class FlatCodeBloc(CodeBloc):
 
 		for insn in asm_suffix():
 			print >>io, lamb(insn)
+
 
 class Operand:
 	def __init__(self, asm_node):
@@ -132,6 +174,7 @@ class Inst(AsmNode):
 	def __init__(self):
 		AsmNode.__init__(self)
 		self.origin = None	
+		self.live = set([])
 		self.operand_props = {}
 		self.operand_order = []
 
@@ -239,11 +282,13 @@ class Inst(AsmNode):
 	def beget(self, klass, dc_memo, *args):
 		new_inst = klass(*[copy.deepcopy(x, dc_memo) for x in args] )
 		new_inst.origin = self.origin
+		new_inst.live = self.live
 		return new_inst
 
 	def shallow_beget(self, klass, *args):
 		new_inst = klass(*args)
 		new_inst.origin = self.origin
+		new_inst.live = self.live
 		return new_inst
 
 	#works only for instructions where all the data structure 
@@ -298,6 +343,42 @@ class Pop(Inst):
 		
 	def __str__(self):
 		return self.inst_join(["pop", str(self.operand)])
+
+class Sall(Inst):
+	def __init__(self, amt, operand):
+		Inst.__init__(self)
+		self.read_operand('amt', amt)
+		self.read_write_operand('operand', operand)
+
+	def __str__(self):
+		return self.inst_join(["sall", "%s, %s" % (str(self.amt), str(self.operand) ) ])
+
+class Sarl(Inst):
+	def __init__(self, amt, operand):
+		Inst.__init__(self)
+		self.read_operand('amt', amt)
+		self.read_write_operand('operand', operand)
+
+	def __str__(self):
+		return self.inst_join(["sarl", "%s, %s" % (str(self.amt), str(self.operand) ) ])
+
+class And(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
+
+	def __str__(self):
+		return self.inst_join(["andl", "%s, %s" % (str(self.left), str(self.right) ) ])
+
+class Or(Inst):
+	def __init__(self, left, right):
+		Inst.__init__(self)
+		self.read_operand('left', left)
+		self.read_write_operand('right', right)
+
+	def __str__(self):
+		return self.inst_join(["orl", "%s, %s" % (str(self.left), str(self.right) ) ])
 
 
 class Neg(Inst):
@@ -565,10 +646,13 @@ class AsmDoWhile(AsmFlow):
 		])
 
 		return result
+
+class PseudoInst(Inst):
+	pass
 		
-class Label(Inst):
+class Label(PseudoInst):
 	def __init__(self, s):
-		Inst.__init__(self)
+		PseudoInst.__init__(self)
 		self.s = s
 
 	def __str__(self):
@@ -629,6 +713,9 @@ class Var(AsmNode):
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.name)
+
+	def to_gdb(self):
+		return "$%s" % (self.name)
 
 class Register(Var):
 	caller_save = [
@@ -695,6 +782,18 @@ class Indirect(MemoryRef):
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, self.reg, self.offset)
 	
+	def to_gdb(self):
+		return self._to_gdb(self.offset)
+
+	def _to_gdb(self, offset):
+		off_str = ""
+		if offset != 0:
+			off_str = str(offset)
+
+		s = "*(int *)(%s%s)" % (self.reg.to_gdb(), off_str)
+
+		return s
+		
 """
 an offset of 0 => -4(%ebp)
 an offset of 4 => -8(%ebp)
@@ -708,6 +807,9 @@ class EBPIndirect(Indirect):
 	def __str__(self):
 		return self._to_s(-(self.offset+4) )
 		
+	def to_gdb(self):
+		return self._to_gdb(-(self.offset+4) )
+
 class Param(Indirect):
 	def __init__(self, n):
 		Indirect.__init__(
@@ -733,7 +835,14 @@ class HexInt(AsmNode):
 		self.val = val
 
 	def __str__(self):
-		return "0x%02x" % self.val
+		n = self.val
+		s = ""
+		if n < 0:
+			n = -n
+			s += "-"
+
+		s += "0x%02x" % n
+		return s
 
 	def __repr__(self):
 		return common_repr(self.__class__.__name__, str(self))
@@ -757,7 +866,7 @@ class GlobalString(AsmNode):
 	def data_headers():
 		headers = []
 		for (value, name) in GlobalString.cache.items():
-			headers.append("%s:\n\t.ascii \"%s\x00\"" % (name, value))
+			headers.append("%s:\n\t.asciz \"%s\"" % (name, value))
 
 		return headers
 		

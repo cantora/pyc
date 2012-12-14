@@ -10,6 +10,8 @@ from pyc_ir_nodes import *
 import pyc_constants
 import pyc_heapify
 import pyc_ir
+import pyc_lineage
+
 import ast
 import copy
 
@@ -67,13 +69,16 @@ class Converter(ASTTxformer):
 	def visit_Bloc(self, node):
 		bname = pyc_gen_name.new("bloc")
 		
+		new_bd = BlocDef(
+			name = bname,
+			body = node.body,
+			params = [var_ref("fvs")] + node.args.args
+		)
+		pyc_lineage.bequeath_lineage(node, new_bd, self.__class__.__name__)
+
 		(def_node, d) = pyc_vis.visit(
 			self,
-			BlocDef(
-				name = bname,
-				body = node.body,
-				params = [var_ref("fvs")] + node.args.args
-			)
+			new_bd
 		)
 
 		self.log(self.depth_fmt("bloc vars: %r" % d["bloc_vars"]))
@@ -91,13 +96,15 @@ class Converter(ASTTxformer):
 		def_node.fvs = list(d["free_vars"])
 		fvs_inits = []
 		for i in range(0, len(def_node.fvs)):
+			assign = make_assign(
+				var_set(def_node.fvs[i]),
+				#is it ok to use a canonical name for fvs?
+				make_subn("fvs", ast.Load, i) 
+			)
+			pyc_lineage.bequeath_lineage(node, assign, self.__class__.__name__)
 			fvs_inits.append(pyc_ir.txform(
-				make_assign(
-					var_set(def_node.fvs[i]),
-					#is it ok to use a canonical name for fvs?
-					make_subn("fvs", ast.Load, i) 
-				),
-				tracer = self.tracer
+				assign,
+				tracer=self.tracer
 			))
 
 		def_node.body = fvs_inits + def_node.body
@@ -107,12 +114,12 @@ class Converter(ASTTxformer):
 		return (
 			InjectFromBig(arg=CreateClosure(
 				name = bname,
-				free_vars = pyc_ir.txform(
+				#dont set tracer in this txform b.c. self.tracer will run on this tree
+				free_vars = pyc_ir.txform( 
 					ast.List(
 						elts = [var_ref(x) for x in def_node.fvs],
 						ctx = ast.Load()
-					),
-					tracer=self.tracer
+					)
 				)
 			)),
 			d
@@ -148,6 +155,11 @@ def txform(as_tree, **kwargs):
 
 	(conv_tree, d) = pyc_vis.walk(v, as_tree)
 	
-	return ast.Module(
+	result = ast.Module(
 		body = [conv_tree] + d["defs"]
 	)
+
+	result.parent = as_tree.parent
+	result.cpass = v.__class__.__name__
+
+	return result

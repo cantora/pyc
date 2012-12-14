@@ -1,5 +1,6 @@
 import pyc_ir_nodes
 import pyc_gen_name
+import inspect
 
 def assert_klass(klass, *args):
 	for obj in args:
@@ -40,11 +41,45 @@ class PyObj(object):
 	
 	def __setitem__(self, key, val):
 		assert_pyobj(key)	
-		return self.value.__setitem__(key.value, val)
+		return self.value.value.__setitem__(key.value, val)
 
 	def __getitem__(self, key):
 		assert_pyobj(key)	
-		return self.value.__getitem__(key.value)
+		return self.value.value.__getitem__(key.value)
+
+	def __getattr__(self, name):
+		if name[0:1] == "_":
+			assert_big(self.value)
+			result = getattr(self.value.value, name)
+
+			if isinstance(result.value, BigObj) and \
+						isinstance(result.value.value, Closure):
+				if IsClass(self):
+					result = UnboundMethod(
+						self.value.value,
+						result.value.value
+					)
+				else: #object
+					if name in self.value.value.__dict__:
+						return result #its an object attr
+	
+					#else its a class attr
+					result = BoundMethod(
+						self.value.value,
+						result.value.value
+					)
+
+				return InjectFromBig(BigObj(result))
+			else:
+				return result
+		else:
+			return super(PyObj, self).__getattr__(name)
+		
+	def __setattr__(self, name, value):
+		if name[0:1] == "_":
+			return setattr(self.value.value, name, value)
+		else:
+			return super(PyObj, self).__setattr__(name, value)
 
 	def __repr__(self):
 		return "%s%s" % (self.__class__.__name__, repr((self.type, self.value)))
@@ -59,7 +94,7 @@ class PyObj(object):
 			return str(self.value == 1)
 		else:
 			if isinstance(self.value.value, list):
-				return "[" + ", ".join([x.to_str() for x in self.value]) + "]"
+				return "[" + ", ".join([x.to_str() for x in self.value.value]) + "]"
 			else:
 				return repr(self.value.value)
 
@@ -74,9 +109,6 @@ class BigObj(object):
 	def __eq__(self, other):
 		return self is other
 
-	def __getattr__(self, name):
-		return getattr(self.value, name)
-
 	def __repr__(self):
 		return "%s(%s)" % (self.__class__.__name__, repr(self.value))
 
@@ -88,6 +120,16 @@ class Closure(BigObj):
 
 	def __repr__(self):
 		return "%s%s" % (self.__class__, repr((self.fn, self.fvs)))
+
+class UnboundMethod:
+	def __init__(self, klass, closure):
+		self.klass = klass
+		self.closure = closure
+
+class BoundMethod:
+	def __init__(self, obj, closure):
+		self.obj = obj
+		self.closure = closure
 
 def ClosureFVS(pobj):
 	assert_pyobj(pobj)
@@ -172,9 +214,49 @@ def CastBoolToInt(val):
 def CastIntToBool(val):
 	return val
 
+def IsClass(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	return inspect.isclass(pobj.value.value)
+
+def IsBoundMethod(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	return isinstance(
+		pobj.value.value,
+		BoundMethod
+	)
+
+def IsUnboundMethod(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	return isinstance(
+		pobj.value.value,
+		UnboundMethod
+	)
+
+def GetReceiver(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	if not isinstance(pobj.value.value, BoundMethod):
+		raise Exception("expected BoundMethod, got %r" % pobj)	
+	
+	return BigObj(
+		pobj.value.value.obj
+	)
+
 def IsTrue(pobj):
 	assert_pyobj(pobj)
-	if pobj.value:
+	if pobj.type == 'big':
+		val = pobj.value.value
+	else:
+		val = pobj.value
+
+	if val:
 		return True
 	else:
 		return False
@@ -186,6 +268,28 @@ def Tag(pobj):
 def CreateClosure(fn, fvs):
 	#raise Exception("fn: %r, fvs: %r" % (fn, fvs))
 	return Closure(fn, fvs)
+
+def CreateObject(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+	
+	return BigObj(pobj.value.value())
+
+def HasAttr(pobj, attr):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	return hasattr(pobj.value.value, attr)
+
+def GetFunction(pobj):
+	assert_pyobj(pobj)
+	assert_big(pobj.value)
+
+	if pobj.value.value.__class__ in set([BoundMethod, UnboundMethod]):
+		return pobj.value.value.closure
+
+	#else this is a closure
+	return pobj.value
 
 def add(bigobj1, bigobj2):
 	return BigObj(bigobj1.value + bigobj2.value)
