@@ -449,7 +449,7 @@ class State(object):
 
 			line = "%s %s" % (left.ljust(25), val_s)
 			if live:
-				line = pyc_color.yellow(line)
+				line = pyc_color.ansi_color(line, 36)
 
 			print >>io, line
 			
