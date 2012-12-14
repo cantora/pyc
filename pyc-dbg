@@ -19,8 +19,8 @@ def opt_parser():
 	parser.add_argument(
 		'-p',
 		'--cmd-prefix',
-		help=('prefix pyc related gdb commands with given argument. default: "pyc"'),
-		default='pyc'
+		help=('prefix pyc related gdb commands with given argument. default: "pyc-"'),
+		default='pyc-'
 	)
 
 	return parser
