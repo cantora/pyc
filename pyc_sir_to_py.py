@@ -166,6 +166,9 @@ class SirToPyVisitor(ASTVisitor):
 	def visit_Eq(self, node, **kwargs):
 		return "=="
 
+	def visit_NotEq(self, node, **kwargs):
+		return "!="
+
 	def visit_Compare(self, node):
 		return "(%s %s %s)" % (
 			pyc_vis.visit(self, node.left),

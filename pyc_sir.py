@@ -448,7 +448,11 @@ class IRTreeSimplifier(ASTTxformer):
 			l_sir_list + r_sir_list + [
 				self.make_assign(
 					var_set(result_name),
-					simple_compare(l_name, r_name)
+					ast.Compare(
+						left = l_name,
+						ops = [node.ops[0].__class__()],
+						comparators = [r_name]
+					)
 				)
 			]
 		)

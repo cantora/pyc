@@ -238,6 +238,13 @@ def simple_compare(lhs, rhs):
 		comparators = [rhs]
 	)
 
+def simple_inverted_compare(lhs, rhs):
+	return ast.Compare(
+		left = lhs,
+		ops = [ast.NotEq()],
+		comparators = [rhs]
+	)
+
 def false_node():
 	return var_ref("False")
 	
@@ -299,6 +306,19 @@ def make_error(err_msg):
 
 #arguments to make_* must be Let names or code duplication will result
 
+def make_is_true(name):
+	return tag_switch(
+		name = var_ref(name),
+		int_node = simple_inverted_compare(
+			ast.Num(0),
+			ProjectToInt(arg=var_ref(name))
+		),
+		bool_node = simple_inverted_compare(
+			ast.Num(0),
+			ProjectToBool(arg=var_ref(name))
+		),
+		big_node = IsTrue(arg=var_ref(name))
+	)
 
 class PolySwitch:
 	tag_to_type = {

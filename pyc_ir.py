@@ -68,7 +68,11 @@ class AstToIRTxformer(ASTTxformer):
 		if isinstance(node.op, ast.Not):
 			return InjectFromBool(arg = ast.UnaryOp(
 				op = ast.Not(),
-				operand = IsTrue(arg = pyc_vis.visit(self, node.operand) )
+				operand = let(
+					self.gen_name,
+					rhs = pyc_vis.visit(self, node.operand),
+					body = lambda name: make_is_true(name)
+				)
 			))
 		elif isinstance(node.op, ast.USub):
 			return self.visit_UnaryOp_USub(node)
@@ -110,14 +114,22 @@ class AstToIRTxformer(ASTTxformer):
 
 	def visit_IfExp(self, node):
 		return ast.IfExp(
-			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
+			test = let(
+				name_gen = self.gen_name,
+				rhs = pyc_vis.visit(self, node.test),
+				body = lambda name: make_is_true(name)
+			),
 			body = pyc_vis.visit(self, node.body),
 			orelse = pyc_vis.visit(self, node.orelse)
 		)
 
 	def visit_If(self, node):
 		return ast.If(
-			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
+			test = let(
+				name_gen = self.gen_name,
+				rhs = pyc_vis.visit(self, node.test),
+				body = lambda name: make_is_true(name)
+			),
 			body = [pyc_vis.visit(self, x) for x in node.body],
 			orelse = [pyc_vis.visit(self, x) for x in node.orelse]
 		)
@@ -127,7 +139,11 @@ class AstToIRTxformer(ASTTxformer):
 			raise InvalidP3("while orelse not supported: %s" % dump(node) )
 
 		return ast.While(
-			test = IsTrue(arg=pyc_vis.visit(self, node.test)),
+			test = let(
+				name_gen = self.gen_name,
+				rhs = pyc_vis.visit(self, node.test),
+				body = lambda name: make_is_true(name)
+			),
 			body = [pyc_vis.visit(self, x) for x in node.body]			
 		)
 
@@ -436,10 +452,7 @@ class AstToIRTxformer(ASTTxformer):
 			name_gen = self.gen_name,
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = lambda name: ast.IfExp(
-				test = simple_compare(
-					lhs = ast.Num(1),
-					rhs = IsTrue(arg=var_ref(name))
-				),
+				test = make_is_true(name),
 				body = pyc_vis.visit(self, node.values[1]),
 				orelse = var_ref(name)
 			)
@@ -454,10 +467,7 @@ class AstToIRTxformer(ASTTxformer):
 			name_gen = self.gen_name,
 			rhs = pyc_vis.visit(self, node.values[0]),
 			body = lambda name: ast.IfExp(
-				test = simple_compare(
-					lhs = ast.Num(1),
-					rhs = IsTrue(arg=var_ref(name))
-				),
+				test = make_is_true(name),
 				body = var_ref(name),
 				orelse = pyc_vis.visit(self, node.values[1])
 			)

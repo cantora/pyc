@@ -248,7 +248,7 @@ class SIRtoASM(pyc_vis.Visitor):
 		lop = self.se_to_operand(node.left, var_tbl)
 		rop = self.se_to_operand(node.comparators[0], var_tbl)
 		
-		return self.cmp(lop, rop, var)
+		return self.cmp(lop, rop, var, isinstance(node.ops[0], ast.NotEq) )
 			
 	def set_var_to_CastBoolToInt(self, node, var, var_tbl):
 		op = self.se_to_operand(node.arg, var_tbl)
