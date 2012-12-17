@@ -81,6 +81,11 @@ def opt_parser():
 		'--alloc', 
 		help=('choose register allocator algorithm (default: %s). algos: %s' % (g_allocs[0], ", ".join(g_allocs)) ) 
 	)
+	parser.add_argument(
+		'--assemble', 
+		action='store_true',
+		help='assemble assembly into output file'
+	)
 	return parser
 
 
@@ -231,6 +236,7 @@ def run(options):
 			name_map(localize_name_map, heapify_name_map)
 		)
 	)
+		
 
 def name_map(localize_map, heapify_map):
 	result = {}
@@ -259,23 +265,37 @@ def asm_headers(debug_headers):
 	return headers
 
 def output_is_to_stdout(options):
-	return (options.src_type == 'cmdline' or options.output == '-')
+	#return (options.src_type == 'cmdline' or options.output == '-')
+	return options.output == '-'
+
+def output_filename(options, type):
+	if type == 'python' :
+		ext = '.py-ir'
+	elif type == 'txt':
+		ext = '.txt'
+	elif type == 'graph':
+		ext = '.graph'
+	elif type == 'bin':
+		ext = ''
+	else:
+		ext = ".s"
+
+	if options.file:
+		basename = os.path.splitext(options.file.name)[0]
+	elif options.output != '-':
+		basename = os.path.splitext(options.output)[0]
+	else:
+		print "no output file name can be generated for stdout!"
+		exit(1)
+
+	output_fname = "%s%s" % (basename, ext)
+	return output_fname
 
 def output_file(options, type):
 	if output_is_to_stdout(options):
 		return sys.stdout
 	else:
-		if type == 'python' :
-			ext = 'py-ir'
-		elif type == 'txt':
-			ext = 'txt'
-		elif type == 'graph':
-			ext = 'graph'
-		else:
-			ext = "s"
-
-		output_fname = "%s.%s" % (os.path.splitext(options.file.name)[0], ext)
-		ofile = open(output_fname, 'w')
+		ofile = open(output_filename(options, type), 'w')
 		return ofile
 	
 	
@@ -305,6 +325,25 @@ def output(options, patched_bloc_list, debug_headers):
 			print >>f, ".size %s, .-%s" % (bloc.name, bloc.name)
 
 		print >>f
+
+	if options.assemble:
+		fname = output_filename(options, "bin")
+		asm_name = output_filename(options, "asm")
+		import subprocess
+		subprocess.call('make clib', shell=True)
+
+		try:
+			with open(fname) as dummy: pass
+			print "overwrite file?: %s" % (fname)
+			if sys.stdin.readline().strip() == 'y':
+				subprocess.call('rm -f %s' % (fname), shell=True)
+		except IOError:
+			pass
+
+		subprocess.call(
+			'gcc -m32 -o %s %s ./clib/*.o -lm' % (fname, asm_name),
+			shell=True
+		)
 
 if __name__ == "__main__":
 	opt_p = opt_parser()

@@ -29,6 +29,10 @@ ply:
 	mv ply-3.4 ply
 	rm ply-3.4.tar.gz
 
+.PHONY: clib
+clib: 
+	make -C ./clib
+
 .PHONY: tests
 tests: p0tests p1tests p2tests p3tests
 
