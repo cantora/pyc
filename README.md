@@ -8,8 +8,7 @@ the pyc_dbg*.py and pyc-dbg files implement debugging functionality for binaries
 with pyc/gcc using the python GDB extensions, the pyelftools package, and the distorm package.
 
 to compile c library on 64 bit:
-	-get the proper headers/libraries 
-		-on ubuntu: sudo apt-get install gcc-multilib libc6-i386 libc6-dev-i386
+	-get the proper headers/libraries (on ubuntu: sudo apt-get install gcc-multilib libc6-i386 libc6-dev-i386)
 
 python packages needed for debugging
 	pyelftools: 	pip install pyelftools
