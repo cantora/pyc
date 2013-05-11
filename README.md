@@ -19,3 +19,6 @@ python packages needed for debugging:
 *	pyelftools: 	pip install pyelftools
 *	distorm: 		pip install distorm3
 
+##### the debugger
+for the details on the debugger implementation, see pyc-dbg.pdf and 
+pyc-dbg_presentation-full.pdf in the ./doc directory.
